@@ -189,16 +189,21 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             </p>
           </div>
 
-          <form action={createDraftAction}>
-            <PendingSubmitButton
-              size="lg"
-              type="submit"
-              pendingLabel="Creating draft"
-            >
-              <PlusIcon data-icon="inline-start" />
-              Create draft
-            </PendingSubmitButton>
-          </form>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/" className={buttonVariants({ variant: "outline" })}>
+              Intake home
+            </Link>
+            <form action={createDraftAction}>
+              <PendingSubmitButton
+                size="lg"
+                type="submit"
+                pendingLabel="Creating draft"
+              >
+                <PlusIcon data-icon="inline-start" />
+                Create draft
+              </PendingSubmitButton>
+            </form>
+          </div>
         </section>
 
         <section className="flex flex-wrap gap-2">

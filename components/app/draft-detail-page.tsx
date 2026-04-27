@@ -209,7 +209,7 @@ export function DraftDetailPage({
           <div className="space-y-6">
             <section className="space-y-3">
               <div className="flex flex-wrap items-center gap-3">
-                <Link href="/" className={buttonVariants({ variant: "outline" })}>
+                <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>
                   <ArrowLeftIcon data-icon="inline-start" />
                   Back to drafts
                 </Link>

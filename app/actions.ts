@@ -8,14 +8,16 @@ import { redirect } from "next/navigation";
 import { getListingGenerationService } from "@/lib/ai";
 import { draftRepository } from "@/lib/drafts";
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
+import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
 import { draftImageStorage } from "@/lib/storage";
 import type { DraftDetail, DraftImage, DraftStatus } from "@/types/draft";
+import type { PhotoAsset } from "@/types/intake";
 import type { PriceConfidence, PriceSuggestion } from "@/types/pricing";
 
 export async function createDraftAction() {
   const draft = await draftRepository.create({});
 
-  revalidatePath("/");
+  revalidatePath("/drafts");
   redirect(`/drafts/${draft.id}?focus=upload`);
 }
 
@@ -71,6 +73,55 @@ function parseMetadataFromForm(formData: FormData) {
   };
 }
 
+function readOptionalRelativePath(file: File) {
+  const candidate = file as File & { webkitRelativePath?: string };
+
+  if (
+    typeof candidate.webkitRelativePath === "string" &&
+    candidate.webkitRelativePath.trim().length > 0
+  ) {
+    return candidate.webkitRelativePath;
+  }
+
+  return null;
+}
+
+function deriveFolderLabelFromFiles(files: File[]) {
+  const relativePaths = files
+    .map((file) => readOptionalRelativePath(file))
+    .filter((value): value is string => Boolean(value));
+
+  if (relativePaths.length === 0) {
+    return null;
+  }
+
+  const [firstPath] = relativePaths;
+  const topLevelDirectory = firstPath.split("/").filter(Boolean)[0];
+
+  return topLevelDirectory?.trim() ? topLevelDirectory : null;
+}
+
+function buildHomeRedirectUrl(query?: Record<string, string | null | undefined>) {
+  const nextUrl = new URL("/", "http://localhost");
+
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (!value) {
+      continue;
+    }
+
+    nextUrl.searchParams.set(key, value);
+  }
+
+  return `${nextUrl.pathname}${nextUrl.search}`;
+}
+
+function redirectToHome(
+  query?: Record<string, string | null | undefined>
+): never {
+  revalidatePath("/");
+  redirect(buildHomeRedirectUrl(query));
+}
+
 function buildRedirectUrl(
   draftId: string,
   query?: Record<string, string | null | undefined>
@@ -92,9 +143,99 @@ function redirectToDraft(
   draftId: string,
   query?: Record<string, string | null | undefined>
 ): never {
-  revalidatePath("/");
+  revalidatePath("/drafts");
   revalidatePath(`/drafts/${draftId}`);
   redirect(buildRedirectUrl(draftId, query));
+}
+
+function buildSessionRedirectUrl(
+  sessionId: string,
+  query?: Record<string, string | null | undefined>
+) {
+  const nextUrl = new URL(`/sessions/${sessionId}`, "http://localhost");
+
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (!value) {
+      continue;
+    }
+
+    nextUrl.searchParams.set(key, value);
+  }
+
+  return `${nextUrl.pathname}${nextUrl.search}`;
+}
+
+function redirectToSession(
+  sessionId: string,
+  query?: Record<string, string | null | undefined>
+): never {
+  revalidatePath("/");
+  revalidatePath(`/sessions/${sessionId}`);
+  redirect(buildSessionRedirectUrl(sessionId, query));
+}
+
+export async function importStudioSessionAction(formData: FormData) {
+  const files = formData
+    .getAll("photos")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+
+  if (files.length === 0) {
+    redirectToHome({
+      error: "Choose a folder or at least one image before starting intake.",
+    });
+  }
+
+  const sessionName = parseStringOrNull(formData.get("sessionName"));
+  const folderLabel =
+    parseStringOrNull(formData.get("folderLabel")) ??
+    deriveFolderLabelFromFiles(files);
+  const session = await studioSessionRepository.create({
+    name: sessionName ?? folderLabel,
+    intakeConfig: {
+      sourceType: "local-folder",
+      startMode: "manual",
+      folderLabel,
+    },
+  });
+
+  const photoAssets = await Promise.all(
+    files.map(async (file, index) => {
+      const assetId = randomUUID();
+      const storedPhotoAsset = await photoAssetStorage.upload({
+        sessionId: session.id,
+        assetId,
+        fileName: file.name,
+        contentType: file.type || "application/octet-stream",
+        bytes: await file.arrayBuffer(),
+      });
+
+      const nextPhotoAsset: PhotoAsset = {
+        id: assetId,
+        sessionId: session.id,
+        storagePath: storedPhotoAsset.storagePath,
+        originalFilename: file.name || `photo-${index + 1}`,
+        relativePath: readOptionalRelativePath(file),
+        sortOrder: index,
+        contentType: file.type || null,
+        sizeBytes: storedPhotoAsset.sizeBytes,
+        width: storedPhotoAsset.width,
+        height: storedPhotoAsset.height,
+        organizationStatus: "unassigned",
+        createdAt: new Date().toISOString(),
+      };
+
+      return nextPhotoAsset;
+    })
+  );
+
+  await studioSessionRepository.attachPhotoAssets({
+    sessionId: session.id,
+    photoAssets,
+  });
+
+  redirectToSession(session.id, {
+    flash: `Imported ${photoAssets.length} photo asset${photoAssets.length === 1 ? "" : "s"} into the session.`,
+  });
 }
 
 function getFallbackDraftStatus(
