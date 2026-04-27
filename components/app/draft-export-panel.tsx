@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   ClipboardCopyIcon,
   FileTextIcon,
+  LayersIcon,
   PackageCheckIcon,
   TagsIcon,
 } from "lucide-react";
@@ -19,6 +20,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { DraftReadiness } from "@/lib/drafts/draft-readiness";
+import {
+  createVintedHandoffPayload,
+  formatVintedHandoffJson,
+  formatVintedHandoffText,
+} from "@/lib/vinted/handoff";
 import type { DraftDetail } from "@/types/draft";
 
 interface ExportItem {
@@ -80,26 +86,6 @@ function formatFullPackage(draft: DraftDetail) {
   ].join("\n");
 }
 
-function formatVintedHandoff(draft: DraftDetail) {
-  return [
-    `Title: ${draft.title ?? "Not set"}`,
-    `Category: ${draft.metadata.category ?? "Not set"}`,
-    `Brand: ${draft.metadata.brand ?? "Not set"}`,
-    `Size: ${draft.metadata.size ?? "Not set"}`,
-    `Condition: ${draft.metadata.condition ?? "Not set"}`,
-    `Color: ${draft.metadata.color ?? "Not set"}`,
-    `Material: ${draft.metadata.material ?? "Not set"}`,
-    `Price: ${formatPrice(draft)}`,
-    `Keywords: ${draft.keywords.length > 0 ? draft.keywords.join(", ") : "Not set"}`,
-    "",
-    "Description:",
-    draft.description ?? "Not set",
-    "",
-    "Notes:",
-    draft.metadata.notes ?? "No notes set.",
-  ].join("\n");
-}
-
 async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
 }
@@ -113,6 +99,15 @@ export function DraftExportPanel({
 }) {
   const [lastCopied, setLastCopied] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const handoffPayload = useMemo(() => createVintedHandoffPayload(draft), [draft]);
+  const handoffText = useMemo(
+    () => formatVintedHandoffText(handoffPayload),
+    [handoffPayload]
+  );
+  const handoffJson = useMemo(
+    () => formatVintedHandoffJson(handoffPayload),
+    [handoffPayload]
+  );
 
   const exportItems = useMemo<ExportItem[]>(
     () => [
@@ -139,7 +134,12 @@ export function DraftExportPanel({
       {
         key: "vinted-handoff",
         label: "Vinted handoff",
-        value: formatVintedHandoff(draft),
+        value: handoffText,
+      },
+      {
+        key: "vinted-json",
+        label: "Vinted JSON",
+        value: handoffJson,
       },
       {
         key: "full-package",
@@ -147,7 +147,7 @@ export function DraftExportPanel({
         value: formatFullPackage(draft),
       },
     ],
-    [draft]
+    [draft, handoffJson, handoffText]
   );
 
   async function handleCopy(item: ExportItem) {
@@ -228,6 +228,17 @@ export function DraftExportPanel({
                 {formatMetadataSection(draft)}
               </pre>
             </div>
+
+            <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
+              <div className="flex items-center gap-2">
+                <LayersIcon className="size-4" />
+                <span className="font-medium">Automation boundary</span>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                The same saved draft now exports both human-readable text and a
+                structured JSON payload for later browser automation.
+              </p>
+            </div>
           </div>
 
           <div className="flex flex-col gap-3">
@@ -240,7 +251,7 @@ export function DraftExportPanel({
             </div>
             <textarea
               readOnly
-              value={formatVintedHandoff(draft)}
+              value={handoffText}
               className="min-h-80 w-full resize-y rounded-lg border border-border bg-background px-3 py-3 text-sm leading-6 text-foreground outline-none"
             />
           </div>

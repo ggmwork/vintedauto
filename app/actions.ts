@@ -427,3 +427,29 @@ export async function setDraftStatusAction(
     flash: transition.message,
   });
 }
+
+export async function restoreDraftGenerationAction(
+  draftId: string,
+  generatedAt: string
+) {
+  const restoredDraft = await draftRepository.restoreGeneration({
+    draftId,
+    generatedAt,
+  });
+
+  const nextStatus = getFallbackDraftStatus(restoredDraft);
+
+  if (nextStatus !== restoredDraft.status) {
+    await draftRepository.update(draftId, {
+      status: nextStatus,
+    });
+
+    redirectToDraft(draftId, {
+      flash: "Restored a previous generation and moved the draft back to draft because required Vinted fields are now missing.",
+    });
+  }
+
+  redirectToDraft(draftId, {
+    flash: "Restored a previous generation snapshot.",
+  });
+}

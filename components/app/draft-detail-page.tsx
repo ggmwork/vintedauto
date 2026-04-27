@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
+  HistoryIcon,
   ImageIcon,
   LoaderCircleIcon,
   PackageCheckIcon,
@@ -13,15 +14,17 @@ import {
 import {
   generateDraftListingAction,
   removeDraftImageAction,
+  restoreDraftGenerationAction,
   saveDraftMetadataAction,
   saveDraftReviewAction,
   setDraftStatusAction,
   uploadDraftImagesAction,
 } from "@/app/actions";
 import { DraftExportPanel } from "@/components/app/draft-export-panel";
+import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { DraftStatusBadge } from "@/components/app/draft-status-badge";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -30,9 +33,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getChangedFieldsFromGeneration } from "@/lib/drafts/draft-generation-diff";
 import { Separator } from "@/components/ui/separator";
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import type { DraftDetail } from "@/types/draft";
+import type { PriceSuggestion } from "@/types/pricing";
 
 const inputClassName =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -72,6 +77,22 @@ function formatDimensions(width: number | null, height: number | null) {
 
 function formatKeywords(keywords: string[]) {
   return keywords.join(", ");
+}
+
+function formatPriceSuggestion(priceSuggestion: PriceSuggestion | null) {
+  if (!priceSuggestion) {
+    return "Not set";
+  }
+
+  if (priceSuggestion.amount !== null) {
+    return `${priceSuggestion.amount.toFixed(2)} ${priceSuggestion.currency}`;
+  }
+
+  if (priceSuggestion.minAmount !== null || priceSuggestion.maxAmount !== null) {
+    return `${priceSuggestion.minAmount?.toFixed(2) ?? "?"} - ${priceSuggestion.maxAmount?.toFixed(2) ?? "?"} ${priceSuggestion.currency}`;
+  }
+
+  return `Not set (${priceSuggestion.currency})`;
 }
 
 function formatGenerationLabel(draft: DraftDetail) {
@@ -120,6 +141,7 @@ export function DraftDetailPage({
   const saveMetadataAction = saveDraftMetadataAction.bind(null, draft.id);
   const saveReviewAction = saveDraftReviewAction.bind(null, draft.id);
   const readiness = getDraftReadiness(draft);
+  const changedFields = getChangedFieldsFromGeneration(draft, draft.generation);
   const hasReviewContent =
     draft.title !== null ||
     draft.description !== null ||
@@ -241,14 +263,15 @@ export function DraftDetailPage({
 
                   return (
                     <form key={status} action={statusAction}>
-                      <Button
+                      <PendingSubmitButton
                         type="submit"
                         variant={draft.status === status ? "default" : "outline"}
                         className="w-full"
                         disabled={disabled}
+                        pendingLabel={`Saving ${label.toLowerCase()}`}
                       >
                         {label}
-                      </Button>
+                      </PendingSubmitButton>
                     </form>
                   );
                 })}
@@ -384,9 +407,13 @@ export function DraftDetailPage({
                 </div>
 
                 <div className="flex items-center justify-end">
-                  <Button type="submit" variant="outline">
+                  <PendingSubmitButton
+                    type="submit"
+                    variant="outline"
+                    pendingLabel="Saving metadata"
+                  >
                     Save metadata
-                  </Button>
+                  </PendingSubmitButton>
                 </div>
               </form>
             </CardContent>
@@ -431,16 +458,163 @@ export function DraftDetailPage({
             <CardFooter className="justify-between">
               <span className="text-xs text-muted-foreground">
                 Regeneration keeps fields you already edited away from the last
-                model output.
+                model output. Local vision runs can take around one to two
+                minutes on this machine.
               </span>
               <form action={generateAction}>
-                <Button type="submit" disabled={draft.imageCount === 0}>
+                <PendingSubmitButton
+                  type="submit"
+                  disabled={draft.imageCount === 0}
+                  pendingLabel={draft.generation ? "Regenerating" : "Generating"}
+                >
                   <SparklesIcon data-icon="inline-start" />
                   {draft.generation ? "Regenerate listing" : "Generate listing"}
-                </Button>
+                </PendingSubmitButton>
               </form>
             </CardFooter>
           </Card>
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-heading text-xl font-semibold">
+                Generation history
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Track what the model produced, compare it against your current
+                edits, and restore older snapshots when needed.
+              </p>
+            </div>
+            <Badge variant={draft.generationHistory.length > 0 ? "secondary" : "outline"}>
+              {draft.generationHistory.length} run
+              {draft.generationHistory.length === 1 ? "" : "s"}
+            </Badge>
+          </div>
+
+          <Separator />
+
+          {draft.generation ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Current draft vs latest AI output</CardTitle>
+                <CardDescription>
+                  {changedFields.length === 0
+                    ? "Current saved content still matches the latest generation."
+                    : "These fields currently differ from the latest AI snapshot."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <div className="rounded-lg border border-border/70 bg-background px-4 py-4 text-sm text-muted-foreground">
+                  Latest generation ran on {formatDate(draft.generation.generatedAt)} with{" "}
+                  {draft.generation.provider}:{draft.generation.model}.
+                </div>
+                {changedFields.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border bg-background px-4 py-5 text-sm text-muted-foreground">
+                    No manual divergence yet. Regenerate safely or edit any field to create a comparison.
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {changedFields.map((field) => (
+                      <Badge key={field.key} variant="outline">
+                        {field.label} edited
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
+                  <HistoryIcon className="size-4" />
+                  No generation history yet. The first model run will start this timeline.
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {draft.generationHistory.length > 0 ? (
+            <div className="grid gap-4 xl:grid-cols-2">
+              {draft.generationHistory.map((generation, index) => {
+                const restoreAction = restoreDraftGenerationAction.bind(
+                  null,
+                  draft.id,
+                  generation.generatedAt
+                );
+                const comparedFields = getChangedFieldsFromGeneration(
+                  draft,
+                  generation
+                );
+                const isActiveGeneration =
+                  draft.generation?.generatedAt === generation.generatedAt;
+
+                return (
+                  <Card key={generation.generatedAt}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between gap-3">
+                        <CardTitle className="text-base">
+                          {index === 0 ? "Latest generation" : `Generation ${draft.generationHistory.length - index}`}
+                        </CardTitle>
+                        {isActiveGeneration ? (
+                          <Badge variant="secondary">active snapshot</Badge>
+                        ) : (
+                          <Badge variant="outline">history</Badge>
+                        )}
+                      </div>
+                      <CardDescription>
+                        {generation.provider}:{generation.model} on{" "}
+                        {formatDate(generation.generatedAt)}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-4">
+                      <dl className="grid gap-3 text-sm">
+                        <div className="flex flex-col gap-1">
+                          <dt className="text-muted-foreground">Generated title</dt>
+                          <dd>{generation.snapshot.title}</dd>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <dt className="text-muted-foreground">Generated price</dt>
+                          <dd>{formatPriceSuggestion(generation.snapshot.priceSuggestion)}</dd>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <dt className="text-muted-foreground">Changed vs current</dt>
+                          <dd className="flex flex-wrap gap-2">
+                            {comparedFields.length === 0 ? (
+                              <Badge variant="secondary">matches current draft</Badge>
+                            ) : (
+                              comparedFields.map((field) => (
+                                <Badge key={field.key} variant="outline">
+                                  {field.label}
+                                </Badge>
+                              ))
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+                    </CardContent>
+                    <CardFooter className="justify-between gap-3">
+                      <span className="truncate text-xs text-muted-foreground">
+                        {generation.snapshot.keywords.length} keyword
+                        {generation.snapshot.keywords.length === 1 ? "" : "s"}
+                      </span>
+                      <form action={restoreAction}>
+                        <PendingSubmitButton
+                          type="submit"
+                          variant="outline"
+                          pendingLabel="Restoring"
+                          disabled={isActiveGeneration && comparedFields.length === 0}
+                        >
+                          Restore snapshot
+                        </PendingSubmitButton>
+                      </form>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : null}
         </section>
 
         <section className="flex flex-col gap-4">
@@ -580,7 +754,9 @@ export function DraftDetailPage({
                   </div>
 
                   <div className="flex items-center justify-end">
-                    <Button type="submit">Save review</Button>
+                    <PendingSubmitButton type="submit" pendingLabel="Saving review">
+                      Save review
+                    </PendingSubmitButton>
                   </div>
                 </form>
               </CardContent>
@@ -658,10 +834,10 @@ export function DraftDetailPage({
                     JPG, PNG, WEBP, GIF, and HEIC are accepted if the browser
                     exposes them as image files.
                   </p>
-                  <Button type="submit">
+                  <PendingSubmitButton type="submit" pendingLabel="Uploading images">
                     <UploadIcon data-icon="inline-start" />
                     Upload images
-                  </Button>
+                  </PendingSubmitButton>
                 </div>
               </form>
             </CardContent>
@@ -722,10 +898,14 @@ export function DraftDetailPage({
                         {image.id}
                       </span>
                       <form action={removeAction}>
-                        <Button type="submit" variant="outline">
+                        <PendingSubmitButton
+                          type="submit"
+                          variant="outline"
+                          pendingLabel="Removing"
+                        >
                           <Trash2Icon data-icon="inline-start" />
                           Remove
-                        </Button>
+                        </PendingSubmitButton>
                       </form>
                     </CardFooter>
                   </Card>

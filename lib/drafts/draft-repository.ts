@@ -33,6 +33,11 @@ export interface SaveGenerationResultInput {
   generation: GenerationResult;
 }
 
+export interface RestoreGenerationInput {
+  draftId: string;
+  generatedAt: string;
+}
+
 export interface DraftRepository {
   list(): Promise<Draft[]>;
   getById(id: string): Promise<DraftDetail | null>;
@@ -40,4 +45,5 @@ export interface DraftRepository {
   update(id: string, input: UpdateDraftInput): Promise<Draft>;
   attachImages(input: SaveDraftImagesInput): Promise<DraftDetail>;
   saveGeneration(input: SaveGenerationResultInput): Promise<DraftDetail>;
+  restoreGeneration(input: RestoreGenerationInput): Promise<DraftDetail>;
 }

@@ -15,6 +15,7 @@ import type { PriceSuggestion } from "@/types/pricing";
 import type {
   CreateDraftInput,
   DraftRepository,
+  RestoreGenerationInput,
   SaveDraftImagesInput,
   SaveGenerationResultInput,
   UpdateDraftInput,
@@ -52,6 +53,7 @@ function toDraftSummary(draft: DraftDetail): Draft {
     metadata: draft.metadata,
     priceSuggestion: draft.priceSuggestion,
     generation: draft.generation,
+    generationHistory: draft.generationHistory,
     imageCount: draft.imageCount,
     createdAt: draft.createdAt,
     updatedAt: draft.updatedAt,
@@ -160,7 +162,11 @@ function normalizePriceSuggestion(
 
 function normalizeGenerationInfo(
   value: unknown,
-  draft: Pick<DraftDetail, "priceSuggestion">
+  draft: Pick<
+    DraftDetail,
+    "title" | "description" | "keywords" | "metadata" | "priceSuggestion"
+  >,
+  fallbackMode: "current" | "empty" = "current"
 ): DraftGenerationInfo | null {
   if (!value || typeof value !== "object") {
     return null;
@@ -186,26 +192,35 @@ function normalizeGenerationInfo(
       title:
         typeof candidate.snapshot?.title === "string"
           ? candidate.snapshot.title
-          : "",
+          : fallbackMode === "current"
+            ? draft.title ?? ""
+            : "",
       description:
         typeof candidate.snapshot?.description === "string"
           ? candidate.snapshot.description
-          : "",
+          : fallbackMode === "current"
+            ? draft.description ?? ""
+            : "",
       keywords: Array.isArray(candidate.snapshot?.keywords)
         ? candidate.snapshot.keywords.filter(
             (entry): entry is string => typeof entry === "string"
           )
-        : [],
+        : fallbackMode === "current"
+          ? draft.keywords
+          : [],
       suggestedMetadata:
         candidate.snapshot?.suggestedMetadata &&
         typeof candidate.snapshot.suggestedMetadata === "object"
           ? candidate.snapshot.suggestedMetadata
-          : {},
+          : fallbackMode === "current"
+            ? draft.metadata
+            : {},
       priceSuggestion:
         normalizePriceSuggestion(
           candidate.snapshot?.priceSuggestion,
           draft.priceSuggestion?.currency ?? "EUR"
         ) ??
+        (fallbackMode === "current" ? draft.priceSuggestion : null) ??
         {
           amount: null,
           minAmount: null,
@@ -243,6 +258,7 @@ function normalizeDraftDetail(value: unknown): DraftDetail {
     metadata,
     priceSuggestion,
     generation: null,
+    generationHistory: [],
     imageCount: images.length,
     createdAt:
       typeof candidate.createdAt === "string"
@@ -255,9 +271,44 @@ function normalizeDraftDetail(value: unknown): DraftDetail {
     images,
   };
 
-  normalizedDraft.generation = normalizeGenerationInfo(candidate.generation, normalizedDraft);
+  normalizedDraft.generation = normalizeGenerationInfo(
+    candidate.generation,
+    normalizedDraft,
+    "empty"
+  );
+  normalizedDraft.generationHistory = Array.isArray(candidate.generationHistory)
+    ? candidate.generationHistory
+        .map((entry) => normalizeGenerationInfo(entry, normalizedDraft, "current"))
+        .filter((entry): entry is DraftGenerationInfo => entry !== null)
+        .sort(
+          (left, right) =>
+            new Date(right.generatedAt).getTime() -
+            new Date(left.generatedAt).getTime()
+        )
+    : normalizedDraft.generation
+      ? [
+          normalizeGenerationInfo(candidate.generation, normalizedDraft, "current") ??
+            normalizedDraft.generation,
+        ]
+      : [];
 
   return normalizedDraft;
+}
+
+function createGenerationInfo(generation: GenerationResult): DraftGenerationInfo {
+  return {
+    provider: generation.provider,
+    model: generation.model,
+    generatedAt: generation.generatedAt,
+    conditionNotes: generation.content.conditionNotes,
+    snapshot: {
+      title: generation.content.title,
+      description: generation.content.description,
+      keywords: generation.content.keywords,
+      suggestedMetadata: generation.content.suggestedMetadata,
+      priceSuggestion: generation.priceSuggestion,
+    },
+  };
 }
 
 function areStringArraysEqual(left: string[], right: string[]) {
@@ -354,6 +405,7 @@ function applyGenerationResult(
   generation: GenerationResult
 ): DraftDetail {
   const previousSnapshot = draft.generation?.snapshot;
+  const nextGenerationInfo = createGenerationInfo(generation);
 
   return {
     ...draft,
@@ -419,19 +471,13 @@ function applyGenerationResult(
     )
       ? generation.priceSuggestion
       : draft.priceSuggestion,
-    generation: {
-      provider: generation.provider,
-      model: generation.model,
-      generatedAt: generation.generatedAt,
-      conditionNotes: generation.content.conditionNotes,
-      snapshot: {
-        title: generation.content.title,
-        description: generation.content.description,
-        keywords: generation.content.keywords,
-        suggestedMetadata: generation.content.suggestedMetadata,
-        priceSuggestion: generation.priceSuggestion,
-      },
-    },
+    generation: nextGenerationInfo,
+    generationHistory: [
+      nextGenerationInfo,
+      ...draft.generationHistory.filter(
+        (entry) => entry.generatedAt !== nextGenerationInfo.generatedAt
+      ),
+    ].slice(0, 12),
   };
 }
 
@@ -453,6 +499,7 @@ function applyDraftUpdate(
         : update.priceSuggestion,
     generation:
       update.generation === undefined ? draft.generation : update.generation,
+    generationHistory: draft.generationHistory,
   };
 }
 
@@ -495,6 +542,7 @@ class LocalDraftRepository implements DraftRepository {
       metadata: createDefaultMetadata(input.metadata),
       priceSuggestion: null,
       generation: null,
+      generationHistory: [],
       imageCount: 0,
       createdAt: now,
       updatedAt: now,
@@ -593,6 +641,57 @@ class LocalDraftRepository implements DraftRepository {
 
     if (!draft) {
       throw new Error(`Draft not found after saving generation: ${input.draftId}`);
+    }
+
+    return draft;
+  }
+
+  async restoreGeneration(input: RestoreGenerationInput): Promise<DraftDetail> {
+    const store = await mutateDraftStore((currentStore) => {
+      const draftIndex = currentStore.drafts.findIndex(
+        (draft) => draft.id === input.draftId
+      );
+
+      if (draftIndex === -1) {
+        throw new Error(`Draft not found: ${input.draftId}`);
+      }
+
+      const draft = currentStore.drafts[draftIndex];
+      const generationToRestore = draft.generationHistory.find(
+        (entry) => entry.generatedAt === input.generatedAt
+      );
+
+      if (!generationToRestore) {
+        throw new Error(
+          `Generation not found for draft ${input.draftId}: ${input.generatedAt}`
+        );
+      }
+
+      const updatedDraft = updateDraftTimestamp({
+        ...draft,
+        title: generationToRestore.snapshot.title,
+        description: generationToRestore.snapshot.description,
+        keywords: generationToRestore.snapshot.keywords,
+        metadata: mergeMetadata(
+          createDefaultMetadata(),
+          generationToRestore.snapshot.suggestedMetadata
+        ),
+        priceSuggestion: generationToRestore.snapshot.priceSuggestion,
+        generation: generationToRestore,
+      });
+
+      const drafts = currentStore.drafts.slice();
+      drafts[draftIndex] = updatedDraft;
+
+      return { drafts };
+    });
+
+    const draft = store.drafts.find((entry) => entry.id === input.draftId);
+
+    if (!draft) {
+      throw new Error(
+        `Draft not found after restoring generation: ${input.draftId}`
+      );
     }
 
     return draft;

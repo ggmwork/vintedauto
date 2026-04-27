@@ -49,6 +49,7 @@ export interface Draft {
   metadata: DraftMetadata;
   priceSuggestion: PriceSuggestion | null;
   generation: DraftGenerationInfo | null;
+  generationHistory: DraftGenerationInfo[];
   imageCount: number;
   createdAt: string;
   updatedAt: string;
