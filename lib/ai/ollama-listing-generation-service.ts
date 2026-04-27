@@ -82,6 +82,20 @@ function getOllamaModel() {
   return process.env.OLLAMA_MODEL?.trim() || "qwen3.5:4b";
 }
 
+function getOllamaTimeoutMs() {
+  const rawValue = process.env.OLLAMA_TIMEOUT_MS?.trim();
+
+  if (!rawValue) {
+    return 180_000;
+  }
+
+  const parsedValue = Number(rawValue);
+
+  return Number.isFinite(parsedValue) && parsedValue >= 30_000
+    ? parsedValue
+    : 180_000;
+}
+
 function sanitizeKeywords(value: unknown) {
   if (!Array.isArray(value)) {
     return [];
@@ -148,6 +162,65 @@ function sanitizeNumberOrNull(value: unknown) {
   }
 
   return Number(value.toFixed(2));
+}
+
+function stripMarkdownCodeFence(value: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed.startsWith("```")) {
+    return trimmed;
+  }
+
+  return trimmed
+    .replace(/^```[a-zA-Z0-9_-]*\s*/, "")
+    .replace(/\s*```$/, "")
+    .trim();
+}
+
+function normalizeModelPayload(value: unknown) {
+  if (!value || typeof value !== "object") {
+    throw new Error("Model returned invalid JSON payload.");
+  }
+
+  const candidate = value as Record<string, unknown>;
+
+  return {
+    title: candidate.title,
+    description: candidate.description,
+    keywords: candidate.keywords,
+    conditionNotes: candidate.conditionNotes ?? null,
+    suggestedMetadata:
+      candidate.suggestedMetadata && typeof candidate.suggestedMetadata === "object"
+        ? candidate.suggestedMetadata
+        : {
+            brand: candidate.brand ?? null,
+            category: candidate.category ?? null,
+            size: candidate.size ?? null,
+            condition: candidate.condition ?? null,
+            color: candidate.color ?? null,
+            material: candidate.material ?? null,
+            notes: candidate.notes ?? null,
+          },
+    priceSuggestion:
+      candidate.priceSuggestion && typeof candidate.priceSuggestion === "object"
+        ? candidate.priceSuggestion
+        : {
+            amount: candidate.price ?? candidate.amount ?? null,
+            minAmount: candidate.minPrice ?? candidate.minAmount ?? null,
+            maxAmount: candidate.maxPrice ?? candidate.maxAmount ?? null,
+            currency: candidate.currency ?? "EUR",
+            rationale:
+              candidate.rationale ??
+              "Model did not provide a reliable price suggestion.",
+            confidence: candidate.confidence ?? "low",
+          },
+  } satisfies Record<string, unknown>;
+}
+
+function parseStructuredPayload(content: string) {
+  const normalizedContent = stripMarkdownCodeFence(content);
+
+  return JSON.parse(normalizedContent) as Record<string, unknown>;
 }
 
 function normalizePriceSuggestion(value: unknown): PriceSuggestion {
@@ -257,7 +330,7 @@ class OllamaListingGenerationService implements ListingGenerationService {
         think: false,
         stream: false,
       }),
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(getOllamaTimeoutMs()),
     });
 
     if (!response.ok) {
@@ -275,8 +348,7 @@ class OllamaListingGenerationService implements ListingGenerationService {
       throw new Error("Ollama returned an empty response.");
     }
 
-    const parsed = JSON.parse(content) as Record<string, unknown>;
-
+    const parsed = normalizeModelPayload(parseStructuredPayload(content));
     const contentResult = validateStructuredContent(parsed);
     const mergedMetadata = {
       ...input.metadata,

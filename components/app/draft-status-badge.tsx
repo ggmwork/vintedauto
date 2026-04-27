@@ -3,12 +3,12 @@ import type { DraftStatus } from "@/types/draft";
 
 const statusVariantMap: Record<
   DraftStatus,
-  "default" | "secondary" | "outline"
+  "default" | "secondary" | "outline" | "destructive"
 > = {
   draft: "secondary",
   ready: "default",
   listed: "outline",
-  sold: "outline",
+  sold: "destructive",
 };
 
 export function DraftStatusBadge({ status }: { status: DraftStatus }) {

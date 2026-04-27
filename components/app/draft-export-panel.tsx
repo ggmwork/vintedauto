@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import type { DraftReadiness } from "@/lib/drafts/draft-readiness";
 import type { DraftDetail } from "@/types/draft";
 
 interface ExportItem {
@@ -79,11 +80,37 @@ function formatFullPackage(draft: DraftDetail) {
   ].join("\n");
 }
 
+function formatVintedHandoff(draft: DraftDetail) {
+  return [
+    `Title: ${draft.title ?? "Not set"}`,
+    `Category: ${draft.metadata.category ?? "Not set"}`,
+    `Brand: ${draft.metadata.brand ?? "Not set"}`,
+    `Size: ${draft.metadata.size ?? "Not set"}`,
+    `Condition: ${draft.metadata.condition ?? "Not set"}`,
+    `Color: ${draft.metadata.color ?? "Not set"}`,
+    `Material: ${draft.metadata.material ?? "Not set"}`,
+    `Price: ${formatPrice(draft)}`,
+    `Keywords: ${draft.keywords.length > 0 ? draft.keywords.join(", ") : "Not set"}`,
+    "",
+    "Description:",
+    draft.description ?? "Not set",
+    "",
+    "Notes:",
+    draft.metadata.notes ?? "No notes set.",
+  ].join("\n");
+}
+
 async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
 }
 
-export function DraftExportPanel({ draft }: { draft: DraftDetail }) {
+export function DraftExportPanel({
+  draft,
+  readiness,
+}: {
+  draft: DraftDetail;
+  readiness: DraftReadiness;
+}) {
   const [lastCopied, setLastCopied] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
 
@@ -108,6 +135,11 @@ export function DraftExportPanel({ draft }: { draft: DraftDetail }) {
         key: "price",
         label: "Price",
         value: formatPrice(draft),
+      },
+      {
+        key: "vinted-handoff",
+        label: "Vinted handoff",
+        value: formatVintedHandoff(draft),
       },
       {
         key: "full-package",
@@ -158,16 +190,33 @@ export function DraftExportPanel({ draft }: { draft: DraftDetail }) {
             <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
               <div className="flex items-center gap-2">
                 <PackageCheckIcon className="size-4" />
-                <span className="font-medium">Export status</span>
+                <span className="font-medium">Vinted readiness</span>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                {readiness.ready
+                  ? "Draft has the minimum fields needed for Vinted handoff."
+                  : `Still missing ${readiness.missing.join(", ")}.`}
+              </p>
+              <div className="mt-3">
+                <Badge variant={readiness.ready ? "default" : "outline"}>
+                  {readiness.ready ? "ready for Vinted" : "incomplete"}
+                </Badge>
+              </div>
+              {copyError ? (
+                <p className="mt-2 text-sm text-destructive">{copyError}</p>
+              ) : null}
+            </div>
+
+            <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
+              <div className="flex items-center gap-2">
+                <ClipboardCopyIcon className="size-4" />
+                <span className="font-medium">Copy status</span>
               </div>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 {lastCopied
                   ? `Copied ${exportItems.find((item) => item.key === lastCopied)?.label.toLowerCase()}.`
                   : "Nothing copied yet."}
               </p>
-              {copyError ? (
-                <p className="mt-2 text-sm text-destructive">{copyError}</p>
-              ) : null}
             </div>
 
             <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
@@ -185,13 +234,13 @@ export function DraftExportPanel({ draft }: { draft: DraftDetail }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileTextIcon className="size-4" />
-                <span className="font-medium">Full package preview</span>
+                <span className="font-medium">Vinted handoff preview</span>
               </div>
-              <Badge variant="outline">desktop export</Badge>
+              <Badge variant="outline">desktop handoff</Badge>
             </div>
             <textarea
               readOnly
-              value={formatFullPackage(draft)}
+              value={formatVintedHandoff(draft)}
               className="min-h-80 w-full resize-y rounded-lg border border-border bg-background px-3 py-3 text-sm leading-6 text-foreground outline-none"
             />
           </div>
@@ -199,7 +248,7 @@ export function DraftExportPanel({ draft }: { draft: DraftDetail }) {
       </CardContent>
       <CardFooter className="justify-between">
         <span className="text-xs text-muted-foreground">
-          Export uses the current saved review and metadata state.
+          Export uses the current saved review and metadata state in Vinted field order.
         </span>
       </CardFooter>
     </Card>

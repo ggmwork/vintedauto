@@ -7,8 +7,9 @@ import { redirect } from "next/navigation";
 
 import { getListingGenerationService } from "@/lib/ai";
 import { draftRepository } from "@/lib/drafts";
+import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import { draftImageStorage } from "@/lib/storage";
-import type { DraftImage } from "@/types/draft";
+import type { DraftDetail, DraftImage, DraftStatus } from "@/types/draft";
 import type { PriceConfidence, PriceSuggestion } from "@/types/pricing";
 
 export async function createDraftAction() {
@@ -84,6 +85,85 @@ function redirectToDraft(
   redirect(buildRedirectUrl(draftId, query));
 }
 
+function getFallbackDraftStatus(
+  draft: Pick<
+    DraftDetail,
+    | "status"
+    | "imageCount"
+    | "title"
+    | "description"
+    | "keywords"
+    | "metadata"
+    | "priceSuggestion"
+  >
+) {
+  const readiness = getDraftReadiness(draft);
+
+  if (readiness.ready) {
+    return draft.status;
+  }
+
+  if (draft.status === "draft") {
+    return draft.status;
+  }
+
+  return "draft" satisfies DraftStatus;
+}
+
+function canTransitionToStatus(
+  draft: Pick<
+    DraftDetail,
+    | "status"
+    | "imageCount"
+    | "title"
+    | "description"
+    | "keywords"
+    | "metadata"
+    | "priceSuggestion"
+  >,
+  nextStatus: DraftStatus
+) {
+  const readiness = getDraftReadiness(draft);
+
+  switch (nextStatus) {
+    case "draft":
+      return {
+        allowed: true,
+        message: "Moved draft back to draft.",
+      };
+    case "ready":
+      return readiness.ready
+        ? {
+            allowed: true,
+            message: "Draft marked ready for Vinted.",
+          }
+        : {
+            allowed: false,
+            message: `Draft is missing ${readiness.missing.join(", ")} before it can be ready.`,
+          };
+    case "listed":
+      return readiness.ready
+        ? {
+            allowed: true,
+            message: "Draft marked listed.",
+          }
+        : {
+            allowed: false,
+            message: `Draft is missing ${readiness.missing.join(", ")} before it can be listed.`,
+          };
+    case "sold":
+      return draft.status === "listed"
+        ? {
+            allowed: true,
+            message: "Draft marked sold.",
+          }
+        : {
+            allowed: false,
+            message: "Only listed drafts can move to sold.",
+          };
+  }
+}
+
 export async function uploadDraftImagesAction(
   draftId: string,
   formData: FormData
@@ -154,10 +234,22 @@ export async function removeDraftImageAction(
   }
 
   await draftImageStorage.remove(imageToRemove.storagePath);
-  await draftRepository.attachImages({
+  const updatedDraft = await draftRepository.attachImages({
     draftId,
     images: draft.images.filter((image) => image.id !== imageId),
   });
+
+  const nextStatus = getFallbackDraftStatus(updatedDraft);
+
+  if (nextStatus !== updatedDraft.status) {
+    await draftRepository.update(draftId, {
+      status: nextStatus,
+    });
+
+    redirectToDraft(draftId, {
+      flash: "Removed image and moved the draft back to draft because required Vinted fields are now missing.",
+    });
+  }
 
   redirectToDraft(draftId);
 }
@@ -200,7 +292,7 @@ export async function generateDraftListingAction(draftId: string) {
     });
 
     redirectToDraft(draftId, {
-      flash: `Generated listing with ${generation.provider}:${generation.model}.`,
+      flash: `Generated listing with ${generation.provider}:${generation.model}. Manual edits were preserved where they already differed from the last model output.`,
     });
   } catch (error) {
     const message =
@@ -242,16 +334,31 @@ export async function saveDraftReviewAction(
     confidence: parseConfidence(formData.get("priceConfidence")),
   };
 
+  const title = parseStringOrNull(formData.get("title"));
+  const description = parseStringOrNull(formData.get("description"));
+  const keywords = parseKeywords(formData.get("keywords"));
+  const nextStatus = getFallbackDraftStatus({
+    ...draft,
+    title,
+    description,
+    keywords,
+    priceSuggestion,
+  });
+
   await draftRepository.update(draftId, {
-    title: parseStringOrNull(formData.get("title")),
-    description: parseStringOrNull(formData.get("description")),
-    keywords: parseKeywords(formData.get("keywords")),
+    status: nextStatus,
+    title,
+    description,
+    keywords,
     priceSuggestion,
     generation: draft.generation,
   });
 
   redirectToDraft(draftId, {
-    flash: "Saved listing review changes.",
+    flash:
+      nextStatus === draft.status
+        ? "Saved listing review changes."
+        : "Saved listing review changes and moved the draft back to draft because required Vinted fields are now missing.",
   });
 }
 
@@ -265,20 +372,58 @@ export async function saveDraftMetadataAction(
     throw new Error(`Draft not found: ${draftId}`);
   }
 
+  const metadata = {
+    brand: parseStringOrNull(formData.get("brand")),
+    category: parseStringOrNull(formData.get("category")),
+    size: parseStringOrNull(formData.get("size")),
+    condition: parseStringOrNull(formData.get("condition")),
+    color: parseStringOrNull(formData.get("color")),
+    material: parseStringOrNull(formData.get("material")),
+    notes: parseStringOrNull(formData.get("notes")),
+  };
+
+  const nextStatus = getFallbackDraftStatus({
+    ...draft,
+    metadata,
+  });
+
   await draftRepository.update(draftId, {
-    metadata: {
-      brand: parseStringOrNull(formData.get("brand")),
-      category: parseStringOrNull(formData.get("category")),
-      size: parseStringOrNull(formData.get("size")),
-      condition: parseStringOrNull(formData.get("condition")),
-      color: parseStringOrNull(formData.get("color")),
-      material: parseStringOrNull(formData.get("material")),
-      notes: parseStringOrNull(formData.get("notes")),
-    },
+    status: nextStatus,
+    metadata,
     generation: draft.generation,
   });
 
   redirectToDraft(draftId, {
-    flash: "Saved metadata changes.",
+    flash:
+      nextStatus === draft.status
+        ? "Saved metadata changes."
+        : "Saved metadata changes and moved the draft back to draft because required Vinted fields are now missing.",
+  });
+}
+
+export async function setDraftStatusAction(
+  draftId: string,
+  nextStatus: DraftStatus
+) {
+  const draft = await draftRepository.getById(draftId);
+
+  if (!draft) {
+    throw new Error(`Draft not found: ${draftId}`);
+  }
+
+  const transition = canTransitionToStatus(draft, nextStatus);
+
+  if (!transition.allowed) {
+    redirectToDraft(draftId, {
+      error: transition.message,
+    });
+  }
+
+  await draftRepository.update(draftId, {
+    status: nextStatus,
+  });
+
+  redirectToDraft(draftId, {
+    flash: transition.message,
   });
 }

@@ -5,10 +5,12 @@ import { randomUUID } from "node:crypto";
 import type {
   Draft,
   DraftDetail,
+  DraftGenerationInfo,
   DraftImage,
   DraftMetadata,
 } from "@/types/draft";
 import type { GenerationResult } from "@/types/generation";
+import type { PriceSuggestion } from "@/types/pricing";
 
 import type {
   CreateDraftInput,
@@ -74,7 +76,9 @@ async function readDraftStore(): Promise<DraftStore> {
   const parsed = JSON.parse(fileContents) as Partial<DraftStore>;
 
   return {
-    drafts: Array.isArray(parsed.drafts) ? parsed.drafts : [],
+    drafts: Array.isArray(parsed.drafts)
+      ? parsed.drafts.map(normalizeDraftDetail)
+      : [],
   };
 }
 
@@ -103,6 +107,16 @@ function updateDraftTimestamp(draft: DraftDetail): DraftDetail {
   };
 }
 
+function normalizeNullableString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
+}
+
 function normalizeImages(images: DraftImage[]): DraftImage[] {
   return images
     .slice()
@@ -113,25 +127,310 @@ function normalizeImages(images: DraftImage[]): DraftImage[] {
     }));
 }
 
+function normalizePriceSuggestion(
+  value: unknown,
+  fallbackCurrency: PriceSuggestion["currency"] = "EUR"
+): PriceSuggestion | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<PriceSuggestion>;
+
+  return {
+    amount: typeof candidate.amount === "number" ? candidate.amount : null,
+    minAmount:
+      typeof candidate.minAmount === "number" ? candidate.minAmount : null,
+    maxAmount:
+      typeof candidate.maxAmount === "number" ? candidate.maxAmount : null,
+    currency:
+      typeof candidate.currency === "string" ? candidate.currency : fallbackCurrency,
+    rationale:
+      typeof candidate.rationale === "string"
+        ? candidate.rationale
+        : "No pricing rationale saved yet.",
+    confidence:
+      candidate.confidence === "high" ||
+      candidate.confidence === "medium" ||
+      candidate.confidence === "low"
+        ? candidate.confidence
+        : "medium",
+  };
+}
+
+function normalizeGenerationInfo(
+  value: unknown,
+  draft: Pick<DraftDetail, "priceSuggestion">
+): DraftGenerationInfo | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<DraftGenerationInfo>;
+
+  return {
+    provider:
+      candidate.provider === "openai" ||
+      candidate.provider === "mock" ||
+      candidate.provider === "ollama"
+        ? candidate.provider
+        : "mock",
+    model: typeof candidate.model === "string" ? candidate.model : "unknown",
+    generatedAt:
+      typeof candidate.generatedAt === "string"
+        ? candidate.generatedAt
+        : new Date().toISOString(),
+    conditionNotes:
+      typeof candidate.conditionNotes === "string" ? candidate.conditionNotes : null,
+    snapshot: {
+      title:
+        typeof candidate.snapshot?.title === "string"
+          ? candidate.snapshot.title
+          : "",
+      description:
+        typeof candidate.snapshot?.description === "string"
+          ? candidate.snapshot.description
+          : "",
+      keywords: Array.isArray(candidate.snapshot?.keywords)
+        ? candidate.snapshot.keywords.filter(
+            (entry): entry is string => typeof entry === "string"
+          )
+        : [],
+      suggestedMetadata:
+        candidate.snapshot?.suggestedMetadata &&
+        typeof candidate.snapshot.suggestedMetadata === "object"
+          ? candidate.snapshot.suggestedMetadata
+          : {},
+      priceSuggestion:
+        normalizePriceSuggestion(
+          candidate.snapshot?.priceSuggestion,
+          draft.priceSuggestion?.currency ?? "EUR"
+        ) ??
+        {
+          amount: null,
+          minAmount: null,
+          maxAmount: null,
+          currency: "EUR",
+          rationale: "No pricing rationale saved yet.",
+          confidence: "medium",
+        },
+    },
+  };
+}
+
+function normalizeDraftDetail(value: unknown): DraftDetail {
+  const candidate = (value && typeof value === "object" ? value : {}) as Partial<DraftDetail>;
+  const metadata = createDefaultMetadata(
+    candidate.metadata && typeof candidate.metadata === "object"
+      ? candidate.metadata
+      : undefined
+  );
+  const images = normalizeImages(Array.isArray(candidate.images) ? candidate.images : []);
+  const priceSuggestion = normalizePriceSuggestion(candidate.priceSuggestion);
+
+  const normalizedDraft: DraftDetail = {
+    id: typeof candidate.id === "string" ? candidate.id : randomUUID(),
+    status:
+      candidate.status === "draft" ||
+      candidate.status === "ready" ||
+      candidate.status === "listed" ||
+      candidate.status === "sold"
+        ? candidate.status
+        : "draft",
+    title: normalizeNullableString(candidate.title),
+    description: normalizeNullableString(candidate.description),
+    keywords: normalizeStringArray(candidate.keywords),
+    metadata,
+    priceSuggestion,
+    generation: null,
+    imageCount: images.length,
+    createdAt:
+      typeof candidate.createdAt === "string"
+        ? candidate.createdAt
+        : new Date().toISOString(),
+    updatedAt:
+      typeof candidate.updatedAt === "string"
+        ? candidate.updatedAt
+        : new Date().toISOString(),
+    images,
+  };
+
+  normalizedDraft.generation = normalizeGenerationInfo(candidate.generation, normalizedDraft);
+
+  return normalizedDraft;
+}
+
+function areStringArraysEqual(left: string[], right: string[]) {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
+function arePriceSuggestionsEqual(
+  left: PriceSuggestion | null,
+  right: PriceSuggestion | null
+) {
+  if (!left && !right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  return (
+    left.amount === right.amount &&
+    left.minAmount === right.minAmount &&
+    left.maxAmount === right.maxAmount &&
+    left.currency === right.currency &&
+    left.rationale === right.rationale &&
+    left.confidence === right.confidence
+  );
+}
+
+function shouldReplaceStringField(
+  currentValue: string | null,
+  previousGeneratedValue: string | null | undefined
+) {
+  if (!currentValue?.trim()) {
+    return true;
+  }
+
+  if (!previousGeneratedValue?.trim()) {
+    return false;
+  }
+
+  return currentValue.trim() === previousGeneratedValue.trim();
+}
+
+function shouldReplaceKeywords(
+  currentKeywords: string[],
+  previousGeneratedKeywords: string[] | undefined
+) {
+  if (currentKeywords.length === 0) {
+    return true;
+  }
+
+  if (!previousGeneratedKeywords || previousGeneratedKeywords.length === 0) {
+    return false;
+  }
+
+  return areStringArraysEqual(currentKeywords, previousGeneratedKeywords);
+}
+
+function shouldReplaceMetadataField(
+  currentValue: string | null,
+  previousGeneratedValue: string | null | undefined
+) {
+  if (!currentValue?.trim()) {
+    return true;
+  }
+
+  if (!previousGeneratedValue?.trim()) {
+    return false;
+  }
+
+  return currentValue.trim() === previousGeneratedValue.trim();
+}
+
+function shouldReplacePriceSuggestion(
+  currentSuggestion: PriceSuggestion | null,
+  previousGeneratedSuggestion: PriceSuggestion | null | undefined
+) {
+  if (!currentSuggestion) {
+    return true;
+  }
+
+  if (!previousGeneratedSuggestion) {
+    return false;
+  }
+
+  return arePriceSuggestionsEqual(currentSuggestion, previousGeneratedSuggestion);
+}
+
 function applyGenerationResult(
   draft: DraftDetail,
   generation: GenerationResult
 ): DraftDetail {
+  const previousSnapshot = draft.generation?.snapshot;
+
   return {
     ...draft,
-    title: generation.content.title,
-    description: generation.content.description,
-    keywords: generation.content.keywords,
-    metadata: mergeMetadata(
-      draft.metadata,
-      generation.content.suggestedMetadata
-    ),
-    priceSuggestion: generation.priceSuggestion,
+    title: shouldReplaceStringField(draft.title, previousSnapshot?.title)
+      ? generation.content.title
+      : draft.title,
+    description: shouldReplaceStringField(
+      draft.description,
+      previousSnapshot?.description
+    )
+      ? generation.content.description
+      : draft.description,
+    keywords: shouldReplaceKeywords(draft.keywords, previousSnapshot?.keywords)
+      ? generation.content.keywords
+      : draft.keywords,
+    metadata: {
+      brand: shouldReplaceMetadataField(
+        draft.metadata.brand,
+        previousSnapshot?.suggestedMetadata.brand
+      )
+        ? generation.content.suggestedMetadata.brand ?? draft.metadata.brand
+        : draft.metadata.brand,
+      category: shouldReplaceMetadataField(
+        draft.metadata.category,
+        previousSnapshot?.suggestedMetadata.category
+      )
+        ? generation.content.suggestedMetadata.category ?? draft.metadata.category
+        : draft.metadata.category,
+      size: shouldReplaceMetadataField(
+        draft.metadata.size,
+        previousSnapshot?.suggestedMetadata.size
+      )
+        ? generation.content.suggestedMetadata.size ?? draft.metadata.size
+        : draft.metadata.size,
+      condition: shouldReplaceMetadataField(
+        draft.metadata.condition,
+        previousSnapshot?.suggestedMetadata.condition
+      )
+        ? generation.content.suggestedMetadata.condition ?? draft.metadata.condition
+        : draft.metadata.condition,
+      color: shouldReplaceMetadataField(
+        draft.metadata.color,
+        previousSnapshot?.suggestedMetadata.color
+      )
+        ? generation.content.suggestedMetadata.color ?? draft.metadata.color
+        : draft.metadata.color,
+      material: shouldReplaceMetadataField(
+        draft.metadata.material,
+        previousSnapshot?.suggestedMetadata.material
+      )
+        ? generation.content.suggestedMetadata.material ?? draft.metadata.material
+        : draft.metadata.material,
+      notes: shouldReplaceMetadataField(
+        draft.metadata.notes,
+        previousSnapshot?.suggestedMetadata.notes
+      )
+        ? generation.content.suggestedMetadata.notes ?? draft.metadata.notes
+        : draft.metadata.notes,
+    },
+    priceSuggestion: shouldReplacePriceSuggestion(
+      draft.priceSuggestion,
+      previousSnapshot?.priceSuggestion
+    )
+      ? generation.priceSuggestion
+      : draft.priceSuggestion,
     generation: {
       provider: generation.provider,
       model: generation.model,
       generatedAt: generation.generatedAt,
       conditionNotes: generation.content.conditionNotes,
+      snapshot: {
+        title: generation.content.title,
+        description: generation.content.description,
+        keywords: generation.content.keywords,
+        suggestedMetadata: generation.content.suggestedMetadata,
+        priceSuggestion: generation.priceSuggestion,
+      },
     },
   };
 }

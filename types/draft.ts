@@ -24,11 +24,20 @@ export interface DraftImage {
   height: number | null;
 }
 
+export interface DraftGenerationSnapshot {
+  title: string;
+  description: string;
+  keywords: string[];
+  suggestedMetadata: Partial<DraftMetadata>;
+  priceSuggestion: PriceSuggestion;
+}
+
 export interface DraftGenerationInfo {
   provider: "openai" | "mock" | "ollama";
   model: string;
   generatedAt: string;
   conditionNotes: string | null;
+  snapshot: DraftGenerationSnapshot;
 }
 
 export interface Draft {

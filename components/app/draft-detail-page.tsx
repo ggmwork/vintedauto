@@ -4,6 +4,7 @@ import {
   ArrowLeftIcon,
   ImageIcon,
   LoaderCircleIcon,
+  PackageCheckIcon,
   SparklesIcon,
   Trash2Icon,
   UploadIcon,
@@ -14,6 +15,7 @@ import {
   removeDraftImageAction,
   saveDraftMetadataAction,
   saveDraftReviewAction,
+  setDraftStatusAction,
   uploadDraftImagesAction,
 } from "@/app/actions";
 import { DraftExportPanel } from "@/components/app/draft-export-panel";
@@ -29,6 +31,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import type { DraftDetail } from "@/types/draft";
 
 const inputClassName =
@@ -79,6 +82,27 @@ function formatGenerationLabel(draft: DraftDetail) {
   return `Generated with ${draft.generation.provider}:${draft.generation.model} on ${formatDate(draft.generation.generatedAt)}.`;
 }
 
+function formatReadinessItem(value: string) {
+  switch (value) {
+    case "images":
+      return "images";
+    case "title":
+      return "title";
+    case "description":
+      return "description";
+    case "keywords":
+      return "keywords";
+    case "price":
+      return "price";
+    case "category":
+      return "category";
+    case "condition":
+      return "condition";
+    default:
+      return value;
+  }
+}
+
 interface DraftDetailPageFeedback {
   flash: string | null;
   error: string | null;
@@ -95,6 +119,7 @@ export function DraftDetailPage({
   const generateAction = generateDraftListingAction.bind(null, draft.id);
   const saveMetadataAction = saveDraftMetadataAction.bind(null, draft.id);
   const saveReviewAction = saveDraftReviewAction.bind(null, draft.id);
+  const readiness = getDraftReadiness(draft);
   const hasReviewContent =
     draft.title !== null ||
     draft.description !== null ||
@@ -144,7 +169,7 @@ export function DraftDetailPage({
           </section>
         ) : null}
 
-        <section className="grid gap-4 lg:grid-cols-3">
+        <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
           <Card>
             <CardHeader>
               <CardTitle>Draft identity</CardTitle>
@@ -167,6 +192,67 @@ export function DraftDetailPage({
                   <dd>{formatDate(draft.updatedAt)}</dd>
                 </div>
               </dl>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Workflow status</CardTitle>
+              <CardDescription>
+                Move the draft from internal review to listed and sold.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-4 text-sm text-muted-foreground">
+                <PackageCheckIcon className="mt-0.5 size-4 shrink-0" />
+                <div className="flex flex-col gap-1">
+                  <span className="font-medium text-foreground">
+                    {readiness.ready
+                      ? "Ready for Vinted handoff."
+                      : "Still missing required fields."}
+                  </span>
+                  <span>
+                    {readiness.ready
+                      ? "Title, description, price, category, condition, keywords, and images are all present."
+                      : `Missing ${readiness.missing.map(formatReadinessItem).join(", ")}.`}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    ["draft", "Draft"],
+                    ["ready", "Ready"],
+                    ["listed", "Listed"],
+                    ["sold", "Sold"],
+                  ] as const
+                ).map(([status, label]) => {
+                  const statusAction = setDraftStatusAction.bind(
+                    null,
+                    draft.id,
+                    status
+                  );
+                  const disabled =
+                    draft.status === status ||
+                    ((status === "ready" || status === "listed") &&
+                      !readiness.ready) ||
+                    (status === "sold" && draft.status !== "listed");
+
+                  return (
+                    <form key={status} action={statusAction}>
+                      <Button
+                        type="submit"
+                        variant={draft.status === status ? "default" : "outline"}
+                        className="w-full"
+                        disabled={disabled}
+                      >
+                        {label}
+                      </Button>
+                    </form>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
 
@@ -344,12 +430,13 @@ export function DraftDetailPage({
             </CardContent>
             <CardFooter className="justify-between">
               <span className="text-xs text-muted-foreground">
-                Generation persists after save and refresh.
+                Regeneration keeps fields you already edited away from the last
+                model output.
               </span>
               <form action={generateAction}>
                 <Button type="submit" disabled={draft.imageCount === 0}>
                   <SparklesIcon data-icon="inline-start" />
-                  Generate listing
+                  {draft.generation ? "Regenerate listing" : "Generate listing"}
                 </Button>
               </form>
             </CardFooter>
@@ -525,7 +612,7 @@ export function DraftDetailPage({
 
           <Separator />
 
-          <DraftExportPanel draft={draft} />
+          <DraftExportPanel draft={draft} readiness={readiness} />
         </section>
 
         <section className="flex flex-col gap-4">
