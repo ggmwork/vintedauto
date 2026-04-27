@@ -157,6 +157,14 @@ function sanitizeConfidence(value: unknown): PriceConfidence {
 }
 
 function sanitizeNumberOrNull(value: unknown) {
+  if (typeof value === "string") {
+    const parsed = Number(value.trim());
+
+    if (Number.isFinite(parsed)) {
+      return Number(parsed.toFixed(2));
+    }
+  }
+
   if (typeof value !== "number" || Number.isNaN(value)) {
     return null;
   }
@@ -204,6 +212,18 @@ function normalizeModelPayload(value: unknown) {
     priceSuggestion:
       candidate.priceSuggestion && typeof candidate.priceSuggestion === "object"
         ? candidate.priceSuggestion
+        : typeof candidate.priceSuggestion === "string" ||
+            typeof candidate.priceSuggestion === "number"
+          ? {
+              amount: candidate.priceSuggestion,
+              minAmount: null,
+              maxAmount: null,
+              currency: "EUR",
+              rationale:
+                candidate.rationale ??
+                "Model returned a flat price suggestion instead of the nested priceSuggestion object.",
+              confidence: candidate.confidence ?? "low",
+            }
         : {
             amount: candidate.price ?? candidate.amount ?? null,
             minAmount: candidate.minPrice ?? candidate.minAmount ?? null,
@@ -265,14 +285,16 @@ function validateStructuredContent(value: unknown): GeneratedListingContent {
   }
 
   const candidate = value as Record<string, unknown>;
+  const suggestedMetadata = sanitizeMetadata(candidate.suggestedMetadata);
+  const conditionNotes = sanitizeStringOrNull(candidate.conditionNotes);
   const title =
     typeof candidate.title === "string" && candidate.title.trim()
       ? candidate.title.trim()
-      : null;
+      : buildFallbackTitle(suggestedMetadata);
   const description =
     typeof candidate.description === "string" && candidate.description.trim()
       ? candidate.description.trim()
-      : null;
+      : buildFallbackDescription(suggestedMetadata, conditionNotes);
 
   if (!title || !description) {
     throw new Error("Model response is missing title or description.");
@@ -282,9 +304,49 @@ function validateStructuredContent(value: unknown): GeneratedListingContent {
     title,
     description,
     keywords: [],
-    conditionNotes: sanitizeStringOrNull(candidate.conditionNotes),
-    suggestedMetadata: sanitizeMetadata(candidate.suggestedMetadata),
+    conditionNotes,
+    suggestedMetadata,
   };
+}
+
+function buildFallbackTitle(metadata: Partial<DraftMetadata>) {
+  const lead = [metadata.brand, metadata.color, metadata.category]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join(" ");
+
+  const tail = [metadata.size ? `Size ${metadata.size}` : null, metadata.material]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join(" - ");
+
+  const title = [lead, tail]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .join(" - ");
+
+  return title || null;
+}
+
+function buildFallbackDescription(
+  metadata: Partial<DraftMetadata>,
+  conditionNotes: string | null
+) {
+  const subject =
+    [metadata.color, metadata.brand, metadata.category]
+      .filter((value): value is string => typeof value === "string" && value.length > 0)
+      .join(" ") || "This item";
+
+  const details = [
+    metadata.condition ? `${metadata.condition} condition.` : null,
+    metadata.size ? `Size ${metadata.size}.` : null,
+    metadata.material ? `Material: ${metadata.material}.` : null,
+    metadata.notes ? metadata.notes : null,
+    conditionNotes,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+
+  if (details.length === 0) {
+    return null;
+  }
+
+  return `${subject}. ${details.join(" ")}`.trim();
 }
 
 function buildPrompt(input: ListingGenerationInput) {
@@ -292,9 +354,11 @@ function buildPrompt(input: ListingGenerationInput) {
     "You generate Vinted listing drafts from product photos.",
     "Return only JSON that matches the supplied schema.",
     "Be concrete and concise.",
+    "Always return non-empty title and description fields.",
     "Use the photos as the primary source of truth.",
     `Write the listing in ${input.preferredLanguage}.`,
     "Do not invent brand, material, or size unless reasonably visible.",
+    "Do not return top-level brand, category, size, condition, color, material, notes, or price fields. Put metadata under suggestedMetadata and pricing under priceSuggestion.",
     "If uncertain, leave metadata fields null and explain uncertainty in conditionNotes or rationale.",
     `Pricing must be a realistic ${input.currency} suggestion or range for a second-hand ${input.marketplace} listing.`,
     `Known draft metadata: ${JSON.stringify(input.metadata)}`,
