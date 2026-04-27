@@ -1,5 +1,8 @@
-import { FoundationPage } from "@/components/app/foundation-page";
+import { DraftListPage } from "@/components/app/draft-list-page";
+import { draftRepository } from "@/lib/drafts";
 
-export default function Home() {
-  return <FoundationPage />;
+export default async function Home() {
+  const drafts = await draftRepository.list();
+
+  return <DraftListPage drafts={drafts} />;
 }
