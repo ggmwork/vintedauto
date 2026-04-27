@@ -20,6 +20,8 @@ import {
   reviewQueueStateOptions,
 } from "@/lib/drafts/review-queue";
 
+export const dynamic = "force-dynamic";
+
 function pickSearchParam(
   value: string | string[] | undefined
 ): string | undefined {
@@ -47,28 +49,14 @@ export default async function ReviewQueueRoute({
     return (
       <main className="flex-1 bg-muted/20">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8 lg:px-8">
-          <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-2">
-              <Badge variant="secondary">Review queue</Badge>
-              <h1 className="font-heading text-3xl font-semibold text-balance">
-                No drafts in this queue.
-              </h1>
-              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                Switch queue state or go back to intake, stock, or the full draft list.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Link href="/" className={buttonVariants({ variant: "outline" })}>
-                Intake home
-              </Link>
-              <Link href="/stock" className={buttonVariants({ variant: "outline" })}>
-                Stock workspace
-              </Link>
-              <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>
-                Drafts
-              </Link>
-            </div>
+          <section className="space-y-2">
+            <Badge variant="secondary">Review</Badge>
+            <h1 className="font-heading text-3xl font-semibold text-balance">
+              No drafts in this queue.
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              Switch queue state or return to Stock until new items are ready.
+            </p>
           </section>
 
           <section className="flex flex-wrap gap-2">
@@ -97,6 +85,11 @@ export default async function ReviewQueueRoute({
                 <FolderOpenDotIcon className="size-4" />
                 Nothing to review in {reviewQueueStateOptions.find((option) => option.state === queueState)?.label.toLowerCase()}.
               </div>
+            </CardContent>
+            <CardContent className="pt-0">
+              <Link href="/stock" className={buttonVariants({ variant: "outline" })}>
+                Open Stock
+              </Link>
             </CardContent>
           </Card>
         </div>

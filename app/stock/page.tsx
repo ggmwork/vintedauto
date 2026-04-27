@@ -1,5 +1,7 @@
 import { StockWorkspacePage } from "@/components/app/stock-workspace-page";
-import { studioSessionRepository } from "@/lib/intake";
+import { listAllSessionDetails } from "@/lib/inbox/inbox-service";
+
+export const dynamic = "force-dynamic";
 
 function pickSearchParam(
   value: string | string[] | undefined
@@ -16,10 +18,7 @@ export default async function StockRoute({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const sessions = await studioSessionRepository.list();
-  const sessionDetails = (
-    await Promise.all(sessions.map((session) => studioSessionRepository.getById(session.id)))
-  ).filter((session) => session !== null);
+  const sessionDetails = await listAllSessionDetails();
   const resolvedSearchParams = await searchParams;
 
   return (

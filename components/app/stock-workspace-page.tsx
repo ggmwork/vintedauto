@@ -1,10 +1,24 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BoxIcon, ImagesIcon, SparklesIcon } from "lucide-react";
+import {
+  FolderSyncIcon,
+  ImagesIcon,
+  SparklesIcon,
+  Trash2Icon,
+} from "lucide-react";
 
-import { generateSessionStockDraftsAction } from "@/app/actions";
+import {
+  generateAllReadyStockDraftsAction,
+  generateStockItemDraftAction,
+  releasePhotoAssetsFromStockItemAction,
+  removeStockItemAction,
+  renameStockItemAction,
+  setStockItemCoverPhotoAction,
+} from "@/app/actions";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
-import { SessionStatusBadge } from "@/components/app/session-status-badge";
 import { StockItemStatusBadge } from "@/components/app/stock-item-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -16,20 +30,51 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { StudioSessionDetail } from "@/types/intake";
+import { cn } from "@/lib/utils";
+import type { PhotoAsset, StockItem, StudioSessionDetail } from "@/types/intake";
 
-function getSessionReadyStockItemCount(session: StudioSessionDetail) {
-  return session.stockItems.filter(
-    (stockItem) => stockItem.photoAssetIds.length > 0 && stockItem.draftId === null
-  ).length;
+const inputClassName =
+  "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+
+interface StockEntry {
+  sessionId: string;
+  sourceLabel: string;
+  sourceType: StudioSessionDetail["intakeConfig"]["sourceType"];
+  loosePhotoCount: number;
+  stockItem: StockItem;
+  photoAssets: PhotoAsset[];
 }
 
-function getCoverPhotoAsset(session: StudioSessionDetail, photoAssetId: string | null) {
-  if (!photoAssetId) {
-    return null;
-  }
+function HiddenPhotoAssetInputs({ photoAssetIds }: { photoAssetIds: string[] }) {
+  return (
+    <>
+      {photoAssetIds.map((photoAssetId) => (
+        <input
+          key={photoAssetId}
+          type="hidden"
+          name="photoAssetIds"
+          value={photoAssetId}
+        />
+      ))}
+    </>
+  );
+}
 
-  return session.photoAssets.find((photoAsset) => photoAsset.id === photoAssetId) ?? null;
+function getPhotoAssetsForStockItem(
+  session: StudioSessionDetail,
+  stockItemId: string
+) {
+  return session.photoAssets
+    .filter((photoAsset) => photoAsset.stockItemId === stockItemId)
+    .sort((left, right) => left.sortOrder - right.sortOrder);
+}
+
+function getSourceLabel(session: StudioSessionDetail) {
+  return (
+    session.intakeConfig.folderLabel ??
+    session.intakeConfig.folderPath ??
+    session.name
+  );
 }
 
 export function StockWorkspacePage({
@@ -42,208 +87,404 @@ export function StockWorkspacePage({
     error: string | null;
   };
 }) {
-  const totalStockItems = sessions.reduce(
-    (accumulator, session) => accumulator + session.stockItems.length,
-    0
+  const [selectedPhotoAssetIdsByItem, setSelectedPhotoAssetIdsByItem] = useState<
+    Record<string, string[]>
+  >({});
+
+  const stockEntries = useMemo<StockEntry[]>(() => {
+    return sessions
+      .flatMap((session) =>
+        session.stockItems.map((stockItem) => ({
+          sessionId: session.id,
+          sourceLabel: getSourceLabel(session),
+          sourceType: session.intakeConfig.sourceType,
+          loosePhotoCount: session.unassignedPhotoCount,
+          stockItem,
+          photoAssets: getPhotoAssetsForStockItem(session, stockItem.id),
+        }))
+      )
+      .sort(
+        (left, right) =>
+          new Date(right.stockItem.updatedAt).getTime() -
+          new Date(left.stockItem.updatedAt).getTime()
+      );
+  }, [sessions]);
+
+  const readyEntries = useMemo(
+    () => stockEntries.filter((entry) => entry.stockItem.draftId === null),
+    [stockEntries]
   );
-  const totalReadyStockItems = sessions.reduce(
-    (accumulator, session) => accumulator + getSessionReadyStockItemCount(session),
-    0
+  const draftedEntries = useMemo(
+    () => stockEntries.filter((entry) => entry.stockItem.draftId !== null),
+    [stockEntries]
   );
-  const totalDraftedStockItems = sessions.reduce(
-    (accumulator, session) =>
-      accumulator + session.stockItems.filter((stockItem) => stockItem.draftId).length,
-    0
+  const loosePhotoCount = useMemo(
+    () => sessions.reduce((total, session) => total + session.unassignedPhotoCount, 0),
+    [sessions]
   );
+
+  function togglePhotoSelection(stockItemId: string, photoAssetId: string) {
+    setSelectedPhotoAssetIdsByItem((current) => {
+      const currentSelection = current[stockItemId] ?? [];
+      const nextSelection = currentSelection.includes(photoAssetId)
+        ? currentSelection.filter((entry) => entry !== photoAssetId)
+        : [...currentSelection, photoAssetId];
+
+      return {
+        ...current,
+        [stockItemId]: nextSelection,
+      };
+    });
+  }
+
+  function getSelectedPhotoAssetIds(stockItemId: string) {
+    return selectedPhotoAssetIdsByItem[stockItemId] ?? [];
+  }
 
   return (
     <main className="flex-1 bg-muted/20">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8 lg:px-8">
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <Badge variant="secondary">Stock workspace</Badge>
+          <div className="max-w-3xl space-y-2">
+            <Badge variant="secondary">Stock</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Stock items sit between intake and drafts.
+              Grouped items ready for generation or review.
             </h1>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Group imported photos into products, see which items are ready,
-              and batch-generate drafts from the stocked sessions.
+            <p className="text-sm leading-6 text-muted-foreground">
+              Inbox collects photos. Stock is where items become stable enough to
+              generate or reopen.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Link href="/" className={buttonVariants({ variant: "outline" })}>
-              Intake home
-            </Link>
-            <Link href="/review" className={buttonVariants({ variant: "outline" })}>
-              Review queue
-            </Link>
-            <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>
-              Drafts
-            </Link>
-          </div>
+          <form action={generateAllReadyStockDraftsAction}>
+            <PendingSubmitButton
+              type="submit"
+              size="lg"
+              disabled={readyEntries.length === 0}
+              pendingLabel="Generating drafts"
+            >
+              <SparklesIcon data-icon="inline-start" />
+              Generate all ready
+            </PendingSubmitButton>
+          </form>
         </section>
 
         {feedback.error ? (
-          <section>
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-              {feedback.error}
-            </div>
-          </section>
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {feedback.error}
+          </div>
         ) : null}
 
         {feedback.flash ? (
-          <section>
-            <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground">
-              {feedback.flash}
+          <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground">
+            {feedback.flash}
+          </div>
+        ) : null}
+
+        <section className="flex flex-wrap gap-2">
+          <Badge variant="outline">{stockEntries.length} stock items</Badge>
+          <Badge variant="outline">{readyEntries.length} ready to generate</Badge>
+          <Badge variant="outline">{draftedEntries.length} drafted</Badge>
+          <Badge variant="outline">{loosePhotoCount} photos still in Inbox</Badge>
+        </section>
+
+        {loosePhotoCount > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Inbox still has loose photos</CardTitle>
+              <CardDescription>
+                Files in the watched folder root could not be grouped automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-center justify-between gap-3">
+              <Badge variant="secondary">{loosePhotoCount} loose photo{loosePhotoCount === 1 ? "" : "s"}</Badge>
+              <Link href="/" className={buttonVariants({ variant: "outline" })}>
+                <FolderSyncIcon data-icon="inline-start" />
+                Open Inbox
+              </Link>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {stockEntries.length === 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>No stock items yet</CardTitle>
+              <CardDescription>
+                Paste photos into the watched folder or group loose Inbox files first.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : null}
+
+        {readyEntries.length > 0 ? (
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h2 className="font-heading text-2xl font-semibold">Ready to generate</h2>
+              <p className="text-sm text-muted-foreground">
+                These items already have grouped photos and no linked draft yet.
+              </p>
+            </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {readyEntries.map((entry) => {
+                const selectedPhotoAssetIds = getSelectedPhotoAssetIds(entry.stockItem.id);
+
+                return (
+                  <StockEntryCard
+                    key={entry.stockItem.id}
+                    entry={entry}
+                    selectedPhotoAssetIds={selectedPhotoAssetIds}
+                    onTogglePhotoSelection={togglePhotoSelection}
+                  />
+                );
+              })}
             </div>
           </section>
         ) : null}
 
-        <section className="flex flex-wrap gap-2">
-          <Badge variant="outline">{sessions.length} sessions</Badge>
-          <Badge variant="outline">{totalStockItems} stock items</Badge>
-          <Badge variant="outline">{totalReadyStockItems} ready to draft</Badge>
-          <Badge variant="outline">{totalDraftedStockItems} drafted</Badge>
-        </section>
-
-        {sessions.length === 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>No sessions yet</CardTitle>
-              <CardDescription>
-                Import a folder first. Stock organization starts after intake.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {sessions.map((session) => {
-              const readyStockItemCount = getSessionReadyStockItemCount(session);
-
-              return (
-                <Card key={session.id}>
-                  <CardHeader className="gap-3">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <CardTitle>{session.name}</CardTitle>
-                          <SessionStatusBadge status={session.status} />
-                        </div>
-                        <CardDescription>
-                          {session.intakeConfig.folderLabel
-                            ? `Imported from ${session.intakeConfig.folderLabel}.`
-                            : "Imported from a local folder."}
-                        </CardDescription>
-                      </div>
-
-                      <div className="flex flex-wrap gap-3">
-                        <Link
-                          href={`/sessions/${session.id}`}
-                          className={buttonVariants({ variant: "outline" })}
-                        >
-                          Open session
-                        </Link>
-                        <form
-                          action={generateSessionStockDraftsAction.bind(
-                            null,
-                            session.id,
-                            "stock"
-                          )}
-                        >
-                          <PendingSubmitButton
-                            type="submit"
-                            disabled={readyStockItemCount === 0}
-                            pendingLabel="Generating drafts"
-                          >
-                            <SparklesIcon data-icon="inline-start" />
-                            Generate session drafts
-                          </PendingSubmitButton>
-                        </form>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline">{session.stockItems.length} stock items</Badge>
-                      <Badge variant="outline">{readyStockItemCount} ready</Badge>
-                      <Badge variant="outline">{session.draftedStockItemCount} drafted</Badge>
-                      <Badge variant="outline">{session.unassignedPhotoCount} unassigned</Badge>
-                    </div>
-
-                    {session.stockItems.length === 0 ? (
-                      <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
-                        <BoxIcon className="size-4" />
-                        No stock items grouped in this session yet.
-                      </div>
-                    ) : (
-                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        {session.stockItems.map((stockItem) => {
-                          const coverPhotoAsset = getCoverPhotoAsset(
-                            session,
-                            stockItem.coverPhotoAssetId
-                          );
-
-                          return (
-                            <Card key={stockItem.id} className="overflow-hidden">
-                              {coverPhotoAsset ? (
-                                <div className="relative aspect-[4/3] bg-muted">
-                                  <Image
-                                    src={`/api/sessions/${session.id}/photos/${coverPhotoAsset.id}`}
-                                    alt={coverPhotoAsset.originalFilename}
-                                    fill
-                                    sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 100vw"
-                                    className="object-cover"
-                                    unoptimized
-                                  />
-                                </div>
-                              ) : null}
-                              <CardHeader className="gap-3">
-                                <div className="flex items-center justify-between gap-3">
-                                  <CardTitle className="truncate">{stockItem.name}</CardTitle>
-                                  <StockItemStatusBadge stockItem={stockItem} />
-                                </div>
-                                <CardDescription>
-                                  {stockItem.draftId
-                                    ? "Draft linked."
-                                    : "Ready to turn into one linked draft."}
-                                </CardDescription>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="flex flex-wrap gap-2">
-                                  <Badge variant="outline">
-                                    <ImagesIcon data-icon="inline-start" />
-                                    {stockItem.photoAssetIds.length} photo
-                                    {stockItem.photoAssetIds.length === 1 ? "" : "s"}
-                                  </Badge>
-                                  {stockItem.draftId ? (
-                                    <Badge variant="outline">draft linked</Badge>
-                                  ) : null}
-                                </div>
-                              </CardContent>
-                              <CardFooter className="justify-end gap-3">
-                                {stockItem.draftId ? (
-                                  <Link
-                                    href={`/drafts/${stockItem.draftId}`}
-                                    className={buttonVariants({ variant: "outline" })}
-                                  >
-                                    Open draft
-                                  </Link>
-                                ) : null}
-                              </CardFooter>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+        {draftedEntries.length > 0 ? (
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h2 className="font-heading text-2xl font-semibold">Linked drafts</h2>
+              <p className="text-sm text-muted-foreground">
+                These items already have a generated draft. Open the draft or keep the
+                stock label tidy here.
+              </p>
+            </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {draftedEntries.map((entry) => (
+                <StockEntryCard
+                  key={entry.stockItem.id}
+                  entry={entry}
+                  selectedPhotoAssetIds={[]}
+                  onTogglePhotoSelection={togglePhotoSelection}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
+  );
+}
+
+function StockEntryCard({
+  entry,
+  selectedPhotoAssetIds,
+  onTogglePhotoSelection,
+}: {
+  entry: StockEntry;
+  selectedPhotoAssetIds: string[];
+  onTogglePhotoSelection: (stockItemId: string, photoAssetId: string) => void;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      {entry.stockItem.coverPhotoAssetId ? (
+        <div className="relative aspect-[4/3] bg-muted">
+          <Image
+            src={`/api/sessions/${entry.sessionId}/photos/${entry.stockItem.coverPhotoAssetId}`}
+            alt={entry.stockItem.name}
+            fill
+            sizes="(min-width: 1280px) 35vw, 100vw"
+            className="object-cover"
+            unoptimized
+          />
+        </div>
+      ) : null}
+
+      <CardHeader className="gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-1">
+            <CardTitle className="truncate">{entry.stockItem.name}</CardTitle>
+            <CardDescription>
+              {entry.sourceType === "watched-folder" ? "Watched folder" : "Manual import"}:{" "}
+              {entry.sourceLabel}
+            </CardDescription>
+          </div>
+          <StockItemStatusBadge stockItem={entry.stockItem} />
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-5">
+        <form
+          action={renameStockItemAction.bind(
+            null,
+            entry.sessionId,
+            entry.stockItem.id,
+            "stock"
+          )}
+          className="flex flex-col gap-3 sm:flex-row"
+        >
+          <input
+            type="text"
+            name="stockItemName"
+            defaultValue={entry.stockItem.name}
+            className={inputClassName}
+          />
+          <PendingSubmitButton
+            type="submit"
+            variant="outline"
+            pendingLabel="Saving name"
+          >
+            Save
+          </PendingSubmitButton>
+        </form>
+
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="outline">
+            <ImagesIcon data-icon="inline-start" />
+            {entry.photoAssets.length} photo{entry.photoAssets.length === 1 ? "" : "s"}
+          </Badge>
+          {entry.stockItem.draftId ? (
+            <Badge variant="outline">draft linked</Badge>
+          ) : (
+            <Badge variant="secondary">ready</Badge>
+          )}
+          {entry.loosePhotoCount > 0 ? (
+            <Badge variant="outline">{entry.loosePhotoCount} still in Inbox</Badge>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-4 gap-3">
+          {entry.photoAssets.map((photoAsset) => {
+            const selected = selectedPhotoAssetIds.includes(photoAsset.id);
+            const isCover = entry.stockItem.coverPhotoAssetId === photoAsset.id;
+
+            return (
+              <div key={photoAsset.id} className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    entry.stockItem.draftId
+                      ? undefined
+                      : onTogglePhotoSelection(entry.stockItem.id, photoAsset.id)
+                  }
+                  className={cn(
+                    "relative aspect-square w-full overflow-hidden rounded-lg border bg-muted transition",
+                    entry.stockItem.draftId
+                      ? "cursor-default border-border"
+                      : selected
+                        ? "border-primary ring-2 ring-primary/20"
+                        : "border-border hover:border-primary/40"
+                  )}
+                >
+                  <Image
+                    src={`/api/sessions/${entry.sessionId}/photos/${photoAsset.id}`}
+                    alt={photoAsset.originalFilename}
+                    fill
+                    sizes="96px"
+                    className="object-cover"
+                    unoptimized
+                  />
+                  <div className="absolute inset-x-0 top-0 flex justify-between p-2 text-[11px] font-medium">
+                    {isCover ? (
+                      <span className="rounded-full bg-background/90 px-2 py-1 text-foreground">
+                        cover
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    {!entry.stockItem.draftId && selected ? (
+                      <span className="rounded-full bg-primary px-2 py-1 text-primary-foreground">
+                        selected
+                      </span>
+                    ) : null}
+                  </div>
+                </button>
+
+                {!entry.stockItem.draftId && !isCover ? (
+                  <form
+                    action={setStockItemCoverPhotoAction.bind(
+                      null,
+                      entry.sessionId,
+                      entry.stockItem.id,
+                      photoAsset.id,
+                      "stock"
+                    )}
+                  >
+                    <PendingSubmitButton
+                      type="submit"
+                      variant="outline"
+                      className="w-full"
+                      pendingLabel="Saving"
+                    >
+                      Set cover
+                    </PendingSubmitButton>
+                  </form>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+
+      <CardFooter className="flex flex-wrap justify-between gap-3 border-t border-border/70 bg-muted/10">
+        <div className="flex flex-wrap gap-3">
+          {entry.stockItem.draftId ? (
+            <Link
+              href={`/drafts/${entry.stockItem.draftId}`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Open draft
+            </Link>
+          ) : (
+            <>
+              <form
+                action={generateStockItemDraftAction.bind(
+                  null,
+                  entry.sessionId,
+                  entry.stockItem.id,
+                  "stock"
+                )}
+              >
+                <PendingSubmitButton type="submit" pendingLabel="Generating draft">
+                  <SparklesIcon data-icon="inline-start" />
+                  Generate draft
+                </PendingSubmitButton>
+              </form>
+
+              <form
+                action={releasePhotoAssetsFromStockItemAction.bind(
+                  null,
+                  entry.sessionId,
+                  entry.stockItem.id,
+                  "stock"
+                )}
+              >
+                <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
+                <PendingSubmitButton
+                  type="submit"
+                  variant="outline"
+                  disabled={selectedPhotoAssetIds.length === 0}
+                  pendingLabel="Moving photos"
+                >
+                  Move selected to Inbox
+                </PendingSubmitButton>
+              </form>
+            </>
+          )}
+        </div>
+
+        {!entry.stockItem.draftId ? (
+          <form
+            action={removeStockItemAction.bind(
+              null,
+              entry.sessionId,
+              entry.stockItem.id,
+              "stock"
+            )}
+          >
+            <PendingSubmitButton
+              type="submit"
+              variant="outline"
+              pendingLabel="Removing item"
+            >
+              <Trash2Icon data-icon="inline-start" />
+              Remove item
+            </PendingSubmitButton>
+          </form>
+        ) : null}
+      </CardFooter>
+    </Card>
   );
 }

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { StudioSessionDetailPage } from "@/components/app/studio-session-detail-page";
 import { studioSessionRepository } from "@/lib/intake";
 
+export const dynamic = "force-dynamic";
+
 function pickSearchParam(
   value: string | string[] | undefined
 ): string | undefined {

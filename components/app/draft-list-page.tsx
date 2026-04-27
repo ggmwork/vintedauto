@@ -178,38 +178,26 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 lg:px-8">
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-2">
-            <Badge variant="secondary">Desktop draft workspace</Badge>
+            <Badge variant="secondary">Drafts</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Upload, generate, review, export.
+              Secondary draft list.
             </h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Keep the draft list quiet and task-focused. Create a draft, open
-              it, add images, and move the listing forward without dashboard
-              filler.
+              Most work should start in Inbox and Stock. Keep this page for manual checks and edge cases.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Link href="/" className={buttonVariants({ variant: "outline" })}>
-              Intake home
-            </Link>
-            <Link href="/stock" className={buttonVariants({ variant: "outline" })}>
-              Stock workspace
-            </Link>
-            <Link href="/review" className={buttonVariants({ variant: "outline" })}>
-              Review queue
-            </Link>
-            <form action={createDraftAction}>
-              <PendingSubmitButton
-                size="lg"
-                type="submit"
-                pendingLabel="Creating draft"
-              >
-                <PlusIcon data-icon="inline-start" />
-                Create draft
-              </PendingSubmitButton>
-            </form>
-          </div>
+          <form action={createDraftAction}>
+            <PendingSubmitButton
+              size="lg"
+              type="submit"
+              pendingLabel="Creating draft"
+              variant="outline"
+            >
+              <PlusIcon data-icon="inline-start" />
+              Create manual draft
+            </PendingSubmitButton>
+          </form>
         </section>
 
         <section className="flex flex-wrap gap-2">

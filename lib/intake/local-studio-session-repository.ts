@@ -16,9 +16,11 @@ import type {
   AttachDraftToStockItemInput,
   CreateStockItemInput,
   CreateStudioSessionInput,
+  ReleasePhotoAssetsFromStockItemInput,
   RemoveStockItemInput,
   RenameStockItemInput,
   SavePhotoAssetsInput,
+  SetStockItemCoverPhotoInput,
   StudioSessionRepository,
 } from "./studio-session-repository";
 
@@ -36,6 +38,7 @@ function createDefaultIntakeConfig(
     sourceType: "local-folder",
     startMode: "manual",
     folderLabel: null,
+    folderPath: null,
     ...overrides,
   };
 }
@@ -83,6 +86,11 @@ function normalizePhotoAssets(photoAssets: PhotoAsset[]) {
       return {
         ...photoAsset,
         sortOrder: index,
+        sourceFingerprint:
+          typeof photoAsset.sourceFingerprint === "string" &&
+          photoAsset.sourceFingerprint.length > 0
+            ? photoAsset.sourceFingerprint
+            : null,
         organizationStatus: stockItemId
           ? ("grouped" as const)
           : ("unassigned" as const),
@@ -625,6 +633,123 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
             ? {
                 ...entry,
                 name: nextName,
+                updatedAt: new Date().toISOString(),
+              }
+            : entry
+        ),
+      });
+      const sessions = currentStore.sessions.slice();
+      sessions[sessionIndex] = nextSession;
+
+      return { sessions };
+    });
+
+    const session = store.sessions.find((entry) => entry.id === input.sessionId);
+
+    if (!session) {
+      throw new Error(`Studio session not found after update: ${input.sessionId}`);
+    }
+
+    return session;
+  }
+
+  async releasePhotoAssetsFromStockItem(
+    input: ReleasePhotoAssetsFromStockItemInput
+  ): Promise<StudioSessionDetail> {
+    const store = await mutateStudioSessionStore((currentStore) => {
+      const sessionIndex = findSessionIndex(currentStore, input.sessionId);
+
+      if (sessionIndex === -1) {
+        throw new Error(`Studio session not found: ${input.sessionId}`);
+      }
+
+      const session = currentStore.sessions[sessionIndex];
+      const stockItem = session.stockItems.find(
+        (entry) => entry.id === input.stockItemId
+      );
+
+      if (!stockItem) {
+        throw new Error(`Stock item not found: ${input.stockItemId}`);
+      }
+
+      if (stockItem.draftId) {
+        throw new Error(
+          "This stock item already has a draft. Open the draft instead of changing grouped photos here."
+        );
+      }
+
+      const selectedIds = new Set(uniqueStringIds(input.photoAssetIds));
+
+      if (selectedIds.size === 0) {
+        throw new Error("Select at least one photo to move back into Inbox.");
+      }
+
+      const photoAssets = session.photoAssets.map((photoAsset) =>
+        selectedIds.has(photoAsset.id) && photoAsset.stockItemId === input.stockItemId
+          ? {
+              ...photoAsset,
+              stockItemId: null,
+              organizationStatus: "unassigned" as const,
+            }
+          : photoAsset
+      );
+      const nextSession = updateStudioSessionTimestamp({
+        ...session,
+        photoAssets,
+        stockItems: session.stockItems.map((entry) =>
+          entry.id === input.stockItemId
+            ? {
+                ...entry,
+                updatedAt: new Date().toISOString(),
+              }
+            : entry
+        ),
+      });
+      const sessions = currentStore.sessions.slice();
+      sessions[sessionIndex] = nextSession;
+
+      return { sessions };
+    });
+
+    const session = store.sessions.find((entry) => entry.id === input.sessionId);
+
+    if (!session) {
+      throw new Error(`Studio session not found after update: ${input.sessionId}`);
+    }
+
+    return session;
+  }
+
+  async setStockItemCoverPhoto(
+    input: SetStockItemCoverPhotoInput
+  ): Promise<StudioSessionDetail> {
+    const store = await mutateStudioSessionStore((currentStore) => {
+      const sessionIndex = findSessionIndex(currentStore, input.sessionId);
+
+      if (sessionIndex === -1) {
+        throw new Error(`Studio session not found: ${input.sessionId}`);
+      }
+
+      const session = currentStore.sessions[sessionIndex];
+      const stockItem = session.stockItems.find(
+        (entry) => entry.id === input.stockItemId
+      );
+
+      if (!stockItem) {
+        throw new Error(`Stock item not found: ${input.stockItemId}`);
+      }
+
+      if (!stockItem.photoAssetIds.includes(input.photoAssetId)) {
+        throw new Error("Cover photo must belong to the selected stock item.");
+      }
+
+      const nextSession = updateStudioSessionTimestamp({
+        ...session,
+        stockItems: session.stockItems.map((entry) =>
+          entry.id === input.stockItemId
+            ? {
+                ...entry,
+                coverPhotoAssetId: input.photoAssetId,
                 updatedAt: new Date().toISOString(),
               }
             : entry

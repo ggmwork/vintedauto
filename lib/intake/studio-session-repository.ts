@@ -41,6 +41,18 @@ export interface RenameStockItemInput {
   name: string;
 }
 
+export interface ReleasePhotoAssetsFromStockItemInput {
+  sessionId: string;
+  stockItemId: string;
+  photoAssetIds: string[];
+}
+
+export interface SetStockItemCoverPhotoInput {
+  sessionId: string;
+  stockItemId: string;
+  photoAssetId: string;
+}
+
 export interface AttachDraftToStockItemInput {
   sessionId: string;
   stockItemId: string;
@@ -58,6 +70,12 @@ export interface StudioSessionRepository {
   ): Promise<StudioSessionDetail>;
   removeStockItem(input: RemoveStockItemInput): Promise<StudioSessionDetail>;
   renameStockItem(input: RenameStockItemInput): Promise<StudioSessionDetail>;
+  releasePhotoAssetsFromStockItem(
+    input: ReleasePhotoAssetsFromStockItemInput
+  ): Promise<StudioSessionDetail>;
+  setStockItemCoverPhoto(
+    input: SetStockItemCoverPhotoInput
+  ): Promise<StudioSessionDetail>;
   attachDraftToStockItem(
     input: AttachDraftToStockItemInput
   ): Promise<StudioSessionDetail>;

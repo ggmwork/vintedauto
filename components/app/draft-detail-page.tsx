@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowLeftIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDownIcon,
@@ -316,14 +315,15 @@ export function DraftDetailPage({
               ) : null}
 
               <div className="flex flex-wrap items-center gap-3">
-                <Link
-                  href={queueContext ? queueContext.queueRootHref : "/drafts"}
-                  className={buttonVariants({ variant: "outline" })}
-                >
-                  <ArrowLeftIcon data-icon="inline-start" />
-                  {queueContext ? "Back to queue" : "Back to drafts"}
-                </Link>
                 <DraftStatusBadge status={draft.status} />
+                {!queueContext ? (
+                  <Link
+                    href="/drafts"
+                    className={buttonVariants({ variant: "outline" })}
+                  >
+                    Draft list
+                  </Link>
+                ) : null}
               </div>
 
               <div className="space-y-2">
@@ -331,9 +331,7 @@ export function DraftDetailPage({
                   {draft.title ?? "New draft"}
                 </h1>
                 <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Upload images first, then generate, review, and copy the final
-                  Vinted handoff. Keep the page focused on the next action, not
-                  on dashboard noise.
+                  Keep the next action obvious: upload, generate, review, then copy.
                 </p>
               </div>
             </section>

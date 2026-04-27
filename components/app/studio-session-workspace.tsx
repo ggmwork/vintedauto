@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowLeftIcon,
   BoxIcon,
   FolderInputIcon,
   ImagePlusIcon,
@@ -131,19 +130,7 @@ export function StudioSessionWorkspace({
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-              <Link href="/" className={buttonVariants({ variant: "outline" })}>
-                <ArrowLeftIcon data-icon="inline-start" />
-                Intake home
-              </Link>
-              <Link href="/stock" className={buttonVariants({ variant: "outline" })}>
-                Stock workspace
-              </Link>
-              <Link href="/review" className={buttonVariants({ variant: "outline" })}>
-                Review queue
-              </Link>
-              <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>
-                Drafts
-              </Link>
+              <Badge variant="outline">Internal session view</Badge>
               <SessionStatusBadge status={session.status} />
             </div>
 
@@ -152,8 +139,7 @@ export function StudioSessionWorkspace({
                 {session.name}
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                Select imported photos, group them into stock items, and then
-                generate drafts from those grouped items.
+                Secondary debug view for one import record. Main workflow now lives in Inbox, Stock, and Review.
               </p>
             </div>
           </div>
@@ -228,7 +214,11 @@ export function StudioSessionWorkspace({
               </div>
 
               <form
-                action={createStockItemFromSelectionAction.bind(null, session.id)}
+                action={createStockItemFromSelectionAction.bind(
+                  null,
+                  session.id,
+                  "session"
+                )}
                 className="grid gap-4 rounded-lg border border-border/70 bg-background px-4 py-4"
               >
                 <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
@@ -376,7 +366,8 @@ export function StudioSessionWorkspace({
                           action={renameStockItemAction.bind(
                             null,
                             session.id,
-                            stockItem.id
+                            stockItem.id,
+                            "session"
                           )}
                           className="flex flex-col gap-3 sm:flex-row"
                         >
@@ -435,7 +426,8 @@ export function StudioSessionWorkspace({
                             action={assignSelectedPhotoAssetsToStockItemAction.bind(
                               null,
                               session.id,
-                              stockItem.id
+                              stockItem.id,
+                              "session"
                             )}
                           >
                             <HiddenPhotoAssetInputs
@@ -466,7 +458,8 @@ export function StudioSessionWorkspace({
                           action={removeStockItemAction.bind(
                             null,
                             session.id,
-                            stockItem.id
+                            stockItem.id,
+                            "session"
                           )}
                         >
                           <PendingSubmitButton

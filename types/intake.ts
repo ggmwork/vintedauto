@@ -14,9 +14,10 @@ export interface StockItem {
 }
 
 export interface IntakeFolderConfig {
-  sourceType: "local-folder";
-  startMode: "manual";
+  sourceType: "local-folder" | "watched-folder";
+  startMode: "manual" | "automatic";
   folderLabel: string | null;
+  folderPath: string | null;
 }
 
 export interface PhotoAsset {
@@ -25,6 +26,7 @@ export interface PhotoAsset {
   storagePath: string;
   originalFilename: string;
   relativePath: string | null;
+  sourceFingerprint: string | null;
   sortOrder: number;
   contentType: string | null;
   sizeBytes: number | null;

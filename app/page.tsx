@@ -1,5 +1,8 @@
-import { IntakeHomePage } from "@/components/app/intake-home-page";
-import { studioSessionRepository } from "@/lib/intake";
+import { InboxPage } from "@/components/app/inbox-page";
+import { getInboxViewModel } from "@/lib/inbox/inbox-service";
+import { ensureInboxWatcherRunning } from "@/lib/watcher";
+
+export const dynamic = "force-dynamic";
 
 function pickSearchParam(
   value: string | string[] | undefined
@@ -16,12 +19,13 @@ export default async function Home({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const sessions = await studioSessionRepository.list();
+  const watcher = await ensureInboxWatcherRunning();
+  const inbox = await getInboxViewModel(watcher);
   const resolvedSearchParams = await searchParams;
 
   return (
-    <IntakeHomePage
-      sessions={sessions}
+    <InboxPage
+      inbox={inbox}
       feedback={{
         flash: pickSearchParam(resolvedSearchParams.flash) ?? null,
         error: pickSearchParam(resolvedSearchParams.error) ?? null,

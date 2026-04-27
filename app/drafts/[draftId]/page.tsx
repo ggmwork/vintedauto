@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { DraftDetailPage } from "@/components/app/draft-detail-page";
 import { draftRepository } from "@/lib/drafts";
 
+export const dynamic = "force-dynamic";
+
 function pickSearchParam(
   value: string | string[] | undefined
 ): string | undefined {
