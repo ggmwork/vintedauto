@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronDownIcon,
   ClipboardCopyIcon,
@@ -90,12 +91,15 @@ async function copyText(value: string) {
 export function DraftExportPanel({
   draft,
   readiness,
+  afterCopyHref,
 }: {
   draft: DraftDetail;
   readiness: DraftReadiness;
+  afterCopyHref?: string | null;
 }) {
   const [lastCopied, setLastCopied] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const router = useRouter();
   const handoffPayload = useMemo(() => createVintedHandoffPayload(draft), [draft]);
   const handoffText = useMemo(
     () => formatVintedHandoffText(handoffPayload),
@@ -164,6 +168,22 @@ export function DraftExportPanel({
     }
   }
 
+  async function handleCopyAndAdvance() {
+    const handoffItem = primaryItems.find((item) => item.key === "vinted-handoff");
+
+    if (!handoffItem || !afterCopyHref) {
+      return;
+    }
+
+    try {
+      await copyText(handoffItem.value);
+      setLastCopied(handoffItem.key);
+      router.push(afterCopyHref);
+    } catch {
+      setCopyError("Clipboard copy failed in this browser context.");
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="gap-4">
@@ -180,7 +200,17 @@ export function DraftExportPanel({
           </Badge>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {afterCopyHref ? (
+            <Button
+              type="button"
+              disabled={handoffText.trim().length === 0 || !readiness.ready}
+              onClick={handleCopyAndAdvance}
+            >
+              <ClipboardCopyIcon data-icon="inline-start" />
+              Copy and next
+            </Button>
+          ) : null}
           <Button
             type="button"
             disabled={handoffText.trim().length === 0}

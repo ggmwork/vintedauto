@@ -138,6 +138,9 @@ export function StudioSessionWorkspace({
               <Link href="/stock" className={buttonVariants({ variant: "outline" })}>
                 Stock workspace
               </Link>
+              <Link href="/review" className={buttonVariants({ variant: "outline" })}>
+                Review queue
+              </Link>
               <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>
                 Drafts
               </Link>

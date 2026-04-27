@@ -196,6 +196,9 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             <Link href="/stock" className={buttonVariants({ variant: "outline" })}>
               Stock workspace
             </Link>
+            <Link href="/review" className={buttonVariants({ variant: "outline" })}>
+              Review queue
+            </Link>
             <form action={createDraftAction}>
               <PendingSubmitButton
                 size="lg"

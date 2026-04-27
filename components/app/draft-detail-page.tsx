@@ -5,9 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ChevronDownIcon,
   HistoryIcon,
   ImageIcon,
+  ListChecksIcon,
   PackageCheckIcon,
   SparklesIcon,
   Trash2Icon,
@@ -18,7 +21,9 @@ import {
   generateDraftListingAction,
   removeDraftImageAction,
   restoreDraftGenerationAction,
+  saveDraftReviewAndAdvanceAction,
   saveDraftReviewAction,
+  setDraftStatusAndAdvanceAction,
   setDraftStatusAction,
   uploadDraftImagesAction,
 } from "@/app/actions";
@@ -37,6 +42,7 @@ import {
 } from "@/components/ui/card";
 import { getChangedFieldsFromGeneration } from "@/lib/drafts/draft-generation-diff";
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
+import type { ReviewQueueState } from "@/lib/drafts/review-queue";
 import type { DraftDetail } from "@/types/draft";
 import type { PriceSuggestion } from "@/types/pricing";
 
@@ -142,18 +148,44 @@ interface DraftDetailPageFeedback {
 
 type FocusSection = "upload" | "generate" | "review" | "export" | null;
 
+interface DraftQueueContext {
+  state: ReviewQueueState;
+  position: number;
+  total: number;
+  counts: Record<ReviewQueueState, number>;
+  previousHref: string | null;
+  nextHref: string | null;
+  nextDraftId: string | null;
+  queueRootHref: string;
+  stateLinks: Array<{
+    state: ReviewQueueState;
+    label: string;
+    href: string;
+  }>;
+}
+
 export function DraftDetailPage({
   draft,
   feedback,
   focusSection,
+  queueContext,
 }: {
   draft: DraftDetail;
   feedback: DraftDetailPageFeedback;
   focusSection: string | null;
+  queueContext?: DraftQueueContext;
 }) {
   const uploadAction = uploadDraftImagesAction.bind(null, draft.id);
   const generateAction = generateDraftListingAction.bind(null, draft.id);
   const saveReviewAction = saveDraftReviewAction.bind(null, draft.id);
+  const saveReviewAndNextAction = queueContext
+    ? saveDraftReviewAndAdvanceAction.bind(
+        null,
+        draft.id,
+        queueContext.state,
+        queueContext.nextDraftId
+      )
+    : null;
   const readiness = getDraftReadiness(draft);
   const changedFields = getChangedFieldsFromGeneration(draft, draft.generation);
   const hasReviewContent =
@@ -161,6 +193,15 @@ export function DraftDetailPage({
     draft.description !== null ||
     draft.keywords.length > 0 ||
     draft.priceSuggestion !== null;
+  const markReadyAndNextAction = queueContext
+    ? setDraftStatusAndAdvanceAction.bind(
+        null,
+        draft.id,
+        "ready",
+        queueContext.state,
+        queueContext.nextDraftId
+      )
+    : null;
   const uploadRef = useRef<HTMLElement>(null);
   const generateRef = useRef<HTMLElement>(null);
   const reviewRef = useRef<HTMLElement>(null);
@@ -208,10 +249,79 @@ export function DraftDetailPage({
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-6">
             <section className="space-y-3">
+              {queueContext ? (
+                <div className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="secondary">
+                          <ListChecksIcon data-icon="inline-start" />
+                          Review queue
+                        </Badge>
+                        <Badge variant="outline">
+                          {queueContext.position} of {queueContext.total}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Stay in one queue and move draft by draft without going back to the grid.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <Link
+                        href={queueContext.queueRootHref}
+                        className={buttonVariants({ variant: "outline" })}
+                      >
+                        Queue home
+                      </Link>
+                      {queueContext.previousHref ? (
+                        <Link
+                          href={queueContext.previousHref}
+                          className={buttonVariants({ variant: "outline" })}
+                        >
+                          <ChevronLeftIcon data-icon="inline-start" />
+                          Previous
+                        </Link>
+                      ) : null}
+                      {queueContext.nextHref ? (
+                        <Link
+                          href={queueContext.nextHref}
+                          className={buttonVariants({ variant: "outline" })}
+                        >
+                          Next
+                          <ChevronRightIcon data-icon="inline-end" />
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {queueContext.stateLinks.map((stateLink) => (
+                      <Link
+                        key={stateLink.state}
+                        href={stateLink.href}
+                        className={buttonVariants({
+                          variant:
+                            stateLink.state === queueContext.state
+                              ? "default"
+                              : "outline",
+                          size: "sm",
+                        })}
+                      >
+                        {stateLink.label} ({queueContext.counts[stateLink.state]})
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap items-center gap-3">
-                <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>
+                <Link
+                  href={queueContext ? queueContext.queueRootHref : "/drafts"}
+                  className={buttonVariants({ variant: "outline" })}
+                >
                   <ArrowLeftIcon data-icon="inline-start" />
-                  Back to drafts
+                  {queueContext ? "Back to queue" : "Back to drafts"}
                 </Link>
                 <DraftStatusBadge status={draft.status} />
               </div>
@@ -669,7 +779,17 @@ export function DraftDetailPage({
                         </div>
                       </div>
 
-                      <div className="flex justify-end">
+                      <div className="flex flex-wrap justify-end gap-3">
+                        {saveReviewAndNextAction ? (
+                          <PendingSubmitButton
+                            type="submit"
+                            formAction={saveReviewAndNextAction}
+                            variant="outline"
+                            pendingLabel="Saving and moving"
+                          >
+                            Save and next
+                          </PendingSubmitButton>
+                        ) : null}
                         <PendingSubmitButton
                           type="submit"
                           pendingLabel="Saving fields"
@@ -705,7 +825,11 @@ export function DraftDetailPage({
                   </p>
                 </div>
 
-                <DraftExportPanel draft={draft} readiness={readiness} />
+                <DraftExportPanel
+                  draft={draft}
+                  readiness={readiness}
+                  afterCopyHref={queueContext?.nextHref ?? null}
+                />
               </section>
             ) : null}
 
@@ -918,6 +1042,19 @@ export function DraftDetailPage({
                     );
                   })}
                 </div>
+
+                {markReadyAndNextAction && draft.status === "draft" ? (
+                  <form action={markReadyAndNextAction}>
+                    <PendingSubmitButton
+                      type="submit"
+                      className="w-full"
+                      disabled={!readiness.ready}
+                      pendingLabel="Marking ready"
+                    >
+                      Mark ready and next
+                    </PendingSubmitButton>
+                  </form>
+                ) : null}
 
                 <details className="rounded-lg border border-border bg-background">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-foreground">

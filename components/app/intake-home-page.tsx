@@ -71,6 +71,9 @@ export function IntakeHomePage({
             <Link href="/stock" className={buttonVariants({ variant: "outline" })}>
               Open stock workspace
             </Link>
+            <Link href="/review" className={buttonVariants({ variant: "outline" })}>
+              Open review queue
+            </Link>
             <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>
               Open draft workspace
             </Link>

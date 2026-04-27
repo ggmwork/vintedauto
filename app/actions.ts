@@ -8,6 +8,10 @@ import { redirect } from "next/navigation";
 import { getListingGenerationService } from "@/lib/ai";
 import { draftRepository } from "@/lib/drafts";
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
+import {
+  buildReviewQueueUrl,
+  type ReviewQueueState,
+} from "@/lib/drafts/review-queue";
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
 import { draftImageStorage } from "@/lib/storage";
 import type { DraftDetail, DraftImage, DraftStatus } from "@/types/draft";
@@ -153,6 +157,29 @@ function redirectToDraft(
   revalidatePath("/drafts");
   revalidatePath(`/drafts/${draftId}`);
   redirect(buildRedirectUrl(draftId, query));
+}
+
+function redirectToReviewQueue(
+  state: ReviewQueueState,
+  draftId: string | null,
+  query?: Record<string, string | null | undefined>
+): never {
+  revalidatePath("/drafts");
+  revalidatePath("/review");
+
+  if (draftId) {
+    revalidatePath(`/drafts/${draftId}`);
+  }
+
+  redirect(
+    buildReviewQueueUrl({
+      state,
+      draftId,
+      flash: query?.flash ?? null,
+      error: query?.error ?? null,
+      focus: query?.focus ?? null,
+    })
+  );
 }
 
 function buildStockRedirectUrl(query?: Record<string, string | null | undefined>) {
@@ -813,10 +840,7 @@ export async function generateDraftListingAction(draftId: string) {
   }
 }
 
-export async function saveDraftReviewAction(
-  draftId: string,
-  formData: FormData
-) {
+async function saveDraftReviewInternal(draftId: string, formData: FormData) {
   const draft = await draftRepository.getById(draftId);
 
   if (!draft) {
@@ -864,12 +888,47 @@ export async function saveDraftReviewAction(
     generation: draft.generation,
   });
 
+  return {
+    previousStatus: draft.status,
+    nextStatus,
+  };
+}
+
+export async function saveDraftReviewAction(
+  draftId: string,
+  formData: FormData
+) {
+  const result = await saveDraftReviewInternal(draftId, formData);
+
   redirectToDraft(draftId, {
     flash:
-      nextStatus === draft.status
+      result.nextStatus === result.previousStatus
         ? "Saved listing fields."
         : "Saved listing fields and moved the draft back to draft because required Vinted fields are now missing.",
     focus: "export",
+  });
+}
+
+export async function saveDraftReviewAndAdvanceAction(
+  draftId: string,
+  state: ReviewQueueState,
+  nextDraftId: string | null,
+  formData: FormData
+) {
+  const result = await saveDraftReviewInternal(draftId, formData);
+
+  if (!nextDraftId) {
+    redirectToReviewQueue(state, draftId, {
+      flash:
+        result.nextStatus === result.previousStatus
+          ? "Saved listing fields. End of queue."
+          : "Saved listing fields and moved the draft back to draft because required Vinted fields are now missing. End of queue.",
+      focus: "export",
+    });
+  }
+
+  redirectToReviewQueue(state, nextDraftId, {
+    flash: "Saved listing fields and moved to the next draft.",
   });
 }
 
@@ -904,10 +963,7 @@ export async function saveDraftMetadataAction(
   });
 }
 
-export async function setDraftStatusAction(
-  draftId: string,
-  nextStatus: DraftStatus
-) {
+async function setDraftStatusInternal(draftId: string, nextStatus: DraftStatus) {
   const draft = await draftRepository.getById(draftId);
 
   if (!draft) {
@@ -917,17 +973,61 @@ export async function setDraftStatusAction(
   const transition = canTransitionToStatus(draft, nextStatus);
 
   if (!transition.allowed) {
-    redirectToDraft(draftId, {
-      error: transition.message,
-    });
+    return {
+      allowed: false,
+      message: transition.message,
+    } as const;
   }
 
   await draftRepository.update(draftId, {
     status: nextStatus,
   });
 
+  return {
+    allowed: true,
+    message: transition.message,
+  } as const;
+}
+
+export async function setDraftStatusAction(
+  draftId: string,
+  nextStatus: DraftStatus
+) {
+  const transition = await setDraftStatusInternal(draftId, nextStatus);
+
+  if (!transition.allowed) {
+    redirectToDraft(draftId, {
+      error: transition.message,
+    });
+  }
+
   redirectToDraft(draftId, {
     flash: transition.message,
+  });
+}
+
+export async function setDraftStatusAndAdvanceAction(
+  draftId: string,
+  nextStatus: DraftStatus,
+  state: ReviewQueueState,
+  nextDraftId: string | null
+) {
+  const transition = await setDraftStatusInternal(draftId, nextStatus);
+
+  if (!transition.allowed) {
+    redirectToReviewQueue(state, draftId, {
+      error: transition.message,
+    });
+  }
+
+  if (!nextDraftId) {
+    redirectToReviewQueue(state, null, {
+      flash: `${transition.message} Returned to the review queue.`,
+    });
+  }
+
+  redirectToReviewQueue(state, nextDraftId, {
+    flash: `${transition.message} Moved to the next draft.`,
   });
 }
 

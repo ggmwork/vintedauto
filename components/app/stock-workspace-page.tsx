@@ -75,6 +75,9 @@ export function StockWorkspacePage({
             <Link href="/" className={buttonVariants({ variant: "outline" })}>
               Intake home
             </Link>
+            <Link href="/review" className={buttonVariants({ variant: "outline" })}>
+              Review queue
+            </Link>
             <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>
               Drafts
             </Link>
