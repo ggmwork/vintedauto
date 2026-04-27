@@ -10,7 +10,7 @@ The goal is not to re-prove the single-draft workflow.
 
 The goal is to evolve the app into a batch-oriented seller workstation.
 
-## Phase A - Batch intake foundation
+## Phase A - Intake folder foundation
 
 Goal:
 
@@ -19,16 +19,36 @@ Create a product entry point that matches the real seller workflow.
 Tasks:
 
 - add `studio session` model
+- add chosen intake folder flow
 - add batch import entry flow
-- support import from local folder or multi-file selection
+- support import from local folder first
 - attach all imported photos to a session
 - show session-level counts and progress
+- allow explicit `Start import` trigger
 
 Deliverable:
 
-User can start with one photo batch instead of one draft.
+User can drop photos into a folder and start one intake session instead of one draft.
 
-## Phase B - Group photos into items
+## Phase B - Stock item model and stock workspace
+
+Goal:
+
+Create an operational layer between raw photos and listing drafts.
+
+Tasks:
+
+- add `photo asset` model
+- add `stock item` model
+- create stock workspace page
+- show imported photos grouped under stock-item candidates
+- show stock status across the session
+
+Deliverable:
+
+User can see and manage stock records, not only listing drafts.
+
+## Phase C - Group photos into items
 
 Goal:
 
@@ -36,9 +56,8 @@ Reduce manual organization work.
 
 Tasks:
 
-- create draft candidates from imported photos
 - support manual grouping corrections
-- support moving photos between draft groups
+- support moving photos between stock-item groups
 - support selecting cover image per group
 - keep group status visible
 
@@ -48,9 +67,9 @@ Stretch goal:
 
 Deliverable:
 
-User can turn a mixed photo batch into item drafts much faster than manual folder work.
+User can turn a mixed photo batch into stock items and listing drafts much faster than manual folder work.
 
-## Phase C - Batch generation
+## Phase D - Batch generation
 
 Goal:
 
@@ -68,7 +87,7 @@ Deliverable:
 
 A whole session can move from grouped photos to generated drafts in one pipeline.
 
-## Phase D - Review queue
+## Phase E - Review queue
 
 Goal:
 
@@ -88,7 +107,7 @@ Deliverable:
 
 User can process many drafts quickly without bouncing around the app.
 
-## Phase E - Seller presets
+## Phase F - Seller presets
 
 Goal:
 
@@ -106,7 +125,7 @@ Deliverable:
 
 Generation quality becomes more consistent and less dependent on ad hoc prompting.
 
-## Phase F - Stronger Vinted handoff
+## Phase G - Stronger Vinted handoff
 
 Goal:
 
@@ -123,7 +142,7 @@ Deliverable:
 
 Publishing becomes materially faster while staying within the current safety boundary.
 
-## Phase G - Real persistence and deployment
+## Phase H - Real persistence and deployment
 
 Goal:
 
@@ -145,13 +164,14 @@ App becomes reusable beyond one local machine and easier to evolve.
 
 Recommended order:
 
-1. batch intake foundation
-2. grouping workflow
-3. batch generation
-4. review queue
-5. seller presets
-6. persistence/deploy
-7. stronger Vinted handoff
+1. intake folder foundation
+2. stock item model and stock workspace
+3. grouping workflow
+4. batch generation
+5. review queue
+6. seller presets
+7. persistence/deploy
+8. stronger Vinted handoff
 
 ## Why this order
 
@@ -159,6 +179,7 @@ This order attacks the actual time sinks first:
 
 - import friction
 - photo organization
+- stock organization
 - repeated prompting
 - repeated review
 

@@ -93,14 +93,40 @@ This is the correct direction because the user's real pain is not just text gene
 Target workflow:
 
 1. take item photos
-2. import a whole photo batch into the app
-3. app creates a studio session
-4. app groups photos into draft candidates
+2. drop them into an intake folder
+3. app imports that folder into a studio session
+4. app organizes the photos into stock-item candidates
 5. user corrects grouping fast if needed
-6. app generates listings in batch
+6. stock items generate listing drafts in batch
 7. user reviews drafts in a queue
 8. user copies or autofills into Vinted web
 9. user tracks which items are ready, listed, or sold
+
+## Intake automation direction
+
+There are three practical levels:
+
+### Level 1 - Folder import with explicit start
+
+- user drops photos into a chosen folder
+- user clicks `Import folder` or `Start session`
+- app begins intake and organization
+
+This is the recommended first step.
+
+### Level 2 - Watched folder while app is open
+
+- app monitors the chosen folder while the app is open
+- new images trigger `Import now` or auto-import behavior
+
+This is a strong second step.
+
+### Level 3 - Full background watcher
+
+- a local helper watches the folder even when the UI is closed
+- app receives batches automatically
+
+This is powerful, but it adds more desktop-runtime complexity and should come later.
 
 ## Product principle from this analysis
 
@@ -108,8 +134,9 @@ The next version should optimize for:
 
 - batch intake first
 - organization speed second
-- generation quality third
-- Vinted handoff speed fourth
+- stock organization third
+- generation quality fourth
+- Vinted handoff speed fifth
 
 Not the other way around.
 
@@ -130,4 +157,4 @@ The app has proven the core listing loop.
 
 The next problem to solve is:
 
-`How do we turn a studio photo batch into organized, reviewable, Vinted-ready drafts with much less manual sorting and prompting?`
+`How do we turn an intake folder of studio photos into organized stock items and reviewable Vinted-ready drafts with much less manual sorting and prompting?`

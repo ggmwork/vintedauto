@@ -54,6 +54,9 @@ Keep the app split into two surfaces:
 The main application should own:
 
 - studio sessions
+- intake folder configuration
+- photo assets
+- stock items
 - draft records
 - uploaded images
 - grouping workflow
@@ -86,6 +89,32 @@ AI provider layer
   -> Ollama
   -> OpenAI
 
+Optional near-term:
+
+Desktop User
+  ->
+Chosen intake folder
+  ->
+Import trigger in app
+  ->
+Studio session
+  ->
+Photo assets
+  ->
+Stock items
+  ->
+Listing drafts
+
+Optional later:
+
+Chosen intake folder
+  ->
+Watched-folder helper while app is open
+  ->
+Auto import / import prompt
+  ->
+Studio session pipeline
+
 Optional later:
 
 Desktop User on Vinted Web
@@ -111,11 +140,46 @@ Suggested fields:
 - created_at
 - updated_at
 
+### photo_assets
+
+Suggested fields:
+
+- id
+- session_id
+- storage_path
+- original_filename
+- import_batch_id
+- imported_at
+- sort_hint
+- group_status
+- width
+- height
+- created_at
+
+### stock_items
+
+Suggested fields:
+
+- id
+- session_id
+- status
+- title_hint
+- cover_photo_asset_id
+- grouping_confidence
+- condition
+- brand
+- category
+- storage_location
+- notes
+- created_at
+- updated_at
+
 ### drafts
 
 Suggested fields:
 
 - id
+- stock_item_id
 - status
 - title
 - description
@@ -181,7 +245,9 @@ app/
 components/
 lib/
   ai/
+  intake/
   pricing/
+  stock/
   drafts/
   storage/
 types/
@@ -229,4 +295,6 @@ The right first architecture is:
 - Supabase for persistence and storage
 - provider abstraction for listing generation
 - Ollama-first locally, OpenAI-ready later
+- data spine of `session -> photo asset -> stock item -> draft`
+- import-folder flow first, watched-folder flow later
 - optional Chrome extension after core app is useful on its own

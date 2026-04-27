@@ -23,12 +23,20 @@ The stronger product framing is:
 
 The app should help a seller move from a pile of fresh product photos to a queue of reviewable Vinted-ready drafts with minimal manual organization.
 
+The shortest good path is:
+
+- photos go into an intake folder
+- app imports and organizes them
+- stock items become the operational records
+- listing drafts become an output layer from those stock items
+
 ## Product job to be done
 
 When a seller finishes a photo session, they should be able to:
 
-- import the entire batch quickly
-- let the app create draft candidates
+- drop the entire batch into one folder
+- trigger import once, or let the app detect it while open
+- let the app create stock-item candidates
 - review grouped items fast
 - generate listings in bulk
 - move through a review queue
@@ -47,7 +55,29 @@ Suggested purpose:
 - show session progress
 - hold batch generation state
 
-### 2. Draft queue
+### 2. Intake folder / import surface
+
+This is the front door for the real workflow.
+
+Suggested purpose:
+
+- connect a chosen desktop folder to the app
+- import a whole batch at once
+- later support watched-folder behavior
+
+### 3. Stock workspace
+
+This becomes the main operational page after import.
+
+Suggested purpose:
+
+- show stock-item candidates
+- show missing grouping
+- show items missing metadata
+- show items ready to generate
+- show items already drafted, listed, or sold
+
+### 4. Draft queue
 
 The queue becomes the operational surface for repeated work.
 
@@ -60,7 +90,7 @@ Suggested statuses:
 - `listed`
 - `sold`
 
-### 3. Seller presets
+### 5. Seller presets
 
 Presets replace repeated prompt work.
 
@@ -73,7 +103,7 @@ Suggested preset controls:
 - keyword style
 - default category-specific instructions
 
-### 4. Export / handoff surface
+### 6. Export / handoff surface
 
 For now:
 
@@ -101,13 +131,17 @@ The user's repeated prompt logic should become product configuration.
 
 Auto-grouping and batch generation are high-value and lower-risk than aggressive publishing automation.
 
+### Stock before draft sprawl
+
+The long-lived operational record should be the stock item. Drafts should be generated from stock items, not be the only organizing layer.
+
 ## Recommended UX shape
 
 Top workflow should become:
 
-1. `New session`
-2. `Import photos`
-3. `Group items`
+1. `Choose intake folder`
+2. `Start import session`
+3. `Organize stock items`
 4. `Generate drafts`
 5. `Review queue`
 6. `Copy to Vinted`
@@ -129,4 +163,4 @@ Keep out:
 
 A good next version should make the user say:
 
-`I can finish the photo session, drop everything into the app, and get through listings much faster without manually reorganizing the whole batch.`
+`I can finish the photo session, drop everything into the intake folder, let the app organize the stock, and get through listings much faster without manually reorganizing the whole batch.`

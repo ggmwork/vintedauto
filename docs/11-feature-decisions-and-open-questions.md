@@ -65,7 +65,22 @@ Risk:
 
 - low to medium
 
-### Candidate 3 - Grouping UI
+### Candidate 3 - Stock workspace
+
+Value:
+
+- very high
+
+Why:
+
+- gives the app a real operational layer
+- makes later automation and organization much cleaner
+
+Risk:
+
+- medium
+
+### Candidate 4 - Grouping UI
 
 Value:
 
@@ -79,7 +94,7 @@ Risk:
 
 - medium
 
-### Candidate 4 - Batch generation queue
+### Candidate 5 - Batch generation queue
 
 Value:
 
@@ -93,7 +108,7 @@ Risk:
 
 - medium
 
-### Candidate 5 - Seller presets
+### Candidate 6 - Seller presets
 
 Value:
 
@@ -107,7 +122,7 @@ Risk:
 
 - low
 
-### Candidate 6 - Review queue
+### Candidate 7 - Review queue
 
 Value:
 
@@ -121,7 +136,22 @@ Risk:
 
 - low to medium
 
-### Candidate 7 - Google Drive integration
+### Candidate 8 - Watched folder while app is open
+
+Value:
+
+- high
+
+Why:
+
+- gets closer to automatic intake without full desktop-helper complexity
+
+Reason not first:
+
+- import-folder with explicit start is simpler
+- still need stock and grouping workflow first
+
+### Candidate 9 - Google Drive integration
 
 Value:
 
@@ -137,7 +167,7 @@ Reason not first:
 - likely slower to ship than local folder import
 - user may already have local Drive sync
 
-### Candidate 8 - Vinted browser autofill
+### Candidate 10 - Vinted browser autofill
 
 Value:
 
@@ -156,10 +186,11 @@ Reason not first:
 If choosing the next feature set now, build in this order:
 
 1. studio sessions
-2. batch import from local folder or large multi-select
-3. grouping workflow
-4. batch generation queue
-5. review queue
+2. batch import from local folder
+3. stock workspace
+4. grouping workflow
+5. batch generation queue
+6. review queue
 
 ## Important open questions
 
@@ -177,7 +208,20 @@ Recommendation:
 
 - local folder import first
 
-### 2. Grouping strategy
+### 2. Import start mode
+
+Should import start as:
+
+- explicit `Start import` button
+- watched folder while app is open
+- or full background watcher
+
+Recommendation:
+
+- explicit start first
+- watched folder second
+
+### 3. Grouping strategy
 
 Should grouping start as:
 
@@ -189,7 +233,19 @@ Recommendation:
 
 - assisted manual first
 
-### 3. AI provider strategy
+### 4. Stock model boundary
+
+Should stock items exist as:
+
+- a lightweight grouping layer only
+- or a full inventory/stock record from day one
+
+Recommendation:
+
+- real stock item model from day one
+- keep it simple, but make it the durable organizing layer
+
+### 5. AI provider strategy
 
 Should batch generation use:
 
@@ -203,7 +259,7 @@ Recommendation:
 - use Ollama-first locally
 - keep OpenAI ready as next provider
 
-### 4. Publish target
+### 6. Publish target
 
 Next handoff step should be:
 
