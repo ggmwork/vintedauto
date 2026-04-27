@@ -11,6 +11,7 @@ Documents:
 - [03-mvp-spec.md](./03-mvp-spec.md) - agreed MVP scope for the first usable version
 - [04-stack-and-architecture.md](./04-stack-and-architecture.md) - recommended stack, architecture, and implementation boundaries
 - [05-roadmap.md](./05-roadmap.md) - phased execution plan from scaffold to launchable MVP
+- [06-implementation-plan.md](./06-implementation-plan.md) - detailed execution plan for the first working vertical slice
 
 Current product decision:
 
