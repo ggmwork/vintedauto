@@ -18,6 +18,8 @@ export interface DraftImage {
   storagePath: string;
   originalFilename: string;
   sortOrder: number;
+  contentType: string | null;
+  sizeBytes: number | null;
   width: number | null;
   height: number | null;
 }

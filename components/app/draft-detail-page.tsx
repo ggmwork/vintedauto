@@ -1,9 +1,20 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeftIcon, ImageIcon, SparklesIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ImageIcon,
+  SparklesIcon,
+  Trash2Icon,
+  UploadIcon,
+} from "lucide-react";
 
+import {
+  removeDraftImageAction,
+  uploadDraftImagesAction,
+} from "@/app/actions";
 import { DraftStatusBadge } from "@/components/app/draft-status-badge";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -26,7 +37,33 @@ function renderValue(value: string | null) {
   return value ?? "Not set yet";
 }
 
+function formatFileSize(value: number | null) {
+  if (value === null || value <= 0) {
+    return "Unknown size";
+  }
+
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDimensions(width: number | null, height: number | null) {
+  if (!width || !height) {
+    return "Dimensions pending";
+  }
+
+  return `${width} x ${height}`;
+}
+
 export function DraftDetailPage({ draft }: { draft: DraftDetail }) {
+  const uploadAction = uploadDraftImagesAction.bind(null, draft.id);
+
   return (
     <main className="flex-1 bg-muted/30">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10 lg:px-8">
@@ -45,8 +82,9 @@ export function DraftDetailPage({ draft }: { draft: DraftDetail }) {
                 {draft.title ?? "Untitled draft"}
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-                Local draft created and reopenable. Next phases attach images,
-                AI generation, and editable listing review.
+                Local draft persists, accepts desktop images, and stays
+                reopenable. Next phases add AI generation and editable listing
+                review.
               </p>
             </div>
 
@@ -59,7 +97,7 @@ export function DraftDetailPage({ draft }: { draft: DraftDetail }) {
             <CardHeader>
               <CardTitle>Draft identity</CardTitle>
               <CardDescription>
-                Stable record that later image and generation flows attach to.
+                Stable record that image and generation flows attach to.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -83,16 +121,14 @@ export function DraftDetailPage({ draft }: { draft: DraftDetail }) {
           <Card>
             <CardHeader>
               <CardTitle>Image state</CardTitle>
-              <CardDescription>
-                Phase 2 will attach multi-image upload here.
-              </CardDescription>
+              <CardDescription>Desktop upload flow is active now.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-4 text-sm text-muted-foreground">
                 <ImageIcon className="size-4" />
                 {draft.imageCount === 0
                   ? "No images attached yet."
-                  : `${draft.imageCount} image${draft.imageCount === 1 ? "" : "s"} attached.`}
+                  : `${draft.imageCount} image${draft.imageCount === 1 ? "" : "s"} stored and reopenable.`}
               </div>
             </CardContent>
           </Card>
@@ -171,7 +207,8 @@ export function DraftDetailPage({ draft }: { draft: DraftDetail }) {
                 <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
                   <h3 className="font-medium">Phase 2: image upload</h3>
                   <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    Attach multi-image upload and preview directly to this draft.
+                    Done. This draft now accepts desktop image uploads and keeps
+                    them attached across reloads.
                   </p>
                 </div>
 
@@ -206,7 +243,8 @@ export function DraftDetailPage({ draft }: { draft: DraftDetail }) {
                 Images attached
               </h2>
               <p className="text-sm text-muted-foreground">
-                Empty for now, but the route is ready for image cards next.
+                Upload desktop images, review previews, and remove anything you
+                do not want in the draft.
               </p>
             </div>
             <Badge variant="outline">{draft.imageCount} images</Badge>
@@ -215,13 +253,107 @@ export function DraftDetailPage({ draft }: { draft: DraftDetail }) {
           <Separator />
 
           <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
-                <ImageIcon className="size-4" />
-                No image assets stored yet for this draft.
-              </div>
+            <CardHeader>
+              <CardTitle>Upload images</CardTitle>
+              <CardDescription>
+                Add multiple desktop images now. They attach to this draft in
+                selected order.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form action={uploadAction} className="flex flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm">
+                  <span className="font-medium text-foreground">
+                    Choose images
+                  </span>
+                  <input
+                    className="block w-full cursor-pointer rounded-lg border border-border bg-background px-3 py-3 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-muted/80"
+                    type="file"
+                    name="images"
+                    accept="image/*"
+                    multiple
+                  />
+                </label>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    JPG, PNG, WEBP, GIF, and HEIC are accepted if the browser
+                    exposes them as image files.
+                  </p>
+                  <Button type="submit">
+                    <UploadIcon data-icon="inline-start" />
+                    Upload images
+                  </Button>
+                </div>
+              </form>
             </CardContent>
           </Card>
+
+          {draft.images.length === 0 ? (
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
+                  <ImageIcon className="size-4" />
+                  No image assets stored yet for this draft.
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {draft.images.map((image) => {
+                const removeAction = removeDraftImageAction.bind(
+                  null,
+                  draft.id,
+                  image.id
+                );
+
+                return (
+                  <Card key={image.id}>
+                    <div className="relative aspect-square overflow-hidden bg-muted">
+                      <Image
+                        src={`/api/drafts/${draft.id}/images/${image.id}`}
+                        alt={image.originalFilename}
+                        fill
+                        sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                    <CardContent className="flex flex-col gap-3 pt-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="truncate font-medium">
+                          {image.originalFilename}
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          Position {image.sortOrder + 1}
+                        </span>
+                      </div>
+                      <dl className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex flex-col gap-1">
+                          <dt className="text-muted-foreground">Size</dt>
+                          <dd>{formatFileSize(image.sizeBytes)}</dd>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <dt className="text-muted-foreground">Dimensions</dt>
+                          <dd>{formatDimensions(image.width, image.height)}</dd>
+                        </div>
+                      </dl>
+                    </CardContent>
+                    <CardFooter className="justify-between gap-3">
+                      <span className="truncate text-xs text-muted-foreground">
+                        {image.id}
+                      </span>
+                      <form action={removeAction}>
+                        <Button type="submit" variant="outline">
+                          <Trash2Icon data-icon="inline-start" />
+                          Remove
+                        </Button>
+                      </form>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </section>
       </div>
     </main>

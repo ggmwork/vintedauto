@@ -30,15 +30,15 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10 lg:px-8">
         <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex max-w-3xl flex-col gap-3">
-            <Badge variant="secondary">Phase 1: Draft workflow</Badge>
+            <Badge variant="secondary">Phase 2: Image workflow</Badge>
             <div className="flex flex-col gap-3">
               <h1 className="font-heading text-4xl leading-tight font-semibold text-balance">
-                Draft workspace ready for real listing flows.
+                Draft workspace now accepts real item images.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-                Create draft records now, then attach images, AI generation, and
-                review workflows on top. This is the first persistent product
-                loop.
+                Create drafts, attach desktop images, and keep everything
+                persistent. Next step is AI generation on top of the saved draft
+                and image set.
               </p>
             </div>
           </div>
@@ -71,13 +71,16 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             <CardHeader>
               <CardTitle>What works now</CardTitle>
               <CardDescription>
-                Draft creation, persistence, route navigation, and reopen flow.
+                Draft creation, image persistence, route navigation, and reopen
+                flow.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ul className="flex flex-col gap-2 text-sm text-muted-foreground">
                 <li>Create draft</li>
                 <li>Persist to local store</li>
+                <li>Upload multiple images</li>
+                <li>Remove stored images</li>
                 <li>Open detail route</li>
                 <li>Reload saved drafts</li>
               </ul>
@@ -88,13 +91,13 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             <CardHeader>
               <CardTitle>Next build step</CardTitle>
               <CardDescription>
-                Add multi-image upload to each draft before AI generation.
+                Generate listing text and pricing from each saved draft.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm leading-6 text-muted-foreground">
-                Draft IDs, metadata fields, and route structure are now stable
-                enough to attach upload and storage flows.
+                Draft IDs, metadata fields, route structure, and image storage
+                are now stable enough to attach the AI generation flow.
               </p>
             </CardContent>
           </Card>
@@ -119,8 +122,8 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
               <CardHeader>
                 <CardTitle>No drafts yet</CardTitle>
                 <CardDescription>
-                  Create the first draft, then Phase 2 will attach image upload
-                  and review state to it.
+                  Create the first draft, then add images before moving into AI
+                  generation.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -189,8 +192,8 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
         </section>
 
         <footer className="text-xs text-muted-foreground">
-          {appConfig.name} Phase 1 foundation. Draft repository is local for
-          now and will be swappable later.
+          {appConfig.name} Phase 2 foundation. Draft and image storage are
+          local for now and will be swappable later.
         </footer>
       </div>
     </main>
