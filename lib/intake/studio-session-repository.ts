@@ -1,6 +1,7 @@
 import type {
   IntakeFolderConfig,
   PhotoAsset,
+  StockItem,
   StudioSession,
   StudioSessionDetail,
   StudioSessionStatus,
@@ -17,9 +18,47 @@ export interface SavePhotoAssetsInput {
   photoAssets: PhotoAsset[];
 }
 
+export interface CreateStockItemInput {
+  sessionId: string;
+  name?: string | null;
+  photoAssetIds: string[];
+}
+
+export interface AssignPhotoAssetsToStockItemInput {
+  sessionId: string;
+  stockItemId: string;
+  photoAssetIds: string[];
+}
+
+export interface RemoveStockItemInput {
+  sessionId: string;
+  stockItemId: string;
+}
+
+export interface RenameStockItemInput {
+  sessionId: string;
+  stockItemId: string;
+  name: string;
+}
+
+export interface AttachDraftToStockItemInput {
+  sessionId: string;
+  stockItemId: string;
+  draftId: string;
+}
+
 export interface StudioSessionRepository {
   list(): Promise<StudioSession[]>;
   getById(id: string): Promise<StudioSessionDetail | null>;
   create(input: CreateStudioSessionInput): Promise<StudioSessionDetail>;
   attachPhotoAssets(input: SavePhotoAssetsInput): Promise<StudioSessionDetail>;
+  createStockItem(input: CreateStockItemInput): Promise<StockItem>;
+  assignPhotoAssetsToStockItem(
+    input: AssignPhotoAssetsToStockItemInput
+  ): Promise<StudioSessionDetail>;
+  removeStockItem(input: RemoveStockItemInput): Promise<StudioSessionDetail>;
+  renameStockItem(input: RenameStockItemInput): Promise<StudioSessionDetail>;
+  attachDraftToStockItem(
+    input: AttachDraftToStockItemInput
+  ): Promise<StudioSessionDetail>;
 }

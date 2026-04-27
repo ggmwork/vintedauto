@@ -193,6 +193,9 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             <Link href="/" className={buttonVariants({ variant: "outline" })}>
               Intake home
             </Link>
+            <Link href="/stock" className={buttonVariants({ variant: "outline" })}>
+              Stock workspace
+            </Link>
             <form action={createDraftAction}>
               <PendingSubmitButton
                 size="lg"

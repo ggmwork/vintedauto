@@ -11,7 +11,7 @@ import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
 import { draftImageStorage } from "@/lib/storage";
 import type { DraftDetail, DraftImage, DraftStatus } from "@/types/draft";
-import type { PhotoAsset } from "@/types/intake";
+import type { PhotoAsset, StockItem, StudioSessionDetail } from "@/types/intake";
 import type { PriceConfidence, PriceSuggestion } from "@/types/pricing";
 
 export async function createDraftAction() {
@@ -54,6 +54,13 @@ function parseKeywords(value: FormDataEntryValue | null) {
   return value
     .split(/[\n,]/)
     .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function parseStringArray(values: FormDataEntryValue[]) {
+  return values
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
     .filter(Boolean);
 }
 
@@ -148,6 +155,27 @@ function redirectToDraft(
   redirect(buildRedirectUrl(draftId, query));
 }
 
+function buildStockRedirectUrl(query?: Record<string, string | null | undefined>) {
+  const nextUrl = new URL("/stock", "http://localhost");
+
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (!value) {
+      continue;
+    }
+
+    nextUrl.searchParams.set(key, value);
+  }
+
+  return `${nextUrl.pathname}${nextUrl.search}`;
+}
+
+function redirectToStock(
+  query?: Record<string, string | null | undefined>
+): never {
+  revalidatePath("/stock");
+  redirect(buildStockRedirectUrl(query));
+}
+
 function buildSessionRedirectUrl(
   sessionId: string,
   query?: Record<string, string | null | undefined>
@@ -170,8 +198,22 @@ function redirectToSession(
   query?: Record<string, string | null | undefined>
 ): never {
   revalidatePath("/");
+  revalidatePath("/stock");
   revalidatePath(`/sessions/${sessionId}`);
   redirect(buildSessionRedirectUrl(sessionId, query));
+}
+
+function redirectAfterSessionStockAction(
+  sessionId: string,
+  returnTo: "session" | "stock",
+  query?: Record<string, string | null | undefined>
+): never {
+  if (returnTo === "stock") {
+    revalidatePath(`/sessions/${sessionId}`);
+    redirectToStock(query);
+  }
+
+  redirectToSession(sessionId, query);
 }
 
 export async function importStudioSessionAction(formData: FormData) {
@@ -221,6 +263,7 @@ export async function importStudioSessionAction(formData: FormData) {
         width: storedPhotoAsset.width,
         height: storedPhotoAsset.height,
         organizationStatus: "unassigned",
+        stockItemId: null,
         createdAt: new Date().toISOString(),
       };
 
@@ -235,6 +278,313 @@ export async function importStudioSessionAction(formData: FormData) {
 
   redirectToSession(session.id, {
     flash: `Imported ${photoAssets.length} photo asset${photoAssets.length === 1 ? "" : "s"} into the session.`,
+  });
+}
+
+function toArrayBuffer(bytes: Uint8Array) {
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  ) as ArrayBuffer;
+}
+
+function getStockItemPhotoAssets(
+  session: StudioSessionDetail,
+  stockItem: StockItem
+) {
+  return session.photoAssets
+    .filter((photoAsset) => photoAsset.stockItemId === stockItem.id)
+    .sort((left, right) => left.sortOrder - right.sortOrder);
+}
+
+async function generateDraftFromStockItem(
+  session: StudioSessionDetail,
+  stockItem: StockItem
+) {
+  const draft = await draftRepository.create({});
+  const stockPhotoAssets = getStockItemPhotoAssets(session, stockItem);
+  const generationImages = await Promise.all(
+    stockPhotoAssets.map(async (photoAsset, index) => {
+      const bytes = await photoAssetStorage.read(photoAsset.storagePath);
+      const imageId = randomUUID();
+      const storedImage = await draftImageStorage.upload({
+        draftId: draft.id,
+        imageId,
+        fileName: photoAsset.originalFilename,
+        contentType: photoAsset.contentType || "application/octet-stream",
+        bytes: toArrayBuffer(bytes),
+      });
+
+      const draftImage: DraftImage = {
+        id: imageId,
+        draftId: draft.id,
+        storagePath: storedImage.storagePath,
+        originalFilename: photoAsset.originalFilename || `image-${index + 1}`,
+        sortOrder: index,
+        contentType: photoAsset.contentType,
+        sizeBytes: storedImage.sizeBytes,
+        width: storedImage.width,
+        height: storedImage.height,
+      };
+
+      return {
+        draftImage,
+        generationImage: {
+          originalFilename: photoAsset.originalFilename,
+          contentType: photoAsset.contentType,
+          bytes,
+        },
+      };
+    })
+  );
+
+  await draftRepository.attachImages({
+    draftId: draft.id,
+    images: generationImages.map((entry) => entry.draftImage),
+  });
+
+  await studioSessionRepository.attachDraftToStockItem({
+    sessionId: session.id,
+    stockItemId: stockItem.id,
+    draftId: draft.id,
+  });
+
+  const generationService = getListingGenerationService();
+  try {
+    const generation = await generationService.generate({
+      draftId: draft.id,
+      images: generationImages.map((entry) => entry.generationImage),
+      metadata: {
+        brand: null,
+        category: null,
+        size: null,
+        condition: null,
+        color: null,
+        material: null,
+        notes: null,
+      },
+      preferredLanguage: "en",
+      currency: "EUR",
+      marketplace: "vinted",
+    });
+
+    await draftRepository.saveGeneration({
+      draftId: draft.id,
+      generation,
+    });
+
+    return {
+      draftId: draft.id,
+      generated: true,
+      errorMessage: null,
+    };
+  } catch (error) {
+    return {
+      draftId: draft.id,
+      generated: false,
+      errorMessage:
+        error instanceof Error ? error.message : "Unknown generation failure.",
+    };
+  }
+}
+
+export async function createStockItemFromSelectionAction(
+  sessionId: string,
+  formData: FormData
+) {
+  const photoAssetIds = parseStringArray(formData.getAll("photoAssetIds"));
+  const name = parseStringOrNull(formData.get("stockItemName"));
+
+  if (photoAssetIds.length === 0) {
+    redirectToSession(sessionId, {
+      error: "Select at least one imported photo before creating a stock item.",
+    });
+  }
+
+  try {
+    const stockItem = await studioSessionRepository.createStockItem({
+      sessionId,
+      name,
+      photoAssetIds,
+    });
+
+    redirectToSession(sessionId, {
+      flash: `Created ${stockItem.name} with ${photoAssetIds.length} photo${photoAssetIds.length === 1 ? "" : "s"}.`,
+    });
+  } catch (error) {
+    redirectToSession(sessionId, {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to create the stock item.",
+    });
+  }
+}
+
+export async function assignSelectedPhotoAssetsToStockItemAction(
+  sessionId: string,
+  stockItemId: string,
+  formData: FormData
+) {
+  const photoAssetIds = parseStringArray(formData.getAll("photoAssetIds"));
+
+  if (photoAssetIds.length === 0) {
+    redirectToSession(sessionId, {
+      error: "Select at least one photo before assigning it to a stock item.",
+    });
+  }
+
+  try {
+    const session = await studioSessionRepository.assignPhotoAssetsToStockItem({
+      sessionId,
+      stockItemId,
+      photoAssetIds,
+    });
+    const stockItem = session.stockItems.find((entry) => entry.id === stockItemId);
+
+    redirectToSession(sessionId, {
+      flash: `Assigned ${photoAssetIds.length} photo${photoAssetIds.length === 1 ? "" : "s"} to ${stockItem?.name ?? "the stock item"}.`,
+    });
+  } catch (error) {
+    redirectToSession(sessionId, {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to assign the selected photos.",
+    });
+  }
+}
+
+export async function removeStockItemAction(
+  sessionId: string,
+  stockItemId: string
+) {
+  try {
+    const session = await studioSessionRepository.getById(sessionId);
+
+    if (!session) {
+      throw new Error(`Studio session not found: ${sessionId}`);
+    }
+
+    const stockItem = session.stockItems.find((entry) => entry.id === stockItemId);
+
+    if (!stockItem) {
+      throw new Error(`Stock item not found: ${stockItemId}`);
+    }
+
+    await studioSessionRepository.removeStockItem({
+      sessionId,
+      stockItemId,
+    });
+
+    redirectToSession(sessionId, {
+      flash: `Removed ${stockItem.name} and returned its photos to the unassigned queue.`,
+    });
+  } catch (error) {
+    redirectToSession(sessionId, {
+      error:
+        error instanceof Error ? error.message : "Failed to remove the stock item.",
+    });
+  }
+}
+
+export async function renameStockItemAction(
+  sessionId: string,
+  stockItemId: string,
+  formData: FormData
+) {
+  const name = parseStringOrNull(formData.get("stockItemName"));
+
+  if (!name) {
+    redirectToSession(sessionId, {
+      error: "Stock item name cannot be empty.",
+    });
+  }
+
+  try {
+    await studioSessionRepository.renameStockItem({
+      sessionId,
+      stockItemId,
+      name,
+    });
+
+    redirectToSession(sessionId, {
+      flash: `Renamed stock item to ${name}.`,
+    });
+  } catch (error) {
+    redirectToSession(sessionId, {
+      error:
+        error instanceof Error ? error.message : "Failed to rename the stock item.",
+    });
+  }
+}
+
+export async function generateSessionStockDraftsAction(
+  sessionId: string,
+  returnTo: "session" | "stock" = "session"
+) {
+  const session = await studioSessionRepository.getById(sessionId);
+
+  if (!session) {
+    redirectAfterSessionStockAction(sessionId, returnTo, {
+      error: "Studio session not found.",
+    });
+  }
+
+  const readyStockItems = session.stockItems.filter(
+    (stockItem) =>
+      stockItem.photoAssetIds.length > 0 && stockItem.draftId === null
+  );
+
+  if (readyStockItems.length === 0) {
+    redirectAfterSessionStockAction(session.id, returnTo, {
+      error: "No stock items are ready for draft generation in this session.",
+    });
+  }
+
+  let createdDraftCount = 0;
+  let generatedDraftCount = 0;
+  const failedStockItems: string[] = [];
+
+  for (const stockItem of readyStockItems) {
+    try {
+      const result = await generateDraftFromStockItem(session, stockItem);
+      createdDraftCount += 1;
+
+      if (result.generated) {
+        generatedDraftCount += 1;
+      } else {
+        failedStockItems.push(stockItem.name);
+        console.error(
+          `Failed to generate draft for stock item ${stockItem.id}: ${result.errorMessage}`
+        );
+      }
+    } catch (error) {
+      failedStockItems.push(stockItem.name);
+      console.error(
+        `Failed to create draft for stock item ${stockItem.id}: ${
+          error instanceof Error ? error.message : "Unknown draft creation failure."
+        }`
+      );
+    }
+  }
+
+  if (generatedDraftCount === 0) {
+    redirectAfterSessionStockAction(session.id, returnTo, {
+      error:
+        failedStockItems.length > 0
+          ? `Draft generation failed for ${failedStockItems.join(", ")}.`
+          : "Draft generation failed.",
+    });
+  }
+
+  const failureSuffix =
+    failedStockItems.length > 0
+      ? ` ${failedStockItems.length} item${failedStockItems.length === 1 ? "" : "s"} still need manual generation: ${failedStockItems.join(", ")}.`
+      : "";
+
+  redirectAfterSessionStockAction(session.id, returnTo, {
+    flash: `Created ${createdDraftCount} draft${createdDraftCount === 1 ? "" : "s"} from stocked items and generated ${generatedDraftCount} listing${generatedDraftCount === 1 ? "" : "s"}.${failureSuffix}`,
   });
 }
 

@@ -46,6 +46,10 @@ export function IntakeHomePage({
     (accumulator, session) => accumulator + session.photoCount,
     0
   );
+  const totalStockItemCount = sessions.reduce(
+    (accumulator, session) => accumulator + session.stockItemCount,
+    0
+  );
 
   return (
     <main className="flex-1 bg-muted/20">
@@ -63,9 +67,14 @@ export function IntakeHomePage({
             </p>
           </div>
 
-          <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>
-            Open draft workspace
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link href="/stock" className={buttonVariants({ variant: "outline" })}>
+              Open stock workspace
+            </Link>
+            <Link href="/drafts" className={buttonVariants({ variant: "outline" })}>
+              Open draft workspace
+            </Link>
+          </div>
         </section>
 
         {feedback.error ? (
@@ -176,7 +185,7 @@ export function IntakeHomePage({
               <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
                 <p className="font-medium text-foreground">Data spine</p>
                 <p className="mt-1 text-muted-foreground">
-                  session → photo asset → stock item → draft
+                  session -&gt; photo asset -&gt; stock item -&gt; draft
                 </p>
               </div>
             </CardContent>
@@ -189,6 +198,7 @@ export function IntakeHomePage({
           <Badge variant="outline">
             {sessions.filter((session) => session.status === "needs_stocking").length} needs stock
           </Badge>
+          <Badge variant="outline">{totalStockItemCount} stock items</Badge>
         </section>
 
         <section className="space-y-4">
@@ -237,6 +247,10 @@ export function IntakeHomePage({
                       </Badge>
                       <Badge variant="outline">
                         {session.unassignedPhotoCount} unassigned
+                      </Badge>
+                      <Badge variant="outline">{session.stockItemCount} stock</Badge>
+                      <Badge variant="outline">
+                        {session.draftedStockItemCount} drafted
                       </Badge>
                     </div>
                     <dl className="grid gap-2 text-sm">
