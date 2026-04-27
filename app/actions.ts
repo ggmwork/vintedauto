@@ -254,3 +254,31 @@ export async function saveDraftReviewAction(
     flash: "Saved listing review changes.",
   });
 }
+
+export async function saveDraftMetadataAction(
+  draftId: string,
+  formData: FormData
+) {
+  const draft = await draftRepository.getById(draftId);
+
+  if (!draft) {
+    throw new Error(`Draft not found: ${draftId}`);
+  }
+
+  await draftRepository.update(draftId, {
+    metadata: {
+      brand: parseStringOrNull(formData.get("brand")),
+      category: parseStringOrNull(formData.get("category")),
+      size: parseStringOrNull(formData.get("size")),
+      condition: parseStringOrNull(formData.get("condition")),
+      color: parseStringOrNull(formData.get("color")),
+      material: parseStringOrNull(formData.get("material")),
+      notes: parseStringOrNull(formData.get("notes")),
+    },
+    generation: draft.generation,
+  });
+
+  redirectToDraft(draftId, {
+    flash: "Saved metadata changes.",
+  });
+}

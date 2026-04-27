@@ -12,9 +12,11 @@ import {
 import {
   generateDraftListingAction,
   removeDraftImageAction,
+  saveDraftMetadataAction,
   saveDraftReviewAction,
   uploadDraftImagesAction,
 } from "@/app/actions";
+import { DraftExportPanel } from "@/components/app/draft-export-panel";
 import { DraftStatusBadge } from "@/components/app/draft-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -39,10 +41,6 @@ function formatDate(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-}
-
-function renderValue(value: string | null) {
-  return value ?? "Not set yet";
 }
 
 function formatFileSize(value: number | null) {
@@ -95,6 +93,7 @@ export function DraftDetailPage({
 }) {
   const uploadAction = uploadDraftImagesAction.bind(null, draft.id);
   const generateAction = generateDraftListingAction.bind(null, draft.id);
+  const saveMetadataAction = saveDraftMetadataAction.bind(null, draft.id);
   const saveReviewAction = saveDraftReviewAction.bind(null, draft.id);
   const hasReviewContent =
     draft.title !== null ||
@@ -217,36 +216,93 @@ export function DraftDetailPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <dl className="grid gap-4 text-sm">
-                <div className="grid grid-cols-[120px_1fr] gap-3">
-                  <dt className="text-muted-foreground">Brand</dt>
-                  <dd>{renderValue(draft.metadata.brand)}</dd>
+              <form action={saveMetadataAction} className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Brand
+                    </label>
+                    <input
+                      type="text"
+                      name="brand"
+                      defaultValue={draft.metadata.brand ?? ""}
+                      className={inputClassName}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Category
+                    </label>
+                    <input
+                      type="text"
+                      name="category"
+                      defaultValue={draft.metadata.category ?? ""}
+                      className={inputClassName}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Size
+                    </label>
+                    <input
+                      type="text"
+                      name="size"
+                      defaultValue={draft.metadata.size ?? ""}
+                      className={inputClassName}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Condition
+                    </label>
+                    <input
+                      type="text"
+                      name="condition"
+                      defaultValue={draft.metadata.condition ?? ""}
+                      className={inputClassName}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Color
+                    </label>
+                    <input
+                      type="text"
+                      name="color"
+                      defaultValue={draft.metadata.color ?? ""}
+                      className={inputClassName}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Material
+                    </label>
+                    <input
+                      type="text"
+                      name="material"
+                      defaultValue={draft.metadata.material ?? ""}
+                      className={inputClassName}
+                    />
+                  </div>
                 </div>
-                <div className="grid grid-cols-[120px_1fr] gap-3">
-                  <dt className="text-muted-foreground">Category</dt>
-                  <dd>{renderValue(draft.metadata.category)}</dd>
+
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Notes
+                  </label>
+                  <textarea
+                    name="notes"
+                    defaultValue={draft.metadata.notes ?? ""}
+                    className={`${inputClassName} min-h-24 resize-y`}
+                  />
                 </div>
-                <div className="grid grid-cols-[120px_1fr] gap-3">
-                  <dt className="text-muted-foreground">Size</dt>
-                  <dd>{renderValue(draft.metadata.size)}</dd>
+
+                <div className="flex items-center justify-end">
+                  <Button type="submit" variant="outline">
+                    Save metadata
+                  </Button>
                 </div>
-                <div className="grid grid-cols-[120px_1fr] gap-3">
-                  <dt className="text-muted-foreground">Condition</dt>
-                  <dd>{renderValue(draft.metadata.condition)}</dd>
-                </div>
-                <div className="grid grid-cols-[120px_1fr] gap-3">
-                  <dt className="text-muted-foreground">Color</dt>
-                  <dd>{renderValue(draft.metadata.color)}</dd>
-                </div>
-                <div className="grid grid-cols-[120px_1fr] gap-3">
-                  <dt className="text-muted-foreground">Material</dt>
-                  <dd>{renderValue(draft.metadata.material)}</dd>
-                </div>
-                <div className="grid grid-cols-[120px_1fr] gap-3">
-                  <dt className="text-muted-foreground">Notes</dt>
-                  <dd>{renderValue(draft.metadata.notes)}</dd>
-                </div>
-              </dl>
+              </form>
             </CardContent>
           </Card>
 
@@ -452,6 +508,24 @@ export function DraftDetailPage({
               </CardContent>
             </Card>
           )}
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-heading text-xl font-semibold">
+                Export listing
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Copy single fields or the full listing package for Vinted.
+              </p>
+            </div>
+            <Badge variant="outline">copy/export</Badge>
+          </div>
+
+          <Separator />
+
+          <DraftExportPanel draft={draft} />
         </section>
 
         <section className="flex flex-col gap-4">

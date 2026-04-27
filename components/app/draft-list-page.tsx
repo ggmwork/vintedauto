@@ -92,14 +92,14 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             <CardHeader>
               <CardTitle>Next build step</CardTitle>
               <CardDescription>
-                Improve metadata editing and add export toward Vinted.
+                Add workflow polish around draft readiness and Vinted handoff.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm leading-6 text-muted-foreground">
-                Provider abstraction, structured output, local storage, and
-                review UI are now stable enough to add export and workflow
-                polish.
+                Metadata editing, structured output, and export are now in
+                place. The next improvements are status workflow, regeneration
+                polish, and Vinted-specific handoff.
               </p>
             </CardContent>
           </Card>
