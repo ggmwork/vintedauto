@@ -4,6 +4,12 @@ Last updated: 2026-04-27
 
 This folder captures current product context, market research, MVP scope, and technical direction for the desktop-first Vinted listing assistant.
 
+Important:
+
+- documents `01` through `11` include the original MVP path and the first batch-workstation iteration
+- documents `12` through `15` capture the current pivot toward watched-folder ingest, hidden sessions, simpler IA, and a cleaner operator workflow
+- for the next implementation cycle, treat `12` through `15` as the current source of truth
+
 Documents:
 
 - [01-project-context.md](./01-project-context.md) - product framing, goals, constraints, and future fit inside GGM Admin
@@ -12,15 +18,21 @@ Documents:
 - [04-stack-and-architecture.md](./04-stack-and-architecture.md) - recommended stack, architecture, and implementation boundaries
 - [05-roadmap.md](./05-roadmap.md) - phased execution plan from scaffold to launchable MVP
 - [06-implementation-plan.md](./06-implementation-plan.md) - detailed execution plan for the first working vertical slice
-- [07-ux-audit-and-simplification.md](./07-ux-audit-and-simplification.md) - UX critique, audit findings, and simplification changes for the desktop workflow
+- [07-ux-audit-and-simplification.md](./07-ux-audit-and-simplification.md) - UX critique, audit findings, and simplification changes for the original desktop workflow
 - [08-seller-workflow-analysis.md](./08-seller-workflow-analysis.md) - real seller workflow breakdown, bottlenecks, and product implications
-- [09-product-direction-batch-workstation.md](./09-product-direction-batch-workstation.md) - next product framing after MVP proof
-- [10-next-phase-roadmap.md](./10-next-phase-roadmap.md) - phased roadmap for the batch-intake and queue-based product evolution
-- [11-feature-decisions-and-open-questions.md](./11-feature-decisions-and-open-questions.md) - next-feature candidates, sequencing guidance, and open product decisions
+- [09-product-direction-batch-workstation.md](./09-product-direction-batch-workstation.md) - earlier product framing after MVP proof
+- [10-next-phase-roadmap.md](./10-next-phase-roadmap.md) - current high-level roadmap after the watched-folder pivot
+- [11-feature-decisions-and-open-questions.md](./11-feature-decisions-and-open-questions.md) - current sequencing guidance and open decisions
+- [12-product-pivot-watched-inbox.md](./12-product-pivot-watched-inbox.md) - product reset from manual import to watched-folder ingest
+- [13-watched-folder-and-ingest-architecture.md](./13-watched-folder-and-ingest-architecture.md) - recommended technical architecture for automatic local ingest
+- [14-ux-reset-and-information-architecture.md](./14-ux-reset-and-information-architecture.md) - simplified IA, page model, and UX cleanup rules
+- [15-implementation-plan-watched-ingest.md](./15-implementation-plan-watched-ingest.md) - detailed implementation plan for the next build cycle
 
 Current product decision:
 
 - Build the Vinted assistant first.
 - Target desktop only.
 - Target Vinted web in browser, not the native mobile app.
-- Keep the first version in the low-risk workflow zone: upload photos, generate listing draft, suggest price, store drafts, copy/export, and optionally autofill Vinted web.
+- Keep copy/export as a valid success path.
+- Pivot the next cycle toward `watched folder -> Inbox -> Stock -> Review`.
+- Remove `studio sessions` from the user-facing workflow.

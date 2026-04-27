@@ -11,9 +11,15 @@ Last updated: 2026-04-27
 - Tailwind CSS
 - shadcn/ui
 
+### Local companion
+
+- Node.js watcher service
+- shared TypeScript types where useful
+
 ### Storage and backend
 
-- Supabase
+- local `.data` store for current prototype
+- Supabase later
   - Postgres
   - Storage
   - Auth if needed later
@@ -26,46 +32,51 @@ Last updated: 2026-04-27
 
 ### Deployment
 
-- Vercel for main app
+- Vercel for main app later
 
 ### Optional companion
 
-- Chrome extension for Vinted web autofill
+- Chrome extension for Vinted web autofill later
 
 ## Why this stack
 
-The original Vinted specification already points in this direction, and it matches the current product shape well.
+The product now needs two different things:
 
-Reasons:
+1. a strong desktop UI
+2. true local folder watching
 
-- Next.js is a good fit for desktop-first product UI
-- TypeScript keeps draft, image, and generation flows typed
-- Tailwind and shadcn/ui are fast for shipping polished workflow UI
-- Supabase gives storage and relational draft metadata without extra backend ceremony
-- Vercel is straightforward for this class of app
+Next.js is still the right UI surface.
+
+A small Node.js watcher companion is the simplest way to add automatic ingest without changing the whole app platform.
 
 ## Architecture principle
 
-Keep the app split into two surfaces:
+Keep the product split into three surfaces:
 
 1. Main application
-2. Optional browser autofill extension
+2. Local watcher companion
+3. Optional browser autofill extension
 
 The main application should own:
 
-- studio sessions
-- intake folder configuration
+- watched-folder configuration
+- Inbox
 - photo assets
 - stock items
 - draft records
-- uploaded images
-- grouping workflow
-- batch generation queue
 - structured item metadata
 - AI generation
 - price suggestion
 - draft history
 - user-facing review flow
+
+The local watcher companion should own only:
+
+- monitoring one configured local folder
+- detecting new files after a short debounce
+- ignoring partially written files until stable
+- copying files into managed app storage
+- emitting ingest status
 
 The extension, if built, should own only:
 
@@ -81,39 +92,17 @@ Do not let the extension become the main product surface.
 ```txt
 Desktop User
   ->
-Next.js App
+Watched folder
   ->
-Supabase Postgres + Storage
+Local watcher companion
+  ->
+Managed app storage + local metadata store
+  ->
+Next.js app
   ->
 AI provider layer
   -> Ollama
   -> OpenAI
-
-Optional near-term:
-
-Desktop User
-  ->
-Chosen intake folder
-  ->
-Import trigger in app
-  ->
-Studio session
-  ->
-Photo assets
-  ->
-Stock items
-  ->
-Listing drafts
-
-Optional later:
-
-Chosen intake folder
-  ->
-Watched-folder helper while app is open
-  ->
-Auto import / import prompt
-  ->
-Studio session pipeline
 
 Optional later:
 
@@ -126,14 +115,43 @@ Fetch selected draft from app
 Fill Vinted web form
 ```
 
+## User-facing model
+
+The UI should move toward:
+
+- `Inbox`
+- `Stock`
+- `Review`
+
+Optional later:
+
+- `Listed`
+- `Archive`
+- `Settings`
+
+`Studio sessions` may still exist internally, but should not remain a primary navigation concept.
+
+## Internal data spine
+
+Recommended internal model:
+
+`ingest batch/session -> photo asset -> stock item -> draft`
+
+Important:
+
+- user does not need to see the whole spine
+- internal complexity is allowed only if it simplifies the visible workflow
+
 ## Data model direction
 
-### studio_sessions
+### ingest_batches or studio_sessions
+
+Keep only if needed internally for traceability.
 
 Suggested fields:
 
 - id
-- name
+- internal_name
 - import_source
 - status
 - photo_count
@@ -145,10 +163,11 @@ Suggested fields:
 Suggested fields:
 
 - id
-- session_id
+- ingest_batch_id
+- stock_item_id
 - storage_path
 - original_filename
-- import_batch_id
+- relative_path
 - imported_at
 - sort_hint
 - group_status
@@ -161,7 +180,7 @@ Suggested fields:
 Suggested fields:
 
 - id
-- session_id
+- ingest_batch_id
 - status
 - title_hint
 - cover_photo_asset_id
@@ -183,8 +202,7 @@ Suggested fields:
 - status
 - title
 - description
-- bullet_points
-- hashtags
+- keywords
 - suggested_price
 - suggested_price_min
 - suggested_price_max
@@ -223,11 +241,19 @@ Suggested fields:
 - generated_price
 - created_at
 
-This is optional early, but useful if prompt iteration becomes important.
+## Watched-folder strategy
+
+Recommended v1 behavior:
+
+- watch one configured root folder
+- run watcher while app is open
+- copy imported files into managed storage
+- support folder-per-item as the strongest automatic grouping mode
+- send loose files to Inbox when grouping is uncertain
 
 ## Price suggestion strategy
 
-For MVP, treat pricing as guidance, not as exact valuation.
+For MVP and the next cycle, treat pricing as guidance, not as exact valuation.
 
 Recommended output shape:
 
@@ -250,6 +276,7 @@ lib/
   stock/
   drafts/
   storage/
+watcher/
 types/
 docs/
 public/
@@ -289,12 +316,13 @@ Avoid extension scope creep into:
 
 ## Recommendation summary
 
-The right first architecture is:
+The right architecture now is:
 
-- Next.js desktop web app first
-- Supabase for persistence and storage
+- Next.js desktop web app for UI
+- local watcher companion for true watched-folder ingest
+- Supabase later for durable persistence and storage
 - provider abstraction for listing generation
 - Ollama-first locally, OpenAI-ready later
-- data spine of `session -> photo asset -> stock item -> draft`
-- import-folder flow first, watched-folder flow later
-- optional Chrome extension after core app is useful on its own
+- user-facing model of `Inbox -> Stock -> Review`
+- internal data spine of `ingest batch/session -> photo asset -> stock item -> draft`
+- optional Chrome extension only after the core ingest and review workflow feels right

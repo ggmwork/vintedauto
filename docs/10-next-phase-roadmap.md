@@ -4,110 +4,119 @@ Last updated: 2026-04-27
 
 ## Purpose
 
-This roadmap covers the phase after the current local MVP.
+This roadmap covers the next cycle after the current local MVP and first batch-workstation prototype.
 
-The goal is not to re-prove the single-draft workflow.
+The product direction has changed.
 
-The goal is to evolve the app into a batch-oriented seller workstation.
+The next goal is:
 
-## Phase A - Intake folder foundation
+`watched folder -> Inbox -> Stock -> Review`
 
-Goal:
-
-Create a product entry point that matches the real seller workflow.
-
-Tasks:
-
-- add `studio session` model
-- add chosen intake folder flow
-- add batch import entry flow
-- support import from local folder first
-- attach all imported photos to a session
-- show session-level counts and progress
-- allow explicit `Start import` trigger
-
-Deliverable:
-
-User can drop photos into a folder and start one intake session instead of one draft.
-
-## Phase B - Stock item model and stock workspace
+## Phase A - UX and IA reset
 
 Goal:
 
-Create an operational layer between raw photos and listing drafts.
+Simplify the app before adding more automation.
 
 Tasks:
 
-- add `photo asset` model
-- add `stock item` model
-- create stock workspace page
-- show imported photos grouped under stock-item candidates
-- show stock status across the session
+- make Inbox the main landing surface
+- hide sessions from main navigation
+- reduce repeated text, badges, and nav clusters
+- de-emphasize Draft list as a primary workflow
 
 Deliverable:
 
-User can see and manage stock records, not only listing drafts.
+The product reads as one simple operator flow instead of several internal concepts.
 
-## Phase C - Group photos into items
+## Phase B - Watched-folder foundation
 
 Goal:
 
-Reduce manual organization work.
+Make automatic local ingest real.
 
 Tasks:
 
-- support manual grouping corrections
-- support moving photos between stock-item groups
-- support selecting cover image per group
-- keep group status visible
-
-Stretch goal:
-
-- assisted auto-grouping based on image similarity, sequence, or model inference
+- add watched-folder configuration
+- add local watcher companion
+- support start and stop while app is open
+- surface watcher status
 
 Deliverable:
 
-User can turn a mixed photo batch into stock items and listing drafts much faster than manual folder work.
+The app can monitor one chosen local folder.
 
-## Phase D - Batch generation
+## Phase C - Automatic ingest pipeline
 
 Goal:
 
-Remove repeated per-item prompting work.
+Remove manual import as the default action.
 
 Tasks:
 
-- generate listings for many grouped drafts in one run
-- show per-draft generation state
-- keep queue progress visible
-- preserve manual edits on re-generation
-- support retry for failed drafts
+- detect new image files
+- debounce partial writes
+- copy files into managed app storage
+- create ingest records
+- show imported files in Inbox automatically
 
 Deliverable:
 
-A whole session can move from grouped photos to generated drafts in one pipeline.
+New files appear in the app without a manual import step.
 
-## Phase E - Review queue
+## Phase D - Automatic stock creation
 
 Goal:
 
-Make repeated review fast.
+Create stock items automatically when the grouping signal is strong.
 
 Tasks:
 
-- add queue view for `needs_review`
-- add next/previous draft navigation
-- add quick actions:
-  - save and next
-  - copy and next
-  - mark ready
-- support filter by queue state
+- map top-level subfolder to one stock item
+- choose default cover image
+- route loose root files into Inbox as `needs grouping`
+- keep internal import traceability
 
 Deliverable:
 
-User can process many drafts quickly without bouncing around the app.
+The app creates stock items automatically for the strong cases and flags the weak cases clearly.
 
-## Phase F - Seller presets
+## Phase E - Stock and Review alignment
+
+Goal:
+
+Preserve the working review loop while re-centering it on automatic ingest.
+
+Tasks:
+
+- connect Inbox to Stock
+- keep generation entry from Stock
+- keep Review as the main editing surface
+- simplify user-facing Draft language where possible
+
+Deliverable:
+
+Automatically imported items can move cleanly into the existing review workflow.
+
+## Phase F - Grouping polish
+
+Goal:
+
+Handle the cases where full automation is not reliable.
+
+Tasks:
+
+- regroup
+- move photo between items
+- merge items
+- split item
+- choose cover image
+
+Deliverable:
+
+Seller can correct grouping quickly without fighting the app.
+
+## Phase G - Seller presets
 
 Goal:
 
@@ -115,32 +124,15 @@ Turn repeated prompt behavior into reusable settings.
 
 Tasks:
 
-- add listing style presets
-- add output language setting
-- add description tone presets
-- add pricing style preferences
-- add category-specific instructions
+- listing style presets
+- output language
+- description tone
+- pricing style
+- category instructions
 
 Deliverable:
 
-Generation quality becomes more consistent and less dependent on ad hoc prompting.
-
-## Phase G - Stronger Vinted handoff
-
-Goal:
-
-Reduce repeated copy/paste friction.
-
-Tasks:
-
-- improve handoff formatting
-- add `copy and next`
-- add optional browser handoff companion
-- later evaluate narrow Chrome extension for Vinted web autofill
-
-Deliverable:
-
-Publishing becomes materially faster while staying within the current safety boundary.
+Generation becomes more consistent and less manual.
 
 ## Phase H - Real persistence and deployment
 
@@ -152,36 +144,52 @@ Tasks:
 
 - replace local `.data` persistence with Supabase
 - move images into Supabase Storage
-- add session and queue data models
+- persist watcher and Inbox state cleanly
 - deploy app
-- configure provider envs cleanly
 
 Deliverable:
 
-App becomes reusable beyond one local machine and easier to evolve.
+App becomes reusable beyond one machine.
+
+## Phase I - Stronger Vinted handoff
+
+Goal:
+
+Reduce final copy friction without expanding platform risk too early.
+
+Tasks:
+
+- improve handoff formatting
+- keep `copy and next`
+- later evaluate narrow Vinted web autofill
+
+Deliverable:
+
+Publishing gets faster without changing the current safety boundary.
 
 ## Priority order
 
 Recommended order:
 
-1. intake folder foundation
-2. stock item model and stock workspace
-3. grouping workflow
-4. batch generation
-5. review queue
-6. seller presets
-7. persistence/deploy
-8. stronger Vinted handoff
+1. UX and IA reset
+2. watched-folder foundation
+3. automatic ingest pipeline
+4. automatic stock creation
+5. Stock and Review alignment
+6. grouping polish
+7. seller presets
+8. persistence/deploy
+9. stronger Vinted handoff
 
 ## Why this order
 
 This order attacks the actual time sinks first:
 
-- import friction
-- photo organization
-- stock organization
-- repeated prompting
+- manual import friction
+- photo organization overhead
+- too many visible workflow concepts
 - repeated review
+- repeated prompt setup
 
 ## Anti-roadmap
 
