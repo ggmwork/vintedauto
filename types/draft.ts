@@ -24,6 +24,13 @@ export interface DraftImage {
   height: number | null;
 }
 
+export interface DraftGenerationInfo {
+  provider: "openai" | "mock" | "ollama";
+  model: string;
+  generatedAt: string;
+  conditionNotes: string | null;
+}
+
 export interface Draft {
   id: string;
   status: DraftStatus;
@@ -32,6 +39,7 @@ export interface Draft {
   keywords: string[];
   metadata: DraftMetadata;
   priceSuggestion: PriceSuggestion | null;
+  generation: DraftGenerationInfo | null;
   imageCount: number;
   createdAt: string;
   updatedAt: string;

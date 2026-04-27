@@ -20,6 +20,7 @@ export interface UpdateDraftInput {
   keywords?: string[];
   metadata?: Partial<DraftMetadata>;
   priceSuggestion?: PriceSuggestion | null;
+  generation?: DraftDetail["generation"] | null;
 }
 
 export interface SaveDraftImagesInput {

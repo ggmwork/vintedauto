@@ -10,7 +10,7 @@ export interface GeneratedListingContent {
 }
 
 export interface GenerationResult {
-  provider: "openai" | "mock";
+  provider: "openai" | "mock" | "ollama";
   model: string;
   generatedAt: string;
   content: GeneratedListingContent;

@@ -49,6 +49,7 @@ function toDraftSummary(draft: DraftDetail): Draft {
     keywords: draft.keywords,
     metadata: draft.metadata,
     priceSuggestion: draft.priceSuggestion,
+    generation: draft.generation,
     imageCount: draft.imageCount,
     createdAt: draft.createdAt,
     updatedAt: draft.updatedAt,
@@ -126,6 +127,12 @@ function applyGenerationResult(
       generation.content.suggestedMetadata
     ),
     priceSuggestion: generation.priceSuggestion,
+    generation: {
+      provider: generation.provider,
+      model: generation.model,
+      generatedAt: generation.generatedAt,
+      conditionNotes: generation.content.conditionNotes,
+    },
   };
 }
 
@@ -145,6 +152,8 @@ function applyDraftUpdate(
       update.priceSuggestion === undefined
         ? draft.priceSuggestion
         : update.priceSuggestion,
+    generation:
+      update.generation === undefined ? draft.generation : update.generation,
   };
 }
 
@@ -186,6 +195,7 @@ class LocalDraftRepository implements DraftRepository {
       keywords: [],
       metadata: createDefaultMetadata(input.metadata),
       priceSuggestion: null,
+      generation: null,
       imageCount: 0,
       createdAt: now,
       updatedAt: now,

@@ -30,15 +30,14 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10 lg:px-8">
         <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex max-w-3xl flex-col gap-3">
-            <Badge variant="secondary">Phase 2: Image workflow</Badge>
+            <Badge variant="secondary">Phase 3: AI generation</Badge>
             <div className="flex flex-col gap-3">
               <h1 className="font-heading text-4xl leading-tight font-semibold text-balance">
-                Draft workspace now accepts real item images.
+                Draft workspace now generates editable listing drafts.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-                Create drafts, attach desktop images, and keep everything
-                persistent. Next step is AI generation on top of the saved draft
-                and image set.
+                Create drafts, attach desktop images, generate listing content
+                with local Ollama, and keep the review state persistent.
               </p>
             </div>
           </div>
@@ -71,8 +70,8 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             <CardHeader>
               <CardTitle>What works now</CardTitle>
               <CardDescription>
-                Draft creation, image persistence, route navigation, and reopen
-                flow.
+                Draft creation, image persistence, AI generation, review save,
+                route navigation, and reopen flow.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -81,6 +80,8 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
                 <li>Persist to local store</li>
                 <li>Upload multiple images</li>
                 <li>Remove stored images</li>
+                <li>Generate title, description, keywords, and pricing</li>
+                <li>Save listing review edits</li>
                 <li>Open detail route</li>
                 <li>Reload saved drafts</li>
               </ul>
@@ -91,13 +92,14 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             <CardHeader>
               <CardTitle>Next build step</CardTitle>
               <CardDescription>
-                Generate listing text and pricing from each saved draft.
+                Improve metadata editing and add export toward Vinted.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm leading-6 text-muted-foreground">
-                Draft IDs, metadata fields, route structure, and image storage
-                are now stable enough to attach the AI generation flow.
+                Provider abstraction, structured output, local storage, and
+                review UI are now stable enough to add export and workflow
+                polish.
               </p>
             </CardContent>
           </Card>
@@ -192,8 +194,8 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
         </section>
 
         <footer className="text-xs text-muted-foreground">
-          {appConfig.name} Phase 2 foundation. Draft and image storage are
-          local for now and will be swappable later.
+          {appConfig.name} Phase 3 foundation. Draft, image, and generation
+          state are local for now and will be swappable later.
         </footer>
       </div>
     </main>
