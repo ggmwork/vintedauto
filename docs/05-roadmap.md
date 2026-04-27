@@ -2,6 +2,14 @@
 
 Last updated: 2026-04-27
 
+## Scope note
+
+This document covers the original MVP build path.
+
+For the post-MVP evolution toward batch intake, studio sessions, grouping, and review queues, use:
+
+- [10-next-phase-roadmap.md](./10-next-phase-roadmap.md)
+
 ## Phase 0 - Foundation
 
 Goal:

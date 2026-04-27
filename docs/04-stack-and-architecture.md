@@ -20,7 +20,9 @@ Last updated: 2026-04-27
 
 ### AI
 
-- OpenAI API for image-aware listing generation
+- provider abstraction
+- Ollama for local-first development
+- OpenAI API as higher-quality and hosted provider later
 
 ### Deployment
 
@@ -51,8 +53,11 @@ Keep the app split into two surfaces:
 
 The main application should own:
 
+- studio sessions
 - draft records
 - uploaded images
+- grouping workflow
+- batch generation queue
 - structured item metadata
 - AI generation
 - price suggestion
@@ -77,7 +82,9 @@ Next.js App
   ->
 Supabase Postgres + Storage
   ->
-OpenAI generation layer
+AI provider layer
+  -> Ollama
+  -> OpenAI
 
 Optional later:
 
@@ -91,6 +98,18 @@ Fill Vinted web form
 ```
 
 ## Data model direction
+
+### studio_sessions
+
+Suggested fields:
+
+- id
+- name
+- import_source
+- status
+- photo_count
+- created_at
+- updated_at
 
 ### drafts
 
@@ -208,5 +227,6 @@ The right first architecture is:
 
 - Next.js desktop web app first
 - Supabase for persistence and storage
-- OpenAI for listing generation
+- provider abstraction for listing generation
+- Ollama-first locally, OpenAI-ready later
 - optional Chrome extension after core app is useful on its own
