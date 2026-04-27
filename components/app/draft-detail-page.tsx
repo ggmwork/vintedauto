@@ -1,10 +1,13 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeftIcon,
+  ChevronDownIcon,
   HistoryIcon,
   ImageIcon,
-  LoaderCircleIcon,
   PackageCheckIcon,
   SparklesIcon,
   Trash2Icon,
@@ -15,7 +18,6 @@ import {
   generateDraftListingAction,
   removeDraftImageAction,
   restoreDraftGenerationAction,
-  saveDraftMetadataAction,
   saveDraftReviewAction,
   setDraftStatusAction,
   uploadDraftImagesAction,
@@ -34,7 +36,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getChangedFieldsFromGeneration } from "@/lib/drafts/draft-generation-diff";
-import { Separator } from "@/components/ui/separator";
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import type { DraftDetail } from "@/types/draft";
 import type { PriceSuggestion } from "@/types/pricing";
@@ -95,14 +96,6 @@ function formatPriceSuggestion(priceSuggestion: PriceSuggestion | null) {
   return `Not set (${priceSuggestion.currency})`;
 }
 
-function formatGenerationLabel(draft: DraftDetail) {
-  if (!draft.generation) {
-    return "No generated listing content yet.";
-  }
-
-  return `Generated with ${draft.generation.provider}:${draft.generation.model} on ${formatDate(draft.generation.generatedAt)}.`;
-}
-
 function formatReadinessItem(value: string) {
   switch (value) {
     case "images":
@@ -124,21 +117,42 @@ function formatReadinessItem(value: string) {
   }
 }
 
+function getStepCopy(draft: DraftDetail) {
+  if (draft.imageCount === 0) {
+    return "Upload images to start the draft.";
+  }
+
+  if (!draft.generation) {
+    return "Generate the listing from the uploaded images.";
+  }
+
+  const readiness = getDraftReadiness(draft);
+
+  if (!readiness.ready) {
+    return "Review and complete the generated fields.";
+  }
+
+  return "Copy the Vinted handoff and move into Vinted web.";
+}
+
 interface DraftDetailPageFeedback {
   flash: string | null;
   error: string | null;
 }
 
+type FocusSection = "upload" | "generate" | "review" | "export" | null;
+
 export function DraftDetailPage({
   draft,
   feedback,
+  focusSection,
 }: {
   draft: DraftDetail;
   feedback: DraftDetailPageFeedback;
+  focusSection: string | null;
 }) {
   const uploadAction = uploadDraftImagesAction.bind(null, draft.id);
   const generateAction = generateDraftListingAction.bind(null, draft.id);
-  const saveMetadataAction = saveDraftMetadataAction.bind(null, draft.id);
   const saveReviewAction = saveDraftReviewAction.bind(null, draft.id);
   const readiness = getDraftReadiness(draft);
   const changedFields = getChangedFieldsFromGeneration(draft, draft.generation);
@@ -147,773 +161,792 @@ export function DraftDetailPage({
     draft.description !== null ||
     draft.keywords.length > 0 ||
     draft.priceSuggestion !== null;
+  const uploadRef = useRef<HTMLElement>(null);
+  const generateRef = useRef<HTMLElement>(null);
+  const reviewRef = useRef<HTMLElement>(null);
+  const exportRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const sectionMap: Record<Exclude<FocusSection, null>, React.RefObject<HTMLElement | null>> = {
+      upload: uploadRef,
+      generate: generateRef,
+      review: reviewRef,
+      export: exportRef,
+    };
+
+    const targetSection = focusSection as FocusSection;
+
+    if (!targetSection || !(targetSection in sectionMap)) {
+      return;
+    }
+
+    const target = sectionMap[targetSection];
+
+    if (!target.current) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      target.current?.scrollIntoView({
+        behavior: "auto",
+        block: "start",
+      });
+
+      if (targetSection === "review") {
+        const focusTarget = target.current?.querySelector<HTMLElement>(
+          "[data-review-focus='true']"
+        );
+
+        focusTarget?.focus();
+      }
+    });
+  }, [draft.id, draft.updatedAt, focusSection]);
 
   return (
-    <main className="flex-1 bg-muted/30">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10 lg:px-8">
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <Link href="/" className={buttonVariants({ variant: "outline" })}>
-              <ArrowLeftIcon data-icon="inline-start" />
-              Back to drafts
-            </Link>
-            <Badge variant="secondary">Draft detail</Badge>
-          </div>
-
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex max-w-3xl flex-col gap-3">
-              <h1 className="font-heading text-4xl leading-tight font-semibold text-balance">
-                {draft.title ?? "Untitled draft"}
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-                Local draft persists, accepts desktop images, runs through
-                Ollama, and keeps the review state reopenable.
-              </p>
-            </div>
-
-            <DraftStatusBadge status={draft.status} />
-          </div>
-        </section>
-
-        {feedback.error ? (
-          <section>
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-              {feedback.error}
-            </div>
-          </section>
-        ) : null}
-
-        {feedback.flash ? (
-          <section>
-            <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground">
-              {feedback.flash}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Draft identity</CardTitle>
-              <CardDescription>
-                Stable record that image and generation flows attach to.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <dl className="flex flex-col gap-3 text-sm">
-                <div className="flex flex-col gap-1">
-                  <dt className="text-muted-foreground">Draft ID</dt>
-                  <dd className="break-all">{draft.id}</dd>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <dt className="text-muted-foreground">Created</dt>
-                  <dd>{formatDate(draft.createdAt)}</dd>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <dt className="text-muted-foreground">Updated</dt>
-                  <dd>{formatDate(draft.updatedAt)}</dd>
-                </div>
-              </dl>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Workflow status</CardTitle>
-              <CardDescription>
-                Move the draft from internal review to listed and sold.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-4 text-sm text-muted-foreground">
-                <PackageCheckIcon className="mt-0.5 size-4 shrink-0" />
-                <div className="flex flex-col gap-1">
-                  <span className="font-medium text-foreground">
-                    {readiness.ready
-                      ? "Ready for Vinted handoff."
-                      : "Still missing required fields."}
-                  </span>
-                  <span>
-                    {readiness.ready
-                      ? "Title, description, price, category, condition, keywords, and images are all present."
-                      : `Missing ${readiness.missing.map(formatReadinessItem).join(", ")}.`}
-                  </span>
-                </div>
+    <main className="flex-1 bg-muted/20">
+      <div className="mx-auto w-full max-w-6xl px-6 py-8 lg:px-8">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-6">
+            <section className="space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <Link href="/" className={buttonVariants({ variant: "outline" })}>
+                  <ArrowLeftIcon data-icon="inline-start" />
+                  Back to drafts
+                </Link>
+                <DraftStatusBadge status={draft.status} />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                {(
-                  [
-                    ["draft", "Draft"],
-                    ["ready", "Ready"],
-                    ["listed", "Listed"],
-                    ["sold", "Sold"],
-                  ] as const
-                ).map(([status, label]) => {
-                  const statusAction = setDraftStatusAction.bind(
-                    null,
-                    draft.id,
-                    status
-                  );
-                  const disabled =
-                    draft.status === status ||
-                    ((status === "ready" || status === "listed") &&
-                      !readiness.ready) ||
-                    (status === "sold" && draft.status !== "listed");
+              <div className="space-y-2">
+                <h1 className="font-heading text-3xl font-semibold text-balance">
+                  {draft.title ?? "New draft"}
+                </h1>
+                <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
+                  Upload images first, then generate, review, and copy the final
+                  Vinted handoff. Keep the page focused on the next action, not
+                  on dashboard noise.
+                </p>
+              </div>
+            </section>
 
-                  return (
-                    <form key={status} action={statusAction}>
+            {feedback.error ? (
+              <section>
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                  {feedback.error}
+                </div>
+              </section>
+            ) : null}
+
+            {feedback.flash ? (
+              <section>
+                <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground">
+                  {feedback.flash}
+                </div>
+              </section>
+            ) : null}
+
+            <section ref={uploadRef} className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <Badge variant="secondary">Step 1</Badge>
+                  <h2 className="font-heading text-2xl font-semibold">
+                    Upload images
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Start with the item photos. Everything else hangs off this
+                    image set.
+                  </p>
+                </div>
+                <Badge variant="outline">
+                  {draft.imageCount} image{draft.imageCount === 1 ? "" : "s"}
+                </Badge>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add desktop images</CardTitle>
+                  <CardDescription>
+                    Upload the images in the order you want the draft to read
+                    them.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <form action={uploadAction} className="space-y-4">
+                    <label className="grid gap-2 text-sm">
+                      <span className="font-medium text-foreground">
+                        Choose images
+                      </span>
+                      <input
+                        className="block w-full cursor-pointer rounded-lg border border-border bg-background px-3 py-3 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-muted/80"
+                        type="file"
+                        name="images"
+                        accept="image/*"
+                        multiple
+                      />
+                    </label>
+
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-muted-foreground">
+                        JPG, PNG, WEBP, GIF, and HEIC work when the browser
+                        exposes them as image files.
+                      </p>
                       <PendingSubmitButton
                         type="submit"
-                        variant={draft.status === status ? "default" : "outline"}
-                        className="w-full"
-                        disabled={disabled}
-                        pendingLabel={`Saving ${label.toLowerCase()}`}
+                        pendingLabel="Uploading images"
                       >
-                        {label}
+                        <UploadIcon data-icon="inline-start" />
+                        Upload images
                       </PendingSubmitButton>
-                    </form>
-                  );
-                })}
+                    </div>
+                  </form>
+
+                  {draft.images.length === 0 ? (
+                    <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
+                      <ImageIcon className="size-4" />
+                      No images attached yet.
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {draft.images.map((image) => {
+                        const removeAction = removeDraftImageAction.bind(
+                          null,
+                          draft.id,
+                          image.id
+                        );
+
+                        return (
+                          <Card key={image.id} className="overflow-hidden">
+                            <div className="relative aspect-square bg-muted">
+                              <Image
+                                src={`/api/drafts/${draft.id}/images/${image.id}`}
+                                alt={image.originalFilename}
+                                fill
+                                sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                            <CardContent className="space-y-3 pt-4">
+                              <div className="space-y-1">
+                                <p className="truncate font-medium">
+                                  {image.originalFilename}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Position {image.sortOrder + 1}
+                                </p>
+                              </div>
+                              <dl className="grid grid-cols-2 gap-3 text-sm">
+                                <div className="space-y-1">
+                                  <dt className="text-muted-foreground">Size</dt>
+                                  <dd>{formatFileSize(image.sizeBytes)}</dd>
+                                </div>
+                                <div className="space-y-1">
+                                  <dt className="text-muted-foreground">
+                                    Dimensions
+                                  </dt>
+                                  <dd>{formatDimensions(image.width, image.height)}</dd>
+                                </div>
+                              </dl>
+                            </CardContent>
+                            <CardFooter className="justify-end">
+                              <form action={removeAction}>
+                                <PendingSubmitButton
+                                  type="submit"
+                                  variant="outline"
+                                  pendingLabel="Removing"
+                                >
+                                  <Trash2Icon data-icon="inline-start" />
+                                  Remove
+                                </PendingSubmitButton>
+                              </form>
+                            </CardFooter>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </section>
+
+            <section ref={generateRef} className="space-y-4">
+              <div className="space-y-1">
+                <Badge variant="secondary">Step 2</Badge>
+                <h2 className="font-heading text-2xl font-semibold">
+                  Generate listing
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Once the image set is ready, run the model and move straight
+                  into the editable fields.
+                </p>
               </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Image state</CardTitle>
-              <CardDescription>Desktop upload flow is active now.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-4 text-sm text-muted-foreground">
-                <ImageIcon className="size-4" />
-                {draft.imageCount === 0
-                  ? "No images attached yet."
-                  : `${draft.imageCount} image${draft.imageCount === 1 ? "" : "s"} stored and reopenable.`}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Generation state</CardTitle>
-              <CardDescription>
-                Ollama generation now turns uploaded images into editable
-                listing output.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-4 text-sm text-muted-foreground">
-                {draft.generation ? (
-                  <SparklesIcon className="size-4" />
-                ) : (
-                  <LoaderCircleIcon className="size-4" />
-                )}
-                {formatGenerationLabel(draft)}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle>Structured metadata</CardTitle>
-              <CardDescription>
-                AI-populated metadata suggestions land here and persist with the
-                draft.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form action={saveMetadataAction} className="grid gap-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Brand
-                    </label>
-                    <input
-                      type="text"
-                      name="brand"
-                      defaultValue={draft.metadata.brand ?? ""}
-                      className={inputClassName}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Category
-                    </label>
-                    <input
-                      type="text"
-                      name="category"
-                      defaultValue={draft.metadata.category ?? ""}
-                      className={inputClassName}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Size
-                    </label>
-                    <input
-                      type="text"
-                      name="size"
-                      defaultValue={draft.metadata.size ?? ""}
-                      className={inputClassName}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Condition
-                    </label>
-                    <input
-                      type="text"
-                      name="condition"
-                      defaultValue={draft.metadata.condition ?? ""}
-                      className={inputClassName}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Color
-                    </label>
-                    <input
-                      type="text"
-                      name="color"
-                      defaultValue={draft.metadata.color ?? ""}
-                      className={inputClassName}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Material
-                    </label>
-                    <input
-                      type="text"
-                      name="material"
-                      defaultValue={draft.metadata.material ?? ""}
-                      className={inputClassName}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Notes
-                  </label>
-                  <textarea
-                    name="notes"
-                    defaultValue={draft.metadata.notes ?? ""}
-                    className={`${inputClassName} min-h-24 resize-y`}
-                  />
-                </div>
-
-                <div className="flex items-center justify-end">
-                  <PendingSubmitButton
-                    type="submit"
-                    variant="outline"
-                    pendingLabel="Saving metadata"
-                  >
-                    Save metadata
-                  </PendingSubmitButton>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Generate listing</CardTitle>
-              <CardDescription>
-                Run the local Ollama model against the stored image set and save
-                structured output into the draft.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-4">
-                <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
-                  <h3 className="font-medium">Provider</h3>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    {draft.generation
-                      ? `${draft.generation.provider}:${draft.generation.model}`
-                      : "ollama:qwen3.5:4b (default unless env overrides it)"}
-                  </p>
-                </div>
-
-                <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
-                  <h3 className="font-medium">Condition notes</h3>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    {draft.generation?.conditionNotes ??
-                      "No condition notes generated yet."}
-                  </p>
-                </div>
-
-                <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
-                  <h3 className="font-medium">Price rationale</h3>
-                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                    {draft.priceSuggestion?.rationale ??
-                      "No price rationale saved yet."}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="justify-between">
-              <span className="text-xs text-muted-foreground">
-                Regeneration keeps fields you already edited away from the last
-                model output. Local vision runs can take around one to two
-                minutes on this machine.
-              </span>
-              <form action={generateAction}>
-                <PendingSubmitButton
-                  type="submit"
-                  disabled={draft.imageCount === 0}
-                  pendingLabel={draft.generation ? "Regenerating" : "Generating"}
-                >
-                  <SparklesIcon data-icon="inline-start" />
-                  {draft.generation ? "Regenerate listing" : "Generate listing"}
-                </PendingSubmitButton>
-              </form>
-            </CardFooter>
-          </Card>
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-heading text-xl font-semibold">
-                Generation history
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Track what the model produced, compare it against your current
-                edits, and restore older snapshots when needed.
-              </p>
-            </div>
-            <Badge variant={draft.generationHistory.length > 0 ? "secondary" : "outline"}>
-              {draft.generationHistory.length} run
-              {draft.generationHistory.length === 1 ? "" : "s"}
-            </Badge>
-          </div>
-
-          <Separator />
-
-          {draft.generation ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Current draft vs latest AI output</CardTitle>
-                <CardDescription>
-                  {changedFields.length === 0
-                    ? "Current saved content still matches the latest generation."
-                    : "These fields currently differ from the latest AI snapshot."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <div className="rounded-lg border border-border/70 bg-background px-4 py-4 text-sm text-muted-foreground">
-                  Latest generation ran on {formatDate(draft.generation.generatedAt)} with{" "}
-                  {draft.generation.provider}:{draft.generation.model}.
-                </div>
-                {changedFields.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border bg-background px-4 py-5 text-sm text-muted-foreground">
-                    No manual divergence yet. Regenerate safely or edit any field to create a comparison.
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {changedFields.map((field) => (
-                      <Badge key={field.key} variant="outline">
-                        {field.label} edited
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
-                  <HistoryIcon className="size-4" />
-                  No generation history yet. The first model run will start this timeline.
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {draft.generationHistory.length > 0 ? (
-            <div className="grid gap-4 xl:grid-cols-2">
-              {draft.generationHistory.map((generation, index) => {
-                const restoreAction = restoreDraftGenerationAction.bind(
-                  null,
-                  draft.id,
-                  generation.generatedAt
-                );
-                const comparedFields = getChangedFieldsFromGeneration(
-                  draft,
-                  generation
-                );
-                const isActiveGeneration =
-                  draft.generation?.generatedAt === generation.generatedAt;
-
-                return (
-                  <Card key={generation.generatedAt}>
-                    <CardHeader>
-                      <div className="flex items-center justify-between gap-3">
-                        <CardTitle className="text-base">
-                          {index === 0 ? "Latest generation" : `Generation ${draft.generationHistory.length - index}`}
-                        </CardTitle>
-                        {isActiveGeneration ? (
-                          <Badge variant="secondary">active snapshot</Badge>
-                        ) : (
-                          <Badge variant="outline">history</Badge>
-                        )}
-                      </div>
-                      <CardDescription>
-                        {generation.provider}:{generation.model} on{" "}
-                        {formatDate(generation.generatedAt)}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
-                      <dl className="grid gap-3 text-sm">
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-muted-foreground">Generated title</dt>
-                          <dd>{generation.snapshot.title}</dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-muted-foreground">Generated price</dt>
-                          <dd>{formatPriceSuggestion(generation.snapshot.priceSuggestion)}</dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-muted-foreground">Changed vs current</dt>
-                          <dd className="flex flex-wrap gap-2">
-                            {comparedFields.length === 0 ? (
-                              <Badge variant="secondary">matches current draft</Badge>
-                            ) : (
-                              comparedFields.map((field) => (
-                                <Badge key={field.key} variant="outline">
-                                  {field.label}
-                                </Badge>
-                              ))
-                            )}
-                          </dd>
-                        </div>
-                      </dl>
-                    </CardContent>
-                    <CardFooter className="justify-between gap-3">
-                      <span className="truncate text-xs text-muted-foreground">
-                        {generation.snapshot.keywords.length} keyword
-                        {generation.snapshot.keywords.length === 1 ? "" : "s"}
-                      </span>
-                      <form action={restoreAction}>
-                        <PendingSubmitButton
-                          type="submit"
-                          variant="outline"
-                          pendingLabel="Restoring"
-                          disabled={isActiveGeneration && comparedFields.length === 0}
-                        >
-                          Restore snapshot
-                        </PendingSubmitButton>
-                      </form>
-                    </CardFooter>
-                  </Card>
-                );
-              })}
-            </div>
-          ) : null}
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-heading text-xl font-semibold">
-                Review listing
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Edit generated content before export or later Vinted autofill.
-              </p>
-            </div>
-            {draft.generation ? (
-              <Badge variant="secondary">
-                {draft.generation.provider}:{draft.generation.model}
-              </Badge>
-            ) : (
-              <Badge variant="outline">Awaiting generation</Badge>
-            )}
-          </div>
-
-          <Separator />
-
-          {hasReviewContent ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Editable draft content</CardTitle>
-                <CardDescription>
-                  This form saves the current review state back into the local
-                  draft repository.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form action={saveReviewAction} className="grid gap-6">
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      defaultValue={draft.title ?? ""}
-                      className={inputClassName}
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Description
-                    </label>
-                    <textarea
-                      name="description"
-                      defaultValue={draft.description ?? ""}
-                      className={textareaClassName}
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Keywords
-                    </label>
-                    <textarea
-                      name="keywords"
-                      defaultValue={formatKeywords(draft.keywords)}
-                      className={`${inputClassName} min-h-24 resize-y`}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Separate keywords with commas or new lines.
+              <Card>
+                <CardHeader>
+                  <CardTitle>Run the local model</CardTitle>
+                  <CardDescription>
+                    {draft.imageCount === 0
+                      ? "Upload at least one image first."
+                      : "This creates or refreshes the generated title, description, keywords, metadata, and price suggestion."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
+                    <p className="text-sm font-medium text-foreground">Provider</p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      {draft.generation
+                        ? `${draft.generation.provider}:${draft.generation.model}`
+                        : "ollama:qwen3.5:4b (default unless env overrides it)"}
                     </p>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div className="grid gap-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Price amount
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        name="priceAmount"
-                        defaultValue={draft.priceSuggestion?.amount ?? ""}
-                        className={inputClassName}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Min amount
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        name="priceMinAmount"
-                        defaultValue={draft.priceSuggestion?.minAmount ?? ""}
-                        className={inputClassName}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Max amount
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        name="priceMaxAmount"
-                        defaultValue={draft.priceSuggestion?.maxAmount ?? ""}
-                        className={inputClassName}
-                      />
-                    </div>
+                  <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
+                    <p className="text-sm font-medium text-foreground">
+                      Condition notes
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      {draft.generation?.conditionNotes ??
+                        "No generated notes yet."}
+                    </p>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-[1fr_220px]">
-                    <div className="grid gap-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Price rationale
-                      </label>
-                      <textarea
-                        name="priceRationale"
-                        defaultValue={draft.priceSuggestion?.rationale ?? ""}
-                        className={`${inputClassName} min-h-24 resize-y`}
-                      />
-                    </div>
-
-                    <div className="grid gap-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Confidence
-                      </label>
-                      <select
-                        name="priceConfidence"
-                        defaultValue={draft.priceSuggestion?.confidence ?? "medium"}
-                        className={inputClassName}
-                      >
-                        <option value="low">low</option>
-                        <option value="medium">medium</option>
-                        <option value="high">high</option>
-                      </select>
-                    </div>
+                  <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
+                    <p className="text-sm font-medium text-foreground">
+                      Price rationale
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                      {draft.priceSuggestion?.rationale ??
+                        "No price rationale yet."}
+                    </p>
                   </div>
-
-                  <div className="flex items-center justify-end">
-                    <PendingSubmitButton type="submit" pendingLabel="Saving review">
-                      Save review
-                    </PendingSubmitButton>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
-                  <SparklesIcon className="size-4" />
-                  Generate a listing first to review and edit it here.
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-heading text-xl font-semibold">
-                Export listing
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Copy single fields or the full listing package for Vinted.
-              </p>
-            </div>
-            <Badge variant="outline">copy/export</Badge>
-          </div>
-
-          <Separator />
-
-          <DraftExportPanel draft={draft} readiness={readiness} />
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="font-heading text-xl font-semibold">
-                Images attached
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Upload desktop images, review previews, and remove anything you
-                do not want in the draft.
-              </p>
-            </div>
-            <Badge variant="outline">{draft.imageCount} images</Badge>
-          </div>
-
-          <Separator />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload images</CardTitle>
-              <CardDescription>
-                Add multiple desktop images now. They attach to this draft in
-                selected order.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form action={uploadAction} className="flex flex-col gap-4">
-                <label className="flex flex-col gap-2 text-sm">
-                  <span className="font-medium text-foreground">
-                    Choose images
-                  </span>
-                  <input
-                    className="block w-full cursor-pointer rounded-lg border border-border bg-background px-3 py-3 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-muted/80"
-                    type="file"
-                    name="images"
-                    accept="image/*"
-                    multiple
-                  />
-                </label>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    JPG, PNG, WEBP, GIF, and HEIC are accepted if the browser
-                    exposes them as image files.
+                </CardContent>
+                <CardFooter className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    Regeneration keeps fields you already edited away from the
+                    last model output. Local vision runs can take around one to
+                    two minutes on this machine.
                   </p>
-                  <PendingSubmitButton type="submit" pendingLabel="Uploading images">
-                    <UploadIcon data-icon="inline-start" />
-                    Upload images
-                  </PendingSubmitButton>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+                  <form action={generateAction}>
+                    <PendingSubmitButton
+                      type="submit"
+                      disabled={draft.imageCount === 0}
+                      pendingLabel={draft.generation ? "Regenerating" : "Generating"}
+                    >
+                      <SparklesIcon data-icon="inline-start" />
+                      {draft.generation ? "Regenerate listing" : "Generate listing"}
+                    </PendingSubmitButton>
+                  </form>
+                </CardFooter>
+              </Card>
+            </section>
 
-          {draft.images.length === 0 ? (
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
-                  <ImageIcon className="size-4" />
-                  No image assets stored yet for this draft.
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {draft.images.map((image) => {
-                const removeAction = removeDraftImageAction.bind(
-                  null,
-                  draft.id,
-                  image.id
-                );
+            <section ref={reviewRef} className="space-y-4">
+              <div className="space-y-1">
+                <Badge variant="secondary">Step 3</Badge>
+                <h2 className="font-heading text-2xl font-semibold">
+                  Review listing fields
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Generated fields land here. Edit the listing once, then save
+                  the full draft state in one form.
+                </p>
+              </div>
 
-                return (
-                  <Card key={image.id}>
-                    <div className="relative aspect-square overflow-hidden bg-muted">
-                      <Image
-                        src={`/api/drafts/${draft.id}/images/${image.id}`}
-                        alt={image.originalFilename}
-                        fill
-                        sizes="(min-width: 1280px) 33vw, (min-width: 640px) 50vw, 100vw"
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                    <CardContent className="flex flex-col gap-3 pt-4">
-                      <div className="flex flex-col gap-1">
-                        <span className="truncate font-medium">
-                          {image.originalFilename}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          Position {image.sortOrder + 1}
-                        </span>
+              {hasReviewContent ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Edit current draft</CardTitle>
+                    <CardDescription>
+                      Title, description, keywords, price, and structured fields
+                      save together now.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form action={saveReviewAction} className="space-y-6">
+                      <div className="space-y-5">
+                        <div className="grid gap-2">
+                          <label className="text-sm font-medium text-foreground">
+                            Title
+                          </label>
+                          <input
+                            type="text"
+                            name="title"
+                            defaultValue={draft.title ?? ""}
+                            className={inputClassName}
+                            data-review-focus="true"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <label className="text-sm font-medium text-foreground">
+                            Description
+                          </label>
+                          <textarea
+                            name="description"
+                            defaultValue={draft.description ?? ""}
+                            className={textareaClassName}
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <label className="text-sm font-medium text-foreground">
+                            Keywords
+                          </label>
+                          <textarea
+                            name="keywords"
+                            defaultValue={formatKeywords(draft.keywords)}
+                            className={`${inputClassName} min-h-24 resize-y`}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Separate keywords with commas or new lines.
+                          </p>
+                        </div>
                       </div>
-                      <dl className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-muted-foreground">Size</dt>
-                          <dd>{formatFileSize(image.sizeBytes)}</dd>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="font-medium text-foreground">Price</h3>
+                          <span className="text-sm text-muted-foreground">
+                            {formatPriceSuggestion(draft.priceSuggestion)}
+                          </span>
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-muted-foreground">Dimensions</dt>
-                          <dd>{formatDimensions(image.width, image.height)}</dd>
+
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium text-foreground">
+                              Price amount
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              name="priceAmount"
+                              defaultValue={draft.priceSuggestion?.amount ?? ""}
+                              className={inputClassName}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium text-foreground">
+                              Min amount
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              name="priceMinAmount"
+                              defaultValue={draft.priceSuggestion?.minAmount ?? ""}
+                              className={inputClassName}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium text-foreground">
+                              Max amount
+                            </label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              name="priceMaxAmount"
+                              defaultValue={draft.priceSuggestion?.maxAmount ?? ""}
+                              className={inputClassName}
+                            />
+                          </div>
                         </div>
-                      </dl>
-                    </CardContent>
-                    <CardFooter className="justify-between gap-3">
-                      <span className="truncate text-xs text-muted-foreground">
-                        {image.id}
-                      </span>
-                      <form action={removeAction}>
+
+                        <details className="rounded-lg border border-border bg-background">
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-foreground">
+                            Advanced pricing fields
+                            <ChevronDownIcon className="size-4 text-muted-foreground" />
+                          </summary>
+                          <div className="grid gap-4 border-t border-border px-4 py-4 md:grid-cols-[1fr_220px]">
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium text-foreground">
+                                Price rationale
+                              </label>
+                              <textarea
+                                name="priceRationale"
+                                defaultValue={draft.priceSuggestion?.rationale ?? ""}
+                                className={`${inputClassName} min-h-24 resize-y`}
+                              />
+                            </div>
+
+                            <div className="grid gap-2">
+                              <label className="text-sm font-medium text-foreground">
+                                Confidence
+                              </label>
+                              <select
+                                name="priceConfidence"
+                                defaultValue={draft.priceSuggestion?.confidence ?? "medium"}
+                                className={inputClassName}
+                              >
+                                <option value="low">low</option>
+                                <option value="medium">medium</option>
+                                <option value="high">high</option>
+                              </select>
+                            </div>
+                          </div>
+                        </details>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h3 className="font-medium text-foreground">
+                          Structured fields
+                        </h3>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium text-foreground">
+                              Brand
+                            </label>
+                            <input
+                              type="text"
+                              name="brand"
+                              defaultValue={draft.metadata.brand ?? ""}
+                              className={inputClassName}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium text-foreground">
+                              Category
+                            </label>
+                            <input
+                              type="text"
+                              name="category"
+                              defaultValue={draft.metadata.category ?? ""}
+                              className={inputClassName}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium text-foreground">
+                              Size
+                            </label>
+                            <input
+                              type="text"
+                              name="size"
+                              defaultValue={draft.metadata.size ?? ""}
+                              className={inputClassName}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium text-foreground">
+                              Condition
+                            </label>
+                            <input
+                              type="text"
+                              name="condition"
+                              defaultValue={draft.metadata.condition ?? ""}
+                              className={inputClassName}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium text-foreground">
+                              Color
+                            </label>
+                            <input
+                              type="text"
+                              name="color"
+                              defaultValue={draft.metadata.color ?? ""}
+                              className={inputClassName}
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <label className="text-sm font-medium text-foreground">
+                              Material
+                            </label>
+                            <input
+                              type="text"
+                              name="material"
+                              defaultValue={draft.metadata.material ?? ""}
+                              className={inputClassName}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid gap-2">
+                          <label className="text-sm font-medium text-foreground">
+                            Notes
+                          </label>
+                          <textarea
+                            name="notes"
+                            defaultValue={draft.metadata.notes ?? ""}
+                            className={`${inputClassName} min-h-24 resize-y`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end">
                         <PendingSubmitButton
                           type="submit"
-                          variant="outline"
-                          pendingLabel="Removing"
+                          pendingLabel="Saving fields"
                         >
-                          <Trash2Icon data-icon="inline-start" />
-                          Remove
+                          Save listing fields
+                        </PendingSubmitButton>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
+                      <SparklesIcon className="size-4" />
+                      Upload images, then run generation to unlock the editable
+                      listing fields here.
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </section>
+
+            {hasReviewContent ? (
+              <section ref={exportRef} className="space-y-4">
+                <div className="space-y-1">
+                  <Badge variant="secondary">Step 4</Badge>
+                  <h2 className="font-heading text-2xl font-semibold">
+                    Export to Vinted
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Copy the full handoff once the draft looks right.
+                  </p>
+                </div>
+
+                <DraftExportPanel draft={draft} readiness={readiness} />
+              </section>
+            ) : null}
+
+            {draft.generationHistory.length > 0 ? (
+              <section className="space-y-4">
+                <details className="rounded-xl border border-border bg-card">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-6 py-5">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <HistoryIcon className="size-4 text-muted-foreground" />
+                        <span className="font-heading text-xl font-semibold">
+                          Generation history
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Keep this advanced. Open it only when you need to compare
+                        or restore older model runs.
+                      </p>
+                    </div>
+                    <Badge variant="outline">
+                      {draft.generationHistory.length} run
+                      {draft.generationHistory.length === 1 ? "" : "s"}
+                    </Badge>
+                  </summary>
+
+                  <div className="space-y-4 border-t border-border px-6 py-5">
+                    {draft.generation ? (
+                      <div className="rounded-lg border border-border/70 bg-background px-4 py-4 text-sm text-muted-foreground">
+                        {changedFields.length === 0
+                          ? "Current draft still matches the latest AI output."
+                          : `Current draft differs from the latest AI output in ${changedFields.map((field) => field.label.toLowerCase()).join(", ")}.`}
+                      </div>
+                    ) : null}
+
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      {draft.generationHistory.map((generation, index) => {
+                        const restoreAction = restoreDraftGenerationAction.bind(
+                          null,
+                          draft.id,
+                          generation.generatedAt
+                        );
+                        const comparedFields = getChangedFieldsFromGeneration(
+                          draft,
+                          generation
+                        );
+                        const isActiveGeneration =
+                          draft.generation?.generatedAt === generation.generatedAt;
+
+                        return (
+                          <Card key={generation.generatedAt}>
+                            <CardHeader>
+                              <div className="flex items-center justify-between gap-3">
+                                <CardTitle className="text-base">
+                                  {index === 0
+                                    ? "Latest generation"
+                                    : `Generation ${draft.generationHistory.length - index}`}
+                                </CardTitle>
+                                <Badge variant={isActiveGeneration ? "secondary" : "outline"}>
+                                  {isActiveGeneration ? "active" : "history"}
+                                </Badge>
+                              </div>
+                              <CardDescription>
+                                {generation.provider}:{generation.model} on{" "}
+                                {formatDate(generation.generatedAt)}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4 text-sm">
+                              <div className="space-y-1">
+                                <p className="text-muted-foreground">Title</p>
+                                <p>{generation.snapshot.title}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-muted-foreground">Price</p>
+                                <p>
+                                  {formatPriceSuggestion(
+                                    generation.snapshot.priceSuggestion
+                                  )}
+                                </p>
+                              </div>
+                              <div className="space-y-2">
+                                <p className="text-muted-foreground">
+                                  Changed vs current
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {comparedFields.length === 0 ? (
+                                    <Badge variant="secondary">
+                                      matches current draft
+                                    </Badge>
+                                  ) : (
+                                    comparedFields.map((field) => (
+                                      <Badge key={field.key} variant="outline">
+                                        {field.label}
+                                      </Badge>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                            <CardFooter className="justify-between gap-3">
+                              <span className="text-xs text-muted-foreground">
+                                {generation.snapshot.keywords.length} keyword
+                                {generation.snapshot.keywords.length === 1
+                                  ? ""
+                                  : "s"}
+                              </span>
+                              <form action={restoreAction}>
+                                <PendingSubmitButton
+                                  type="submit"
+                                  variant="outline"
+                                  pendingLabel="Restoring"
+                                  disabled={
+                                    isActiveGeneration &&
+                                    comparedFields.length === 0
+                                  }
+                                >
+                                  Restore snapshot
+                                </PendingSubmitButton>
+                              </form>
+                            </CardFooter>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </details>
+              </section>
+            ) : null}
+          </div>
+
+          <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+            <Card>
+              <CardHeader>
+                <CardTitle>Draft summary</CardTitle>
+                <CardDescription>{getStepCopy(draft)}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <dl className="space-y-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">Status</dt>
+                    <dd>
+                      <DraftStatusBadge status={draft.status} />
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">Images</dt>
+                    <dd>{draft.imageCount}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">Generated</dt>
+                    <dd>{draft.generation ? "Yes" : "No"}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <dt className="text-muted-foreground">Updated</dt>
+                    <dd className="text-right">{formatDate(draft.updatedAt)}</dd>
+                  </div>
+                </dl>
+
+                <div className="rounded-lg border border-dashed border-border bg-background px-4 py-4 text-sm text-muted-foreground">
+                  <div className="flex items-start gap-3">
+                    <PackageCheckIcon className="mt-0.5 size-4 shrink-0" />
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">
+                        {readiness.ready
+                          ? "Ready for Vinted handoff."
+                          : "Still missing required fields."}
+                      </p>
+                      <p>
+                        {readiness.ready
+                          ? "Title, description, price, category, condition, keywords, and images are all present."
+                          : `Missing ${readiness.missing
+                              .map(formatReadinessItem)
+                              .join(", ")}.`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      ["draft", "Draft"],
+                      ["ready", "Ready"],
+                      ["listed", "Listed"],
+                      ["sold", "Sold"],
+                    ] as const
+                  ).map(([status, label]) => {
+                    const statusAction = setDraftStatusAction.bind(
+                      null,
+                      draft.id,
+                      status
+                    );
+                    const disabled =
+                      draft.status === status ||
+                      ((status === "ready" || status === "listed") &&
+                        !readiness.ready) ||
+                      (status === "sold" && draft.status !== "listed");
+
+                    return (
+                      <form key={status} action={statusAction}>
+                        <PendingSubmitButton
+                          type="submit"
+                          variant={draft.status === status ? "default" : "outline"}
+                          className="w-full"
+                          disabled={disabled}
+                          pendingLabel={`Saving ${label.toLowerCase()}`}
+                        >
+                          {label}
                         </PendingSubmitButton>
                       </form>
-                    </CardFooter>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                    );
+                  })}
+                </div>
+
+                <details className="rounded-lg border border-border bg-background">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-foreground">
+                    Draft details
+                    <ChevronDownIcon className="size-4 text-muted-foreground" />
+                  </summary>
+                  <div className="space-y-3 border-t border-border px-4 py-4 text-sm">
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Draft ID</p>
+                      <p className="break-all">{draft.id}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Created</p>
+                      <p>{formatDate(draft.createdAt)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Latest generation</p>
+                      <p>
+                        {draft.generation
+                          ? `${draft.generation.provider}:${draft.generation.model}`
+                          : "Not generated yet"}
+                      </p>
+                    </div>
+                  </div>
+                </details>
+              </CardContent>
+            </Card>
+          </aside>
+        </div>
       </div>
     </main>
   );

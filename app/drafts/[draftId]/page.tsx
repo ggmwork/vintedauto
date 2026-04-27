@@ -31,6 +31,7 @@ export default async function DraftDetailRoute({
   return (
     <DraftDetailPage
       draft={draft}
+      focusSection={pickSearchParam(resolvedSearchParams.focus) ?? null}
       feedback={{
         flash: pickSearchParam(resolvedSearchParams.flash) ?? null,
         error: pickSearchParam(resolvedSearchParams.error) ?? null,

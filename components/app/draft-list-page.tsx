@@ -23,8 +23,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { appConfig } from "@/lib/app-config";
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import type { Draft } from "@/types/draft";
 
@@ -95,6 +93,24 @@ function sortDrafts(drafts: Draft[], sortBy: string) {
   }
 }
 
+function getNextActionLabel(draft: Draft) {
+  const readiness = getDraftReadiness(draft);
+
+  if (draft.imageCount === 0) {
+    return "Upload images";
+  }
+
+  if (draft.generationHistory.length === 0) {
+    return "Generate listing";
+  }
+
+  if (!readiness.ready) {
+    return "Review fields";
+  }
+
+  return "Ready to export";
+}
+
 export function DraftListPage({ drafts }: { drafts: Draft[] }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<
@@ -158,99 +174,56 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
   }, [drafts]);
 
   return (
-    <main className="flex-1 bg-muted/30">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10 lg:px-8">
-        <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex max-w-3xl flex-col gap-3">
-            <Badge variant="secondary">Desktop MVP</Badge>
-            <div className="flex flex-col gap-3">
-              <h1 className="font-heading text-4xl leading-tight font-semibold text-balance">
-                Draft workspace is now usable end to end.
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-                Create drafts, attach desktop images, generate listing content
-                with local Ollama, track status, compare AI output against your
-                edits, and prepare Vinted handoff payloads.
-              </p>
-            </div>
+    <main className="flex-1 bg-muted/20">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 lg:px-8">
+        <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl space-y-2">
+            <Badge variant="secondary">Desktop draft workspace</Badge>
+            <h1 className="font-heading text-3xl font-semibold text-balance">
+              Upload, generate, review, export.
+            </h1>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+              Keep the draft list quiet and task-focused. Create a draft, open
+              it, add images, and move the listing forward without dashboard
+              filler.
+            </p>
           </div>
 
           <form action={createDraftAction}>
-            <PendingSubmitButton size="lg" type="submit" pendingLabel="Creating draft">
+            <PendingSubmitButton
+              size="lg"
+              type="submit"
+              pendingLabel="Creating draft"
+            >
               <PlusIcon data-icon="inline-start" />
               Create draft
             </PendingSubmitButton>
           </form>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Drafts tracked</CardTitle>
-              <CardDescription>All local drafts in this workspace.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-semibold">{stats.total}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Generated</CardTitle>
-              <CardDescription>
-                Drafts that already have at least one model run.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-semibold">{stats.generated}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Ready for handoff</CardTitle>
-              <CardDescription>
-                Drafts with the minimum Vinted fields present.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-semibold">{stats.readyForHandoff}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Status mix</CardTitle>
-              <CardDescription>
-                Current workflow breakdown across all drafts.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              <Badge variant="secondary">draft {stats.byStatus.draft}</Badge>
-              <Badge variant="default">ready {stats.byStatus.ready}</Badge>
-              <Badge variant="outline">listed {stats.byStatus.listed}</Badge>
-              <Badge variant="destructive">sold {stats.byStatus.sold}</Badge>
-            </CardContent>
-          </Card>
+        <section className="flex flex-wrap gap-2">
+          <Badge variant="outline">{stats.total} drafts</Badge>
+          <Badge variant="outline">{stats.generated} generated</Badge>
+          <Badge variant="outline">{stats.readyForHandoff} ready</Badge>
+          <Badge variant="outline">{stats.byStatus.listed} listed</Badge>
+          <Badge variant="outline">{stats.byStatus.sold} sold</Badge>
         </section>
 
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col gap-1">
-              <h2 className="font-heading text-2xl font-semibold">Drafts</h2>
-              <p className="text-sm text-muted-foreground">
-                {filteredDrafts.length === drafts.length
-                  ? `${drafts.length} draft${drafts.length === 1 ? "" : "s"} available.`
-                  : `${filteredDrafts.length} of ${drafts.length} drafts shown.`}
-              </p>
-            </div>
+        <section className="space-y-4">
+          <div className="flex flex-col gap-1">
+            <h2 className="font-heading text-2xl font-semibold">Drafts</h2>
+            <p className="text-sm text-muted-foreground">
+              {filteredDrafts.length === drafts.length
+                ? `${drafts.length} draft${drafts.length === 1 ? "" : "s"} available.`
+                : `${filteredDrafts.length} of ${drafts.length} drafts shown.`}
+            </p>
           </div>
 
           <Card>
             <CardHeader>
               <CardTitle>Browse drafts</CardTitle>
               <CardDescription>
-                Search by listing text or metadata, then filter by status and sort by recency or activity.
+                Search, filter, and open the next draft that needs work.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 md:grid-cols-[1.4fr_0.8fr_0.8fr]">
@@ -308,8 +281,6 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             </CardContent>
           </Card>
 
-          <Separator />
-
           {drafts.length === 0 ? (
             <Card>
               <CardHeader>
@@ -347,6 +318,7 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredDrafts.map((draft) => {
                 const readiness = getDraftReadiness(draft);
+                const nextActionLabel = getNextActionLabel(draft);
 
                 return (
                   <Card key={draft.id}>
@@ -357,13 +329,9 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
                         </CardTitle>
                         <DraftStatusBadge status={draft.status} />
                       </div>
-                      <CardDescription>
-                        {draft.description
-                          ? draft.description
-                          : "No listing text yet. Images and AI generation come next."}
-                      </CardDescription>
+                      <CardDescription>{nextActionLabel}</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex flex-col gap-4">
+                    <CardContent className="space-y-4">
                       <div className="flex flex-wrap gap-2">
                         {draft.metadata.brand ? (
                           <Badge variant="outline">{draft.metadata.brand}</Badge>
@@ -371,8 +339,11 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
                         {draft.metadata.category ? (
                           <Badge variant="outline">{draft.metadata.category}</Badge>
                         ) : null}
+                        <Badge variant={readiness.ready ? "secondary" : "outline"}>
+                          {readiness.ready ? "ready" : "incomplete"}
+                        </Badge>
                         {draft.generationHistory.length > 0 ? (
-                          <Badge variant="secondary">
+                          <Badge variant="outline">
                             <SparklesIcon data-icon="inline-start" />
                             {draft.generationHistory.length} generation
                             {draft.generationHistory.length === 1 ? "" : "s"}
@@ -381,46 +352,37 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
                       </div>
 
                       <dl className="grid grid-cols-2 gap-3 text-sm">
-                        <div className="flex flex-col gap-1">
+                        <div className="space-y-1">
                           <dt className="text-muted-foreground">Images</dt>
                           <dd>{draft.imageCount}</dd>
                         </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="space-y-1">
                           <dt className="text-muted-foreground">Keywords</dt>
                           <dd>{draft.keywords.length}</dd>
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <dt className="text-muted-foreground">Handoff</dt>
-                          <dd>{readiness.ready ? "ready" : "incomplete"}</dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
+                        <div className="space-y-1">
                           <dt className="text-muted-foreground">Updated</dt>
                           <dd>{formatDate(draft.updatedAt)}</dd>
                         </div>
+                        <div className="space-y-1">
+                          <dt className="text-muted-foreground">Next</dt>
+                          <dd>{nextActionLabel}</dd>
+                        </div>
                       </dl>
-                    </CardContent>
-                    <CardFooter className="justify-between gap-3">
-                      <span className="truncate text-xs text-muted-foreground">
-                        {draft.id}
-                      </span>
+
                       <Link
                         href={`/drafts/${draft.id}`}
                         className={buttonVariants({ variant: "outline" })}
                       >
                         Open draft
                       </Link>
-                    </CardFooter>
+                    </CardContent>
                   </Card>
                 );
               })}
             </div>
           )}
         </section>
-
-        <footer className="text-xs text-muted-foreground">
-          {appConfig.name} local desktop MVP. Draft state stays swappable later,
-          but the full listing loop is now live in one workspace.
-        </footer>
       </div>
     </main>
   );

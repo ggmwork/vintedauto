@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import {
+  ChevronDownIcon,
   ClipboardCopyIcon,
+  FileJsonIcon,
   FileTextIcon,
-  LayersIcon,
-  PackageCheckIcon,
   TagsIcon,
 } from "lucide-react";
 
@@ -15,7 +15,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -48,9 +47,7 @@ function formatMetadataSection(draft: DraftDetail) {
     return "No metadata set.";
   }
 
-  return metadataEntries
-    .map(([label, value]) => `${label}: ${value}`)
-    .join("\n");
+  return metadataEntries.map(([label, value]) => `${label}: ${value}`).join("\n");
 }
 
 function formatPrice(draft: DraftDetail) {
@@ -109,7 +106,7 @@ export function DraftExportPanel({
     [handoffPayload]
   );
 
-  const exportItems = useMemo<ExportItem[]>(
+  const advancedItems = useMemo<ExportItem[]>(
     () => [
       {
         key: "title",
@@ -131,20 +128,26 @@ export function DraftExportPanel({
         label: "Price",
         value: formatPrice(draft),
       },
+    ],
+    [draft]
+  );
+
+  const primaryItems = useMemo<ExportItem[]>(
+    () => [
       {
         key: "vinted-handoff",
         label: "Vinted handoff",
         value: handoffText,
       },
       {
-        key: "vinted-json",
-        label: "Vinted JSON",
-        value: handoffJson,
-      },
-      {
         key: "full-package",
         label: "Full package",
         value: formatFullPackage(draft),
+      },
+      {
+        key: "vinted-json",
+        label: "Vinted JSON",
+        value: handoffJson,
       },
     ],
     [draft, handoffJson, handoffText]
@@ -163,105 +166,108 @@ export function DraftExportPanel({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Copy / export</CardTitle>
-        <CardDescription>
-          Copy individual listing parts or the full Vinted-ready package.
-        </CardDescription>
+      <CardHeader className="gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <CardTitle>Export for Vinted</CardTitle>
+            <CardDescription>
+              Copy the full handoff first. Use the advanced copies only when
+              you need a single field.
+            </CardDescription>
+          </div>
+          <Badge variant={readiness.ready ? "default" : "outline"}>
+            {readiness.ready ? "ready for Vinted" : "still incomplete"}
+          </Badge>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          <Button
+            type="button"
+            disabled={handoffText.trim().length === 0}
+            variant={lastCopied === "vinted-handoff" ? "default" : "outline"}
+            onClick={() =>
+              handleCopy(primaryItems.find((item) => item.key === "vinted-handoff")!)
+            }
+          >
+            <ClipboardCopyIcon data-icon="inline-start" />
+            Copy Vinted handoff
+          </Button>
+          <Button
+            type="button"
+            disabled={primaryItems[1].value.trim().length === 0}
+            variant={lastCopied === "full-package" ? "default" : "outline"}
+            onClick={() => handleCopy(primaryItems[1])}
+          >
+            <FileTextIcon data-icon="inline-start" />
+            Copy full package
+          </Button>
+          <Button
+            type="button"
+            disabled={handoffJson.trim().length === 0}
+            variant={lastCopied === "vinted-json" ? "default" : "outline"}
+            onClick={() =>
+              handleCopy(primaryItems.find((item) => item.key === "vinted-json")!)
+            }
+          >
+            <FileJsonIcon data-icon="inline-start" />
+            Copy JSON payload
+          </Button>
+        </div>
+
+        {copyError ? (
+          <p className="text-sm text-destructive">{copyError}</p>
+        ) : lastCopied ? (
+          <p className="text-sm text-muted-foreground">
+            Copied{" "}
+            {primaryItems
+              .concat(advancedItems)
+              .find((item) => item.key === lastCopied)
+              ?.label.toLowerCase()}
+            .
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {readiness.ready
+              ? "Listing has the minimum fields needed for Vinted handoff."
+              : `Still missing ${readiness.missing.join(", ")}.`}
+          </p>
+        )}
       </CardHeader>
-      <CardContent className="flex flex-col gap-6">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {exportItems.map((item) => (
-            <Button
-              key={item.key}
-              type="button"
-              variant={lastCopied === item.key ? "default" : "outline"}
-              disabled={item.value.trim().length === 0}
-              onClick={() => handleCopy(item)}
-            >
-              <ClipboardCopyIcon data-icon="inline-start" />
-              Copy {item.label}
-            </Button>
-          ))}
+
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <TagsIcon className="size-4" />
+            Vinted handoff preview
+          </div>
+          <textarea
+            readOnly
+            value={handoffText}
+            className="min-h-72 w-full resize-y rounded-lg border border-border bg-background px-3 py-3 text-sm leading-6 text-foreground outline-none"
+          />
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-          <div className="flex flex-col gap-3">
-            <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
-              <div className="flex items-center gap-2">
-                <PackageCheckIcon className="size-4" />
-                <span className="font-medium">Vinted readiness</span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {readiness.ready
-                  ? "Draft has the minimum fields needed for Vinted handoff."
-                  : `Still missing ${readiness.missing.join(", ")}.`}
-              </p>
-              <div className="mt-3">
-                <Badge variant={readiness.ready ? "default" : "outline"}>
-                  {readiness.ready ? "ready for Vinted" : "incomplete"}
-                </Badge>
-              </div>
-              {copyError ? (
-                <p className="mt-2 text-sm text-destructive">{copyError}</p>
-              ) : null}
-            </div>
-
-            <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
-              <div className="flex items-center gap-2">
-                <ClipboardCopyIcon className="size-4" />
-                <span className="font-medium">Copy status</span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {lastCopied
-                  ? `Copied ${exportItems.find((item) => item.key === lastCopied)?.label.toLowerCase()}.`
-                  : "Nothing copied yet."}
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
-              <div className="flex items-center gap-2">
-                <TagsIcon className="size-4" />
-                <span className="font-medium">Metadata summary</span>
-              </div>
-              <pre className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                {formatMetadataSection(draft)}
-              </pre>
-            </div>
-
-            <div className="rounded-lg border border-border/70 bg-background px-4 py-4">
-              <div className="flex items-center gap-2">
-                <LayersIcon className="size-4" />
-                <span className="font-medium">Automation boundary</span>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                The same saved draft now exports both human-readable text and a
-                structured JSON payload for later browser automation.
-              </p>
-            </div>
+        <details className="rounded-lg border border-border bg-background">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-foreground">
+            Advanced field copies
+            <ChevronDownIcon className="size-4 text-muted-foreground" />
+          </summary>
+          <div className="grid gap-3 border-t border-border px-4 py-4 sm:grid-cols-2 xl:grid-cols-4">
+            {advancedItems.map((item) => (
+              <Button
+                key={item.key}
+                type="button"
+                variant={lastCopied === item.key ? "default" : "outline"}
+                disabled={item.value.trim().length === 0}
+                onClick={() => handleCopy(item)}
+              >
+                <ClipboardCopyIcon data-icon="inline-start" />
+                Copy {item.label}
+              </Button>
+            ))}
           </div>
-
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileTextIcon className="size-4" />
-                <span className="font-medium">Vinted handoff preview</span>
-              </div>
-              <Badge variant="outline">desktop handoff</Badge>
-            </div>
-            <textarea
-              readOnly
-              value={handoffText}
-              className="min-h-80 w-full resize-y rounded-lg border border-border bg-background px-3 py-3 text-sm leading-6 text-foreground outline-none"
-            />
-          </div>
-        </div>
+        </details>
       </CardContent>
-      <CardFooter className="justify-between">
-        <span className="text-xs text-muted-foreground">
-          Export uses the current saved review and metadata state in Vinted field order.
-        </span>
-      </CardFooter>
     </Card>
   );
 }

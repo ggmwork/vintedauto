@@ -16,7 +16,7 @@ export async function createDraftAction() {
   const draft = await draftRepository.create({});
 
   revalidatePath("/");
-  redirect(`/drafts/${draft.id}`);
+  redirect(`/drafts/${draft.id}?focus=upload`);
 }
 
 function parseOptionalNumber(value: FormDataEntryValue | null) {
@@ -57,6 +57,18 @@ function parseKeywords(value: FormDataEntryValue | null) {
 
 function parseConfidence(value: FormDataEntryValue | null): PriceConfidence {
   return value === "high" || value === "low" ? value : "medium";
+}
+
+function parseMetadataFromForm(formData: FormData) {
+  return {
+    brand: parseStringOrNull(formData.get("brand")),
+    category: parseStringOrNull(formData.get("category")),
+    size: parseStringOrNull(formData.get("size")),
+    condition: parseStringOrNull(formData.get("condition")),
+    color: parseStringOrNull(formData.get("color")),
+    material: parseStringOrNull(formData.get("material")),
+    notes: parseStringOrNull(formData.get("notes")),
+  };
 }
 
 function buildRedirectUrl(
@@ -214,7 +226,10 @@ export async function uploadDraftImagesAction(
     images: [...draft.images, ...uploadedImages],
   });
 
-  redirectToDraft(draftId);
+  redirectToDraft(draftId, {
+    flash: `Uploaded ${uploadedImages.length} image${uploadedImages.length === 1 ? "" : "s"}.`,
+    focus: "generate",
+  });
 }
 
 export async function removeDraftImageAction(
@@ -293,6 +308,7 @@ export async function generateDraftListingAction(draftId: string) {
 
     redirectToDraft(draftId, {
       flash: `Generated listing with ${generation.provider}:${generation.model}. Manual edits were preserved where they already differed from the last model output.`,
+      focus: "review",
     });
   } catch (error) {
     const message =
@@ -337,11 +353,13 @@ export async function saveDraftReviewAction(
   const title = parseStringOrNull(formData.get("title"));
   const description = parseStringOrNull(formData.get("description"));
   const keywords = parseKeywords(formData.get("keywords"));
+  const metadata = parseMetadataFromForm(formData);
   const nextStatus = getFallbackDraftStatus({
     ...draft,
     title,
     description,
     keywords,
+    metadata,
     priceSuggestion,
   });
 
@@ -350,6 +368,7 @@ export async function saveDraftReviewAction(
     title,
     description,
     keywords,
+    metadata,
     priceSuggestion,
     generation: draft.generation,
   });
@@ -357,8 +376,9 @@ export async function saveDraftReviewAction(
   redirectToDraft(draftId, {
     flash:
       nextStatus === draft.status
-        ? "Saved listing review changes."
-        : "Saved listing review changes and moved the draft back to draft because required Vinted fields are now missing.",
+        ? "Saved listing fields."
+        : "Saved listing fields and moved the draft back to draft because required Vinted fields are now missing.",
+    focus: "export",
   });
 }
 
@@ -372,15 +392,7 @@ export async function saveDraftMetadataAction(
     throw new Error(`Draft not found: ${draftId}`);
   }
 
-  const metadata = {
-    brand: parseStringOrNull(formData.get("brand")),
-    category: parseStringOrNull(formData.get("category")),
-    size: parseStringOrNull(formData.get("size")),
-    condition: parseStringOrNull(formData.get("condition")),
-    color: parseStringOrNull(formData.get("color")),
-    material: parseStringOrNull(formData.get("material")),
-    notes: parseStringOrNull(formData.get("notes")),
-  };
+  const metadata = parseMetadataFromForm(formData);
 
   const nextStatus = getFallbackDraftStatus({
     ...draft,
