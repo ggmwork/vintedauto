@@ -12,6 +12,11 @@ import {
   buildReviewQueueUrl,
   type ReviewQueueState,
 } from "@/lib/drafts/review-queue";
+import {
+  commitCandidateCluster,
+  dissolveCandidateCluster,
+  runSessionAutoGrouping,
+} from "@/lib/grouping";
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
 import { draftImageStorage } from "@/lib/storage";
 import {
@@ -306,6 +311,8 @@ export async function importStudioSessionAction(formData: FormData) {
         height: storedPhotoAsset.height,
         organizationStatus: "unassigned",
         stockItemId: null,
+        candidateClusterId: null,
+        descriptor: null,
         createdAt: new Date().toISOString(),
       };
 
@@ -317,6 +324,11 @@ export async function importStudioSessionAction(formData: FormData) {
     sessionId: session.id,
     photoAssets,
   });
+
+  await runSessionAutoGrouping(
+    session.id,
+    photoAssets.map((photoAsset) => photoAsset.id)
+  );
 
   redirectToSession(session.id, {
     flash: `Imported ${photoAssets.length} photo asset${photoAssets.length === 1 ? "" : "s"} into the session.`,
@@ -506,13 +518,65 @@ export async function resumeInboxWatcherAction() {
 export async function scanInboxWatcherNowAction() {
   await ensureInboxWatcherRunning();
   const result = await scanInboxWatcherNow();
+  const groupingSuffix =
+    result.autoCommittedCount > 0 || result.reviewClusterCount > 0
+      ? ` Grouped ${result.autoCommittedCount} cluster${result.autoCommittedCount === 1 ? "" : "s"} automatically and left ${result.reviewClusterCount} for review.`
+      : "";
+  const flash =
+    result.importedCount > 0
+      ? `Imported ${result.importedCount} new photo${result.importedCount === 1 ? "" : "s"} from the watched folder.${groupingSuffix}`
+      : `Scan complete. No new images found.${groupingSuffix}`;
 
   redirectToHome({
-    flash:
-      result.importedCount > 0
-        ? `Imported ${result.importedCount} new photo${result.importedCount === 1 ? "" : "s"} from the watched folder.`
-        : "Scan complete. No new images found.",
+    flash,
   });
+}
+
+export async function commitCandidateClusterAction(
+  sessionId: string,
+  candidateClusterId: string,
+  returnTo: StockActionReturnTo = "inbox",
+  formData: FormData
+) {
+  const name = parseStringOrNull(formData.get("stockItemName"));
+
+  try {
+    await commitCandidateCluster(sessionId, candidateClusterId, name);
+
+    redirectAfterSessionStockAction(sessionId, returnTo, {
+      flash: "Committed candidate cluster to Stock.",
+      focus: getStockRedirectFocus(returnTo),
+    });
+  } catch (error) {
+    redirectAfterSessionStockAction(sessionId, returnTo, {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to commit the candidate cluster.",
+    });
+  }
+}
+
+export async function dissolveCandidateClusterAction(
+  sessionId: string,
+  candidateClusterId: string,
+  returnTo: StockActionReturnTo = "inbox"
+) {
+  try {
+    await dissolveCandidateCluster(sessionId, candidateClusterId);
+
+    redirectAfterSessionStockAction(sessionId, returnTo, {
+      flash: "Dissolved candidate cluster back into loose photos.",
+      focus: getStockRedirectFocus(returnTo),
+    });
+  } catch (error) {
+    redirectAfterSessionStockAction(sessionId, returnTo, {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to dissolve the candidate cluster.",
+    });
+  }
 }
 
 export async function createStockItemFromSelectionAction(

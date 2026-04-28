@@ -25,6 +25,7 @@
 *.pem
 .data/
 watched-inbox/
+.tmp/
 
 # debug
 npm-debug.log*

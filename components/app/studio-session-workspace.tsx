@@ -101,7 +101,10 @@ export function StudioSessionWorkspace({
 
   const unassignedPhotoAssets = useMemo(
     () =>
-      session.photoAssets.filter((photoAsset) => photoAsset.stockItemId === null),
+      session.photoAssets.filter(
+        (photoAsset) =>
+          photoAsset.stockItemId === null && photoAsset.candidateClusterId === null
+      ),
     [session.photoAssets]
   );
   const readyStockItems = useMemo(
@@ -182,6 +185,7 @@ export function StudioSessionWorkspace({
         <section className="flex flex-wrap gap-2">
           <Badge variant="outline">{session.photoCount} photos</Badge>
           <Badge variant="outline">{session.unassignedPhotoCount} unassigned</Badge>
+          <Badge variant="outline">{session.pendingClusterCount} pending review</Badge>
           <Badge variant="outline">{session.stockItemCount} stock items</Badge>
           <Badge variant="outline">{session.draftedStockItemCount} drafted</Badge>
           <Badge variant="outline">Updated {formatDate(session.updatedAt)}</Badge>

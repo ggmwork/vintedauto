@@ -1,4 +1,6 @@
 import type {
+  CandidateCluster,
+  GroupingRun,
   IntakeFolderConfig,
   PhotoAsset,
   StockItem,
@@ -18,10 +20,21 @@ export interface SavePhotoAssetsInput {
   photoAssets: PhotoAsset[];
 }
 
+export interface SaveGroupingStateInput {
+  sessionId: string;
+  photoAssets: PhotoAsset[];
+  stockItems: StockItem[];
+  candidateClusters: CandidateCluster[];
+  groupingRuns: GroupingRun[];
+}
+
 export interface CreateStockItemInput {
   sessionId: string;
   name?: string | null;
   photoAssetIds: string[];
+  sourceMethod?: StockItem["sourceMethod"];
+  confidence?: StockItem["confidence"];
+  linkedCandidateClusterId?: string | null;
 }
 
 export interface AssignPhotoAssetsToStockItemInput {
@@ -64,6 +77,7 @@ export interface StudioSessionRepository {
   getById(id: string): Promise<StudioSessionDetail | null>;
   create(input: CreateStudioSessionInput): Promise<StudioSessionDetail>;
   attachPhotoAssets(input: SavePhotoAssetsInput): Promise<StudioSessionDetail>;
+  saveGroupingState(input: SaveGroupingStateInput): Promise<StudioSessionDetail>;
   createStockItem(input: CreateStockItemInput): Promise<StockItem>;
   assignPhotoAssetsToStockItem(
     input: AssignPhotoAssetsToStockItemInput

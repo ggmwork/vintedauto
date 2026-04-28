@@ -3,10 +3,12 @@ import { mkdir, readdir, stat } from "node:fs/promises";
 import fs from "node:fs";
 import path from "node:path";
 
+import { runSessionAutoGrouping } from "@/lib/grouping";
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
 import {
   defaultWatchedFolderPath,
   getInboxWatcherStateSnapshot,
+  readInboxWatcherState,
   updateInboxWatcherState,
 } from "@/lib/watcher/local-inbox-watcher-store";
 import type { PhotoAsset } from "@/types/intake";
@@ -104,16 +106,23 @@ async function getOrCreateWatchedSession(folderPath: string) {
   });
 }
 
-async function importLooseAndGroupedFiles(folderPath: string) {
-  const watcherState = await updateInboxWatcherState((current) => current);
+async function importLooseAndGroupedFiles(
+  folderPath: string,
+  options?: {
+    forceRegroupExistingLoose?: boolean;
+  }
+) {
+  const watcherState = await readInboxWatcherState();
   const runtime = getRuntimeState();
 
-  if (runtime.scanning) {
-    return {
-      importedCount: 0,
-      sessionId: null as string | null,
-    };
-  }
+    if (runtime.scanning) {
+      return {
+        importedCount: 0,
+        sessionId: null as string | null,
+        autoCommittedCount: 0,
+        reviewClusterCount: 0,
+      };
+    }
 
   runtime.scanning = true;
 
@@ -123,7 +132,7 @@ async function importLooseAndGroupedFiles(folderPath: string) {
     const currentSession = (await studioSessionRepository.getById(session.id)) ?? session;
     const existingFingerprints = new Set(watcherState.processedFingerprints);
     const existingPhotoAssets = currentSession.photoAssets.slice();
-    const importedGroups = new Map<string, string[]>();
+    const importedPhotoAssetIds: string[] = [];
     let importedCount = 0;
     let nextSortOrder = existingPhotoAssets.length;
     const processedFingerprints = watcherState.processedFingerprints.slice();
@@ -170,30 +179,27 @@ async function importLooseAndGroupedFiles(folderPath: string) {
         height: storedPhotoAsset.height,
         organizationStatus: "unassigned",
         stockItemId: null,
+        candidateClusterId: null,
+        descriptor: null,
         createdAt: new Date().toISOString(),
       };
 
       existingPhotoAssets.push(photoAsset);
+      importedPhotoAssetIds.push(photoAsset.id);
       existingFingerprints.add(sourceFingerprint);
       processedFingerprints.push(sourceFingerprint);
       importedCount += 1;
       nextSortOrder += 1;
-
-      const topLevelFolder = relativePath.includes("/")
-        ? relativePath.split("/")[0]
-        : null;
-
-      if (topLevelFolder) {
-        const group = importedGroups.get(topLevelFolder) ?? [];
-        group.push(photoAsset.id);
-        importedGroups.set(topLevelFolder, group);
-      }
     }
 
-    if (importedCount === 0) {
+    const shouldRegroupExistingLoose = options?.forceRegroupExistingLoose ?? false;
+
+    if (importedCount === 0 && !shouldRegroupExistingLoose) {
       return {
         importedCount: 0,
         sessionId: currentSession.id,
+        autoCommittedCount: 0,
+        reviewClusterCount: 0,
       };
     }
 
@@ -202,35 +208,18 @@ async function importLooseAndGroupedFiles(folderPath: string) {
       photoAssets: existingPhotoAssets,
     });
 
-    let refreshedSession =
+    const groupingResult = await runSessionAutoGrouping(
+      currentSession.id,
+      importedPhotoAssetIds
+    );
+
+    const refreshedSession =
       (await studioSessionRepository.getById(currentSession.id)) ?? currentSession;
-
-    for (const [stockName, photoAssetIds] of importedGroups.entries()) {
-      const existingStockItem = refreshedSession.stockItems.find(
-        (stockItem) => stockItem.name === stockName && stockItem.draftId === null
-      );
-
-      if (existingStockItem) {
-        await studioSessionRepository.assignPhotoAssetsToStockItem({
-          sessionId: refreshedSession.id,
-          stockItemId: existingStockItem.id,
-          photoAssetIds,
-        });
-      } else {
-        await studioSessionRepository.createStockItem({
-          sessionId: refreshedSession.id,
-          name: stockName,
-          photoAssetIds,
-        });
-      }
-
-      refreshedSession =
-        (await studioSessionRepository.getById(refreshedSession.id)) ?? refreshedSession;
-    }
 
     await updateInboxWatcherState((current) => ({
       ...current,
       health: "watching",
+      lastEventAt: new Date().toISOString(),
       lastImportAt: new Date().toISOString(),
       lastError: null,
       importedFileCount: current.importedFileCount + importedCount,
@@ -240,6 +229,8 @@ async function importLooseAndGroupedFiles(folderPath: string) {
     return {
       importedCount,
       sessionId: refreshedSession.id,
+      autoCommittedCount: groupingResult.autoCommittedCount,
+      reviewClusterCount: groupingResult.reviewClusterCount,
     };
   } finally {
     runtime.scanning = false;
@@ -291,7 +282,7 @@ function getContentTypeFromFileName(fileName: string) {
 
 export async function ensureInboxWatcherRunning() {
   const runtime = getRuntimeState();
-  const watcherState = await updateInboxWatcherState((current) => current);
+  const watcherState = await readInboxWatcherState();
   const folderPath = path.resolve(
     watcherState.config.folderPath || defaultWatchedFolderPath
   );
@@ -320,12 +311,6 @@ export async function ensureInboxWatcherRunning() {
     folderPath,
     { recursive: true },
     async () => {
-      await updateInboxWatcherState((current) => ({
-        ...current,
-        health: "watching",
-        lastEventAt: new Date().toISOString(),
-        lastError: null,
-      }));
       scheduleScan(folderPath);
     }
   );
@@ -398,10 +383,12 @@ export async function updateInboxWatcherConfig(input: {
 }
 
 export async function scanInboxWatcherNow() {
-  const watcherState = await updateInboxWatcherState((current) => current);
+  const watcherState = await readInboxWatcherState();
 
   await ensureFolderExists(watcherState.config.folderPath);
-  const result = await importLooseAndGroupedFiles(watcherState.config.folderPath);
+  const result = await importLooseAndGroupedFiles(watcherState.config.folderPath, {
+    forceRegroupExistingLoose: true,
+  });
 
   return result;
 }

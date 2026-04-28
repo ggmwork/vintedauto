@@ -3,6 +3,10 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 import type {
+  CandidateCluster,
+  CandidateClusterStatus,
+  GroupingConfidence,
+  GroupingRun,
   IntakeFolderConfig,
   PhotoAsset,
   StockItem,
@@ -19,6 +23,7 @@ import type {
   ReleasePhotoAssetsFromStockItemInput,
   RemoveStockItemInput,
   RenameStockItemInput,
+  SaveGroupingStateInput,
   SavePhotoAssetsInput,
   SetStockItemCoverPhotoInput,
   StudioSessionRepository,
@@ -67,6 +72,10 @@ function createStockItemName(
   return `Stock item ${existingCount + 1}`;
 }
 
+function normalizeConfidence(value: unknown): GroupingConfidence {
+  return value === "low" || value === "medium" ? value : "high";
+}
+
 function uniqueStringIds(values: string[]) {
   return Array.from(
     new Set(values.filter((value) => typeof value === "string" && value.length > 0))
@@ -91,9 +100,62 @@ function normalizePhotoAssets(photoAssets: PhotoAsset[]) {
           photoAsset.sourceFingerprint.length > 0
             ? photoAsset.sourceFingerprint
             : null,
+        candidateClusterId:
+          typeof photoAsset.candidateClusterId === "string" &&
+          photoAsset.candidateClusterId.length > 0
+            ? photoAsset.candidateClusterId
+            : null,
+        descriptor:
+          photoAsset.descriptor && typeof photoAsset.descriptor === "object"
+            ? {
+                garmentType:
+                  typeof photoAsset.descriptor.garmentType === "string"
+                    ? photoAsset.descriptor.garmentType
+                    : null,
+                primaryColor:
+                  typeof photoAsset.descriptor.primaryColor === "string"
+                    ? photoAsset.descriptor.primaryColor
+                    : null,
+                secondaryColor:
+                  typeof photoAsset.descriptor.secondaryColor === "string"
+                    ? photoAsset.descriptor.secondaryColor
+                    : null,
+                pattern:
+                  typeof photoAsset.descriptor.pattern === "string"
+                    ? photoAsset.descriptor.pattern
+                    : null,
+                visibleBrand:
+                  typeof photoAsset.descriptor.visibleBrand === "string"
+                    ? photoAsset.descriptor.visibleBrand
+                    : null,
+                backgroundType:
+                  typeof photoAsset.descriptor.backgroundType === "string"
+                    ? photoAsset.descriptor.backgroundType
+                    : null,
+                presentationType:
+                  typeof photoAsset.descriptor.presentationType === "string"
+                    ? photoAsset.descriptor.presentationType
+                    : null,
+                confidence: normalizeConfidence(photoAsset.descriptor.confidence),
+                provider:
+                  typeof photoAsset.descriptor.provider === "string"
+                    ? photoAsset.descriptor.provider
+                    : null,
+                model:
+                  typeof photoAsset.descriptor.model === "string"
+                    ? photoAsset.descriptor.model
+                    : null,
+                extractedAt:
+                  typeof photoAsset.descriptor.extractedAt === "string"
+                    ? photoAsset.descriptor.extractedAt
+                    : new Date().toISOString(),
+              }
+            : null,
         organizationStatus: stockItemId
           ? ("grouped" as const)
-          : ("unassigned" as const),
+          : photoAsset.candidateClusterId
+            ? ("needs_review" as const)
+            : ("unassigned" as const),
         stockItemId,
       };
     });
@@ -102,9 +164,9 @@ function normalizePhotoAssets(photoAssets: PhotoAsset[]) {
 function normalizeStockItems(
   stockItems: StockItem[],
   sessionId: string
-) {
+): StockItem[] {
   return stockItems
-    .map((stockItem) => ({
+    .map((stockItem): StockItem => ({
       id: typeof stockItem.id === "string" ? stockItem.id : randomUUID(),
       sessionId,
       name: createStockItemName(stockItem.name, 0),
@@ -120,6 +182,17 @@ function normalizeStockItems(
         typeof stockItem.draftId === "string" && stockItem.draftId.length > 0
           ? stockItem.draftId
           : null,
+      sourceMethod:
+        stockItem.sourceMethod === "folder_rule" ||
+        stockItem.sourceMethod === "auto_cluster"
+          ? stockItem.sourceMethod
+          : "manual",
+      confidence: normalizeConfidence(stockItem.confidence),
+      linkedCandidateClusterId:
+        typeof stockItem.linkedCandidateClusterId === "string" &&
+        stockItem.linkedCandidateClusterId.length > 0
+          ? stockItem.linkedCandidateClusterId
+          : null,
       createdAt:
         typeof stockItem.createdAt === "string"
           ? stockItem.createdAt
@@ -132,6 +205,88 @@ function normalizeStockItems(
     .sort(
       (left, right) =>
         new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+    );
+}
+
+function normalizeCandidateClusterStatus(value: unknown): CandidateClusterStatus {
+  switch (value) {
+    case "auto_committed":
+    case "committed":
+    case "dissolved":
+      return value;
+    default:
+      return "needs_review";
+  }
+}
+
+function normalizeCandidateClusters(
+  candidateClusters: CandidateCluster[],
+  sessionId: string
+): CandidateCluster[] {
+  return candidateClusters
+    .map((cluster): CandidateCluster => ({
+      id: typeof cluster.id === "string" ? cluster.id : randomUUID(),
+      sessionId,
+      name: typeof cluster.name === "string" && cluster.name.trim() ? cluster.name.trim() : null,
+      photoAssetIds: uniqueStringIds(
+        Array.isArray(cluster.photoAssetIds) ? cluster.photoAssetIds : []
+      ),
+      confidence: normalizeConfidence(cluster.confidence),
+      sourceMethod:
+        cluster.sourceMethod === "folder_rule" ? "folder_rule" : "auto_cluster",
+      status: normalizeCandidateClusterStatus(cluster.status),
+      reason: typeof cluster.reason === "string" && cluster.reason.trim() ? cluster.reason.trim() : null,
+      committedStockItemId:
+        typeof cluster.committedStockItemId === "string" &&
+        cluster.committedStockItemId.length > 0
+          ? cluster.committedStockItemId
+          : null,
+      createdAt:
+        typeof cluster.createdAt === "string"
+          ? cluster.createdAt
+          : new Date().toISOString(),
+      updatedAt:
+        typeof cluster.updatedAt === "string"
+          ? cluster.updatedAt
+          : new Date().toISOString(),
+    }))
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+    );
+}
+
+function normalizeGroupingRuns(
+  groupingRuns: GroupingRun[],
+  sessionId: string
+): GroupingRun[] {
+  return groupingRuns
+    .map((groupingRun): GroupingRun => ({
+      id: typeof groupingRun.id === "string" ? groupingRun.id : randomUUID(),
+      sessionId,
+      status:
+        groupingRun.status === "running" || groupingRun.status === "failed"
+          ? groupingRun.status
+          : "completed",
+      provider:
+        typeof groupingRun.provider === "string" ? groupingRun.provider : null,
+      model: typeof groupingRun.model === "string" ? groupingRun.model : null,
+      notes: typeof groupingRun.notes === "string" ? groupingRun.notes : null,
+      importedPhotoAssetIds: uniqueStringIds(
+        Array.isArray(groupingRun.importedPhotoAssetIds)
+          ? groupingRun.importedPhotoAssetIds
+          : []
+      ),
+      startedAt:
+        typeof groupingRun.startedAt === "string"
+          ? groupingRun.startedAt
+          : new Date().toISOString(),
+      finishedAt:
+        typeof groupingRun.finishedAt === "string" ? groupingRun.finishedAt : null,
+    }))
+    .sort(
+      (left, right) =>
+        new Date(right.startedAt).getTime() - new Date(left.startedAt).getTime()
     );
 }
 
@@ -153,8 +308,21 @@ function deriveStudioSessionStatus(
 function syncStudioSessionState(session: StudioSessionDetail): StudioSessionDetail {
   const normalizedPhotoAssets = normalizePhotoAssets(session.photoAssets);
   const normalizedStockItems = normalizeStockItems(session.stockItems, session.id);
+  const normalizedCandidateClusters = normalizeCandidateClusters(
+    session.candidateClusters,
+    session.id
+  );
+  const normalizedGroupingRuns = normalizeGroupingRuns(
+    session.groupingRuns,
+    session.id
+  );
   const validStockItemIds = new Set(
     normalizedStockItems.map((stockItem) => stockItem.id)
+  );
+  const validCandidateClusterIds = new Set(
+    normalizedCandidateClusters
+      .filter((cluster) => cluster.status === "needs_review")
+      .map((cluster) => cluster.id)
   );
 
   const photoAssets = normalizedPhotoAssets.map((photoAsset) => {
@@ -162,13 +330,22 @@ function syncStudioSessionState(session: StudioSessionDetail): StudioSessionDeta
       photoAsset.stockItemId && validStockItemIds.has(photoAsset.stockItemId)
         ? photoAsset.stockItemId
         : null;
+    const candidateClusterId =
+      !stockItemId &&
+      photoAsset.candidateClusterId &&
+      validCandidateClusterIds.has(photoAsset.candidateClusterId)
+        ? photoAsset.candidateClusterId
+        : null;
 
     return {
       ...photoAsset,
       stockItemId,
+      candidateClusterId,
       organizationStatus: stockItemId
         ? ("grouped" as const)
-        : ("unassigned" as const),
+        : candidateClusterId
+          ? ("needs_review" as const)
+          : ("unassigned" as const),
     };
   });
 
@@ -182,6 +359,18 @@ function syncStudioSessionState(session: StudioSessionDetail): StudioSessionDeta
     const current = photoAssetIdsByStockItem.get(photoAsset.stockItemId) ?? [];
     current.push(photoAsset.id);
     photoAssetIdsByStockItem.set(photoAsset.stockItemId, current);
+  }
+
+  const candidateClusterPhotoIds = new Map<string, string[]>();
+
+  for (const photoAsset of photoAssets) {
+    if (!photoAsset.candidateClusterId) {
+      continue;
+    }
+
+    const current = candidateClusterPhotoIds.get(photoAsset.candidateClusterId) ?? [];
+    current.push(photoAsset.id);
+    candidateClusterPhotoIds.set(photoAsset.candidateClusterId, current);
   }
 
   const stockItems = normalizedStockItems
@@ -204,19 +393,61 @@ function syncStudioSessionState(session: StudioSessionDetail): StudioSessionDeta
         new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
     );
 
+  const validStockItemIdsAfterSync = new Set(stockItems.map((stockItem) => stockItem.id));
+
+  const candidateClusters = normalizedCandidateClusters
+    .map((candidateCluster) => {
+      const reviewPhotoAssetIds =
+        candidateCluster.status === "needs_review"
+          ? candidateClusterPhotoIds.get(candidateCluster.id) ?? []
+          : candidateCluster.photoAssetIds.filter((photoAssetId) =>
+              photoAssets.some((photoAsset) => photoAsset.id === photoAssetId)
+            );
+
+      return {
+        ...candidateCluster,
+        committedStockItemId:
+          candidateCluster.committedStockItemId &&
+          validStockItemIdsAfterSync.has(candidateCluster.committedStockItemId)
+            ? candidateCluster.committedStockItemId
+            : null,
+        photoAssetIds: reviewPhotoAssetIds,
+      };
+    })
+    .filter((candidateCluster) => {
+      if (candidateCluster.status === "needs_review") {
+        return candidateCluster.photoAssetIds.length > 0;
+      }
+
+      return (
+        candidateCluster.photoAssetIds.length > 0 ||
+        candidateCluster.committedStockItemId !== null
+      );
+    })
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+    );
+
   return {
     ...session,
     status: deriveStudioSessionStatus(photoAssets, stockItems),
     photoCount: photoAssets.length,
     unassignedPhotoCount: photoAssets.filter(
-      (photoAsset) => photoAsset.stockItemId === null
+      (photoAsset) =>
+        photoAsset.stockItemId === null && photoAsset.candidateClusterId === null
     ).length,
     stockItemCount: stockItems.length,
     draftedStockItemCount: stockItems.filter(
       (stockItem) => stockItem.draftId !== null
     ).length,
+    pendingClusterCount: candidateClusters.filter(
+      (candidateCluster) => candidateCluster.status === "needs_review"
+    ).length,
     photoAssets,
     stockItems,
+    candidateClusters,
+    groupingRuns: normalizedGroupingRuns,
   };
 }
 
@@ -279,6 +510,7 @@ function normalizeStudioSessionDetail(value: unknown): StudioSessionDetail {
     unassignedPhotoCount: 0,
     stockItemCount: 0,
     draftedStockItemCount: 0,
+    pendingClusterCount: 0,
     createdAt:
       typeof candidate.createdAt === "string"
         ? candidate.createdAt
@@ -289,6 +521,10 @@ function normalizeStudioSessionDetail(value: unknown): StudioSessionDetail {
         : new Date().toISOString(),
     photoAssets: Array.isArray(candidate.photoAssets) ? candidate.photoAssets : [],
     stockItems: Array.isArray(candidate.stockItems) ? candidate.stockItems : [],
+    candidateClusters: Array.isArray(candidate.candidateClusters)
+      ? candidate.candidateClusters
+      : [],
+    groupingRuns: Array.isArray(candidate.groupingRuns) ? candidate.groupingRuns : [],
   });
 
   return normalizedSession;
@@ -350,6 +586,7 @@ function mutatePhotoAssignments(
       ? {
           ...photoAsset,
           stockItemId,
+          candidateClusterId: null,
           organizationStatus: "grouped" as const,
         }
       : photoAsset
@@ -415,10 +652,13 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       unassignedPhotoCount: 0,
       stockItemCount: 0,
       draftedStockItemCount: 0,
+      pendingClusterCount: 0,
       createdAt: now,
       updatedAt: now,
       photoAssets: [],
       stockItems: [],
+      candidateClusters: [],
+      groupingRuns: [],
     };
 
     store.sessions.unshift(nextSession);
@@ -442,6 +682,31 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       ...currentSession,
       photoAssets: input.photoAssets,
       stockItems: currentSession.stockItems,
+    });
+
+    store.sessions[sessionIndex] = nextSession;
+    await writeStudioSessionStore(store);
+
+    return nextSession;
+  }
+
+  async saveGroupingState(
+    input: SaveGroupingStateInput
+  ): Promise<StudioSessionDetail> {
+    const store = await readStudioSessionStore();
+    const sessionIndex = findSessionIndex(store, input.sessionId);
+
+    if (sessionIndex === -1) {
+      throw new Error(`Studio session not found: ${input.sessionId}`);
+    }
+
+    const currentSession = store.sessions[sessionIndex];
+    const nextSession = updateStudioSessionTimestamp({
+      ...currentSession,
+      photoAssets: input.photoAssets,
+      stockItems: input.stockItems,
+      candidateClusters: input.candidateClusters,
+      groupingRuns: input.groupingRuns,
     });
 
     store.sessions[sessionIndex] = nextSession;
@@ -475,6 +740,9 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         coverPhotoAssetId: selectedIds[0] ?? null,
         photoAssetIds: selectedIds,
         draftId: null,
+        sourceMethod: input.sourceMethod ?? "manual",
+        confidence: input.confidence ?? "high",
+        linkedCandidateClusterId: input.linkedCandidateClusterId ?? null,
         createdAt: now,
         updatedAt: now,
       };

@@ -10,6 +10,29 @@ const dataDirectory = path.join(process.cwd(), ".data");
 const defaultWatchedFolderPath = path.join(process.cwd(), "watched-inbox");
 const watcherStateFilePath = path.join(dataDirectory, "inbox-watcher.json");
 
+declare global {
+  var __vintedautoWatcherStateQueue: Promise<void> | undefined;
+}
+
+function getWatcherStateQueue() {
+  if (!globalThis.__vintedautoWatcherStateQueue) {
+    globalThis.__vintedautoWatcherStateQueue = Promise.resolve();
+  }
+
+  return globalThis.__vintedautoWatcherStateQueue;
+}
+
+function queueWatcherStateOperation<T>(operation: () => Promise<T>) {
+  const nextOperation = getWatcherStateQueue().then(operation, operation);
+
+  globalThis.__vintedautoWatcherStateQueue = nextOperation.then(
+    () => undefined,
+    () => undefined
+  );
+
+  return nextOperation;
+}
+
 function createDefaultWatcherState(): InboxWatcherState {
   return {
     config: {
@@ -84,8 +107,28 @@ function normalizeWatcherState(value: unknown): InboxWatcherState {
 async function readWatcherState(): Promise<InboxWatcherState> {
   await ensureWatcherStoreFile();
 
-  const fileContents = await readFile(watcherStateFilePath, "utf8");
-  return normalizeWatcherState(JSON.parse(fileContents));
+  let attempt = 0;
+
+  while (attempt < 3) {
+    try {
+      const fileContents = await readFile(watcherStateFilePath, "utf8");
+      return normalizeWatcherState(JSON.parse(fileContents));
+    } catch (error) {
+      attempt += 1;
+
+      if (attempt >= 3) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+
+  return createDefaultWatcherState();
+}
+
+export async function readInboxWatcherState() {
+  return queueWatcherStateOperation(() => readWatcherState());
 }
 
 async function writeWatcherState(state: InboxWatcherState) {
@@ -97,7 +140,7 @@ export async function getInboxWatcherStateSnapshot({
 }: {
   running: boolean;
 }): Promise<InboxWatcherSnapshot> {
-  const state = await readWatcherState();
+  const state = await readInboxWatcherState();
 
   return {
     ...state,
@@ -108,10 +151,12 @@ export async function getInboxWatcherStateSnapshot({
 export async function updateInboxWatcherState(
   updater: (current: InboxWatcherState) => InboxWatcherState | Promise<InboxWatcherState>
 ) {
-  const current = await readWatcherState();
-  const next = await updater(current);
-  await writeWatcherState(next);
-  return next;
+  return queueWatcherStateOperation(async () => {
+    const current = await readWatcherState();
+    const next = await updater(current);
+    await writeWatcherState(next);
+    return next;
+  });
 }
 
 export async function resetProcessedFingerprints() {

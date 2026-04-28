@@ -41,6 +41,7 @@ interface StockEntry {
   sourceLabel: string;
   sourceType: StudioSessionDetail["intakeConfig"]["sourceType"];
   loosePhotoCount: number;
+  pendingReviewCount: number;
   stockItem: StockItem;
   photoAssets: PhotoAsset[];
 }
@@ -77,6 +78,29 @@ function getSourceLabel(session: StudioSessionDetail) {
   );
 }
 
+function getConfidenceBadgeVariant(confidence: StockItem["confidence"]) {
+  if (confidence === "high") {
+    return "default";
+  }
+
+  if (confidence === "medium") {
+    return "secondary";
+  }
+
+  return "outline";
+}
+
+function getSourceMethodLabel(sourceMethod: StockItem["sourceMethod"]) {
+  switch (sourceMethod) {
+    case "folder_rule":
+      return "folder";
+    case "auto_cluster":
+      return "auto";
+    default:
+      return "manual";
+  }
+}
+
 export function StockWorkspacePage({
   sessions,
   feedback,
@@ -99,6 +123,7 @@ export function StockWorkspacePage({
           sourceLabel: getSourceLabel(session),
           sourceType: session.intakeConfig.sourceType,
           loosePhotoCount: session.unassignedPhotoCount,
+          pendingReviewCount: session.pendingClusterCount,
           stockItem,
           photoAssets: getPhotoAssetsForStockItem(session, stockItem.id),
         }))
@@ -120,6 +145,10 @@ export function StockWorkspacePage({
   );
   const loosePhotoCount = useMemo(
     () => sessions.reduce((total, session) => total + session.unassignedPhotoCount, 0),
+    [sessions]
+  );
+  const pendingReviewCount = useMemo(
+    () => sessions.reduce((total, session) => total + session.pendingClusterCount, 0),
     [sessions]
   );
 
@@ -148,11 +177,10 @@ export function StockWorkspacePage({
           <div className="max-w-3xl space-y-2">
             <Badge variant="secondary">Stock</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Grouped items ready for generation or review.
+              Grouped items ready for generation.
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Inbox collects photos. Stock is where items become stable enough to
-              generate or reopen.
+              Inbox handles uncertain intake. Stock is the clean item layer.
             </p>
           </div>
 
@@ -185,19 +213,27 @@ export function StockWorkspacePage({
           <Badge variant="outline">{stockEntries.length} stock items</Badge>
           <Badge variant="outline">{readyEntries.length} ready to generate</Badge>
           <Badge variant="outline">{draftedEntries.length} drafted</Badge>
+          <Badge variant="outline">{pendingReviewCount} awaiting Inbox review</Badge>
           <Badge variant="outline">{loosePhotoCount} photos still in Inbox</Badge>
         </section>
 
-        {loosePhotoCount > 0 ? (
+        {pendingReviewCount > 0 || loosePhotoCount > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>Inbox still has loose photos</CardTitle>
+              <CardTitle>Inbox still has unresolved intake</CardTitle>
               <CardDescription>
-                Files in the watched folder root could not be grouped automatically.
+                Finish Inbox review before treating Stock as complete.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center justify-between gap-3">
-              <Badge variant="secondary">{loosePhotoCount} loose photo{loosePhotoCount === 1 ? "" : "s"}</Badge>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary">
+                  {pendingReviewCount} review cluster{pendingReviewCount === 1 ? "" : "s"}
+                </Badge>
+                <Badge variant="outline">
+                  {loosePhotoCount} loose photo{loosePhotoCount === 1 ? "" : "s"}
+                </Badge>
+              </div>
               <Link href="/" className={buttonVariants({ variant: "outline" })}>
                 <FolderSyncIcon data-icon="inline-start" />
                 Open Inbox
@@ -335,6 +371,10 @@ function StockEntryCard({
             <ImagesIcon data-icon="inline-start" />
             {entry.photoAssets.length} photo{entry.photoAssets.length === 1 ? "" : "s"}
           </Badge>
+          <Badge variant="outline">{getSourceMethodLabel(entry.stockItem.sourceMethod)}</Badge>
+          <Badge variant={getConfidenceBadgeVariant(entry.stockItem.confidence)}>
+            {entry.stockItem.confidence} confidence
+          </Badge>
           {entry.stockItem.draftId ? (
             <Badge variant="outline">draft linked</Badge>
           ) : (
@@ -342,6 +382,11 @@ function StockEntryCard({
           )}
           {entry.loosePhotoCount > 0 ? (
             <Badge variant="outline">{entry.loosePhotoCount} still in Inbox</Badge>
+          ) : null}
+          {entry.pendingReviewCount > 0 ? (
+            <Badge variant="outline">
+              {entry.pendingReviewCount} still in review
+            </Badge>
           ) : null}
         </div>
 

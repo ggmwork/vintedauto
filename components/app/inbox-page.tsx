@@ -2,12 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { BoxIcon, FolderSyncIcon, ImagesIcon, PauseIcon, PlayIcon, RefreshCwIcon } from "lucide-react";
+import {
+  BoxIcon,
+  FolderSyncIcon,
+  ImagesIcon,
+  PauseIcon,
+  PlayIcon,
+  RefreshCwIcon,
+  SparklesIcon,
+  SplitSquareVerticalIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import {
   assignSelectedPhotoAssetsToStockItemAction,
+  commitCandidateClusterAction,
   createStockItemFromSelectionAction,
+  dissolveCandidateClusterAction,
   pauseInboxWatcherAction,
   resumeInboxWatcherAction,
   saveInboxWatcherSettingsAction,
@@ -24,8 +35,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { InboxViewModel } from "@/lib/inbox/inbox-service";
+import type { InboxReviewCluster, InboxViewModel } from "@/lib/inbox/inbox-service";
 import { cn } from "@/lib/utils";
+import type { GroupingConfidence, PhotoAsset } from "@/types/intake";
 
 const inputClassName =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -72,6 +84,52 @@ function HiddenPhotoAssetInputs({ photoAssetIds }: { photoAssetIds: string[] }) 
   );
 }
 
+function getConfidenceBadgeVariant(confidence: GroupingConfidence) {
+  if (confidence === "high") {
+    return "default";
+  }
+
+  if (confidence === "medium") {
+    return "secondary";
+  }
+
+  return "outline";
+}
+
+function buildPhotoDescriptorLabel(photoAsset: PhotoAsset) {
+  const descriptor = photoAsset.descriptor;
+
+  if (!descriptor) {
+    return "No descriptor yet";
+  }
+
+  const parts = [
+    descriptor.visibleBrand,
+    descriptor.primaryColor,
+    descriptor.garmentType,
+  ].filter((value): value is string => Boolean(value));
+
+  if (parts.length === 0) {
+    return "Low-confidence descriptor";
+  }
+
+  return parts.join(" ");
+}
+
+function buildClusterLabel(clusterEntry: InboxReviewCluster) {
+  if (clusterEntry.cluster.name) {
+    return clusterEntry.cluster.name;
+  }
+
+  const firstPhotoAsset = clusterEntry.photoAssets[0];
+
+  if (!firstPhotoAsset) {
+    return "Suggested stock item";
+  }
+
+  return buildPhotoDescriptorLabel(firstPhotoAsset);
+}
+
 export function InboxPage({
   inbox,
   feedback,
@@ -85,6 +143,7 @@ export function InboxPage({
   const router = useRouter();
   const [selectedPhotoAssetIds, setSelectedPhotoAssetIds] = useState<string[]>([]);
   const watchedSession = inbox.watchedSession;
+  const latestGroupingRun = watchedSession?.groupingRuns[0] ?? null;
   const draftableStockItems = useMemo(
     () =>
       watchedSession?.stockItems.filter((stockItem) => stockItem.draftId === null) ?? [],
@@ -120,11 +179,10 @@ export function InboxPage({
           <div className="max-w-3xl space-y-2">
             <Badge variant="secondary">Inbox</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Paste photos into one folder. Let the app take it from there.
+              Drop photos in one folder. The app imports and groups them first.
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Top-level subfolders become stock items automatically. Loose files stay
-              here until you group them.
+              Only uncertain clusters and truly loose photos should stay here.
             </p>
           </div>
         </section>
@@ -146,7 +204,8 @@ export function InboxPage({
             <CardHeader>
               <CardTitle>Watched folder</CardTitle>
               <CardDescription>
-                The watcher runs while the app is open. Paste photos into this path.
+                Keep one desktop folder as the intake inbox. The watcher runs while the
+                app is open.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -168,7 +227,10 @@ export function InboxPage({
                     <FolderSyncIcon data-icon="inline-start" />
                     Save folder
                   </PendingSubmitButton>
-                  <CopyTextButton value={inbox.watcher.config.folderPath} label="Copy path" />
+                  <CopyTextButton
+                    value={inbox.watcher.config.folderPath}
+                    label="Copy path"
+                  />
                 </div>
               </form>
 
@@ -197,7 +259,11 @@ export function InboxPage({
                 </form>
 
                 <form action={scanInboxWatcherNowAction}>
-                  <PendingSubmitButton type="submit" pendingLabel="Scanning now" variant="outline">
+                  <PendingSubmitButton
+                    type="submit"
+                    pendingLabel="Scanning now"
+                    variant="outline"
+                  >
                     <RefreshCwIcon data-icon="inline-start" />
                     Scan now
                   </PendingSubmitButton>
@@ -208,9 +274,10 @@ export function InboxPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Watcher status</CardTitle>
+              <CardTitle>Status</CardTitle>
               <CardDescription>
-                Keep this operational. No large dashboard needed.
+                This is the only operational summary you need before moving to Stock or
+                Review.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
@@ -218,11 +285,14 @@ export function InboxPage({
                 <Badge variant={inbox.watcher.running ? "default" : "secondary"}>
                   {inbox.watcher.running ? "watching" : inbox.watcher.health}
                 </Badge>
+                <Badge variant="outline">{inbox.autoStockedItemsCount} stock</Badge>
                 <Badge variant="outline">
-                  {inbox.autoStockedItemsCount} stock items
+                  {inbox.pendingReviewClusterCount} review cluster
+                  {inbox.pendingReviewClusterCount === 1 ? "" : "s"}
                 </Badge>
                 <Badge variant="outline">
-                  {inbox.loosePhotoAssets.length} loose photos
+                  {inbox.loosePhotoAssets.length} loose photo
+                  {inbox.loosePhotoAssets.length === 1 ? "" : "s"}
                 </Badge>
                 <Badge variant="outline">
                   {inbox.draftedStockItemsCount} drafted
@@ -248,6 +318,15 @@ export function InboxPage({
                 </div>
               </dl>
 
+              {latestGroupingRun?.notes ? (
+                <div className="rounded-lg border border-border/70 bg-background px-4 py-3">
+                  <p className="font-medium text-foreground">Last grouping run</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {latestGroupingRun.notes}
+                  </p>
+                </div>
+              ) : null}
+
               {inbox.watcher.lastError ? (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                   {inbox.watcher.lastError}
@@ -257,12 +336,36 @@ export function InboxPage({
           </Card>
         </section>
 
+        {inbox.reviewClusters.length > 0 ? (
+          <section>
+            <Card>
+              <CardHeader>
+                <CardTitle>Needs grouping review</CardTitle>
+                <CardDescription>
+                  These images were clustered, but not confidently enough to auto-commit
+                  into Stock.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-4 xl:grid-cols-2">
+                {inbox.reviewClusters.map((clusterEntry) => (
+                  <ReviewClusterCard
+                    key={clusterEntry.cluster.id}
+                    clusterEntry={clusterEntry}
+                    sessionId={watchedSession?.id ?? ""}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+          </section>
+        ) : null}
+
         <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
           <Card>
             <CardHeader>
               <CardTitle>Loose photos</CardTitle>
               <CardDescription>
-                Files pasted into the watched root stay here until you group them.
+                These images were not confidently grouped. Use this only as the manual
+                fallback.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -277,7 +380,11 @@ export function InboxPage({
 
               {watchedSession ? (
                 <form
-                  action={createStockItemFromSelectionAction.bind(null, watchedSession.id, "inbox")}
+                  action={createStockItemFromSelectionAction.bind(
+                    null,
+                    watchedSession.id,
+                    "inbox"
+                  )}
                   className="grid gap-4 rounded-lg border border-border/70 bg-background px-4 py-4"
                 >
                   <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
@@ -341,7 +448,7 @@ export function InboxPage({
                           <div className="space-y-1">
                             <p className="truncate font-medium">{photoAsset.originalFilename}</p>
                             <p className="text-sm text-muted-foreground">
-                              {photoAsset.relativePath ?? "Loose watched file"}
+                              {buildPhotoDescriptorLabel(photoAsset)}
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2">
@@ -361,8 +468,7 @@ export function InboxPage({
             <CardHeader>
               <CardTitle>Existing stock items</CardTitle>
               <CardDescription>
-                Add selected loose photos to an undrafted stock item when the watcher could
-                not group them automatically.
+                Use this when a loose photo belongs to an item that is already in Stock.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -386,6 +492,18 @@ export function InboxPage({
                         </p>
                       </div>
                       <StockItemStatusBadge stockItem={stockItem} />
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Badge variant="outline">
+                        {stockItem.sourceMethod === "folder_rule"
+                          ? "folder"
+                          : stockItem.sourceMethod === "auto_cluster"
+                            ? "auto"
+                            : "manual"}
+                      </Badge>
+                      <Badge variant={getConfidenceBadgeVariant(stockItem.confidence)}>
+                        {stockItem.confidence} confidence
+                      </Badge>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
                       <form
@@ -415,5 +533,105 @@ export function InboxPage({
         </section>
       </div>
     </main>
+  );
+}
+
+function ReviewClusterCard({
+  clusterEntry,
+  sessionId,
+}: {
+  clusterEntry: InboxReviewCluster;
+  sessionId: string;
+}) {
+  const suggestion = buildClusterLabel(clusterEntry);
+
+  return (
+    <div className="rounded-xl border border-border bg-background p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="font-medium text-foreground">{suggestion}</p>
+          <p className="text-sm text-muted-foreground">
+            {clusterEntry.cluster.reason ?? "Clustered from watched-folder intake."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Badge variant={getConfidenceBadgeVariant(clusterEntry.cluster.confidence)}>
+            {clusterEntry.cluster.confidence} confidence
+          </Badge>
+          <Badge variant="outline">
+            {clusterEntry.cluster.sourceMethod === "folder_rule" ? "folder" : "cluster"}
+          </Badge>
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-4 gap-3">
+        {clusterEntry.photoAssets.slice(0, 8).map((photoAsset) => (
+          <div key={photoAsset.id} className="space-y-2">
+            <div className="relative aspect-square overflow-hidden rounded-lg bg-muted">
+              <Image
+                src={`/api/sessions/${photoAsset.sessionId}/photos/${photoAsset.id}`}
+                alt={photoAsset.originalFilename}
+                fill
+                sizes="96px"
+                className="object-cover"
+                unoptimized
+              />
+            </div>
+            <p className="line-clamp-2 text-xs text-muted-foreground">
+              {buildPhotoDescriptorLabel(photoAsset)}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <form
+          action={commitCandidateClusterAction.bind(
+            null,
+            sessionId,
+            clusterEntry.cluster.id,
+            "inbox"
+          )}
+          className="grid gap-3"
+        >
+        <div className="grid gap-2">
+          <label className="text-sm font-medium text-foreground">
+            Stock item name
+          </label>
+          <input
+            type="text"
+            name="stockItemName"
+            defaultValue={clusterEntry.cluster.name ?? ""}
+            placeholder="Optional rename before commit"
+            className={inputClassName}
+          />
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <PendingSubmitButton type="submit" pendingLabel="Committing cluster">
+            <SparklesIcon data-icon="inline-start" />
+            Commit to Stock
+          </PendingSubmitButton>
+        </div>
+        </form>
+
+        <form
+          action={dissolveCandidateClusterAction.bind(
+            null,
+            sessionId,
+            clusterEntry.cluster.id,
+            "inbox"
+          )}
+        >
+          <PendingSubmitButton
+            type="submit"
+            variant="outline"
+            pendingLabel="Dissolving cluster"
+          >
+            <SplitSquareVerticalIcon data-icon="inline-start" />
+            Break back to loose
+          </PendingSubmitButton>
+        </form>
+      </div>
+    </div>
   );
 }
