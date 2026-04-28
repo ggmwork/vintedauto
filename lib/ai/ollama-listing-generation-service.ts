@@ -86,14 +86,52 @@ function getOllamaTimeoutMs() {
   const rawValue = process.env.OLLAMA_TIMEOUT_MS?.trim();
 
   if (!rawValue) {
-    return 180_000;
+    return 300_000;
   }
 
   const parsedValue = Number(rawValue);
 
   return Number.isFinite(parsedValue) && parsedValue >= 30_000
     ? parsedValue
-    : 180_000;
+    : 300_000;
+}
+
+function getOllamaMaxGenerationImages() {
+  const rawValue = process.env.OLLAMA_MAX_GENERATION_IMAGES?.trim();
+
+  if (!rawValue) {
+    return 4;
+  }
+
+  const parsedValue = Number(rawValue);
+
+  if (!Number.isFinite(parsedValue)) {
+    return 4;
+  }
+
+  return Math.max(1, Math.min(8, Math.floor(parsedValue)));
+}
+
+function selectRepresentativeImages<T>(images: T[], limit: number) {
+  if (images.length <= limit) {
+    return images;
+  }
+
+  const selectedIndices = new Set<number>();
+
+  for (let step = 0; step < limit; step += 1) {
+    const index = Math.round((step * (images.length - 1)) / (limit - 1));
+    selectedIndices.add(index);
+  }
+
+  for (let index = 0; selectedIndices.size < limit && index < images.length; index += 1) {
+    selectedIndices.add(index);
+  }
+
+  return Array.from(selectedIndices)
+    .sort((left, right) => left - right)
+    .slice(0, limit)
+    .map((index) => images[index]);
 }
 
 function sanitizeKeywords(value: unknown) {
@@ -349,7 +387,12 @@ function buildFallbackDescription(
   return `${subject}. ${details.join(" ")}`.trim();
 }
 
-function buildPrompt(input: ListingGenerationInput) {
+function buildPrompt(input: ListingGenerationInput, totalImageCount = input.images.length) {
+  const imageContextLine =
+    totalImageCount > input.images.length
+      ? `You are seeing ${input.images.length} representative photos selected from ${totalImageCount} total item photos.`
+      : `You are seeing ${input.images.length} item photos.`;
+
   return [
     "You generate Vinted listing drafts from product photos.",
     "Return only JSON that matches the supplied schema.",
@@ -361,6 +404,7 @@ function buildPrompt(input: ListingGenerationInput) {
     "Do not return top-level brand, category, size, condition, color, material, notes, or price fields. Put metadata under suggestedMetadata and pricing under priceSuggestion.",
     "If uncertain, leave metadata fields null and explain uncertainty in conditionNotes or rationale.",
     `Pricing must be a realistic ${input.currency} suggestion or range for a second-hand ${input.marketplace} listing.`,
+    imageContextLine,
     `Known draft metadata: ${JSON.stringify(input.metadata)}`,
   ].join("\n");
 }
@@ -371,34 +415,62 @@ class OllamaListingGenerationService implements ListingGenerationService {
       throw new Error("At least one image is required for generation.");
     }
 
-    const response = await fetch(`${getOllamaBaseUrl()}/api/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: getOllamaModel(),
-        messages: [
-          {
-            role: "user",
-            content: buildPrompt(input),
-            images: input.images.map((image) =>
-              Buffer.from(image.bytes).toString("base64")
-            ),
-          },
-        ],
-        format: generationSchema,
-        options: {
-          // Qwen3.5 vision requests can fail in Ollama when image batches fall
-          // inside the default num_keep window.
-          num_keep: 0,
-          temperature: 0.1,
+    const selectedImages = selectRepresentativeImages(
+      input.images,
+      getOllamaMaxGenerationImages()
+    );
+
+    let response: Response;
+
+    try {
+      response = await fetch(`${getOllamaBaseUrl()}/api/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-        think: false,
-        stream: false,
-      }),
-      signal: AbortSignal.timeout(getOllamaTimeoutMs()),
-    });
+        body: JSON.stringify({
+          model: getOllamaModel(),
+          messages: [
+            {
+              role: "user",
+              content: buildPrompt(
+                {
+                  ...input,
+                  images: selectedImages,
+                },
+                input.images.length
+              ),
+              images: selectedImages.map((image) =>
+                Buffer.from(image.bytes).toString("base64")
+              ),
+            },
+          ],
+          format: generationSchema,
+          options: {
+            // Qwen3.5 vision requests can fail in Ollama when image batches fall
+            // inside the default num_keep window.
+            num_keep: 0,
+            temperature: 0.1,
+          },
+          think: false,
+          stream: false,
+        }),
+        signal: AbortSignal.timeout(getOllamaTimeoutMs()),
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === "AbortError" || error.name === "TimeoutError")
+      ) {
+        throw new Error(
+          `Ollama request timed out after ${Math.round(
+            getOllamaTimeoutMs() / 1000
+          )}s. Try fewer item photos or raise OLLAMA_TIMEOUT_MS.`
+        );
+      }
+
+      throw error;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
