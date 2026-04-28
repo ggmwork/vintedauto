@@ -1,6 +1,6 @@
 # Next-Phase Roadmap
 
-Last updated: 2026-04-27
+Last updated: 2026-04-28
 
 ## Purpose
 
@@ -81,7 +81,25 @@ Deliverable:
 
 The app creates stock items automatically for the strong cases and flags the weak cases clearly.
 
-## Phase E - Stock and Review alignment
+## Phase E - Auto-grouping and clustering
+
+Goal:
+
+Stop relying on folder structure as the main grouping method.
+
+Tasks:
+
+- extract image descriptors
+- compare imported photos for likely same-item matches
+- build candidate item clusters
+- assign confidence to each cluster
+- auto-commit only high-confidence clusters to stock
+
+Deliverable:
+
+Flat-folder imports no longer require full manual grouping.
+
+## Phase F - Stock and Review alignment
 
 Goal:
 
@@ -98,7 +116,7 @@ Deliverable:
 
 Automatically imported items can move cleanly into the existing review workflow.
 
-## Phase F - Grouping polish
+## Phase G - Grouping polish
 
 Goal:
 
@@ -116,7 +134,7 @@ Deliverable:
 
 Seller can correct grouping quickly without fighting the app.
 
-## Phase G - Seller presets
+## Phase H - Seller presets
 
 Goal:
 
@@ -134,7 +152,7 @@ Deliverable:
 
 Generation becomes more consistent and less manual.
 
-## Phase H - Real persistence and deployment
+## Phase I - Real persistence and deployment
 
 Goal:
 
@@ -151,7 +169,7 @@ Deliverable:
 
 App becomes reusable beyond one machine.
 
-## Phase I - Stronger Vinted handoff
+## Phase J - Stronger Vinted handoff
 
 Goal:
 
@@ -175,11 +193,12 @@ Recommended order:
 2. watched-folder foundation
 3. automatic ingest pipeline
 4. automatic stock creation
-5. Stock and Review alignment
-6. grouping polish
-7. seller presets
-8. persistence/deploy
-9. stronger Vinted handoff
+5. auto-grouping and clustering
+6. Stock and Review alignment
+7. grouping polish
+8. seller presets
+9. persistence/deploy
+10. stronger Vinted handoff
 
 ## Why this order
 
@@ -187,6 +206,7 @@ This order attacks the actual time sinks first:
 
 - manual import friction
 - photo organization overhead
+- manual grouping overhead
 - too many visible workflow concepts
 - repeated review
 - repeated prompt setup

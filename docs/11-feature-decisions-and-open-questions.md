@@ -1,6 +1,6 @@
 # Feature Decisions And Open Questions
 
-Last updated: 2026-04-27
+Last updated: 2026-04-28
 
 ## Purpose
 
@@ -54,6 +54,14 @@ Reason:
 
 - true watched-folder behavior needs local filesystem monitoring
 - browser-only flow is not enough for the desired automation
+
+### Make grouping automatic, not only assisted
+
+Reason:
+
+- current app still leaves too much manual work after ingest
+- the real target flow requires photo clustering into stock items
+- watched ingest alone is not enough
 
 ## Recommended next feature candidates
 
@@ -117,6 +125,22 @@ Risk:
 
 - medium
 
+### Candidate 4.5 - Auto-grouping and clustering
+
+Value:
+
+- very high
+
+Why:
+
+- removes the biggest remaining manual step after ingest
+- lets flat-folder imports become usable
+- enables real automatic stock creation
+
+Risk:
+
+- high
+
 ### Candidate 5 - Grouping polish
 
 Value:
@@ -167,8 +191,9 @@ If choosing the next feature set now, build in this order:
 2. watched-folder foundation
 3. automatic ingest pipeline
 4. automatic stock creation
-5. Stock and Review alignment
-6. grouping polish
+5. auto-grouping and clustering
+6. Stock and Review alignment
+7. grouping polish
 
 ## Important open questions
 
@@ -197,6 +222,25 @@ Recommendation:
 
 - folder-per-item automatic grouping first
 - loose-file fallback second
+- now move to confidence-based clustering for flat-folder batches
+
+### 2.5. Clustering method
+
+Should grouping use:
+
+- one large AI call over the whole batch
+- or one descriptor pass per image plus clustering in code
+
+Recommendation:
+
+- descriptor pass per image
+- clustering and thresholds in code
+
+Reason:
+
+- easier to debug
+- easier to tune
+- safer than opaque batch grouping
 
 ### 3. Internal batch model
 
@@ -269,5 +313,6 @@ When deciding what to build next, ask:
 2. does it reduce photo organization overhead?
 3. does it simplify the visible workflow?
 4. does it help move items faster into Review?
+5. does it reduce manual grouping after import?
 
 If not, it is probably not the next best feature.

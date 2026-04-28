@@ -7,8 +7,9 @@ This folder captures current product context, market research, MVP scope, and te
 Important:
 
 - documents `01` through `11` include the original MVP path and the first batch-workstation iteration
-- documents `12` through `15` capture the current pivot toward watched-folder ingest, hidden sessions, simpler IA, and a cleaner operator workflow
-- for the next implementation cycle, treat `12` through `15` as the current source of truth
+- documents `12` through `15` capture the watched-folder ingest pivot
+- documents `16` through `18` capture the next automation target: auto-grouping imported photos into stock items
+- for the next implementation cycle, treat `16` through `18` as the current source of truth
 
 Documents:
 
@@ -27,6 +28,9 @@ Documents:
 - [13-watched-folder-and-ingest-architecture.md](./13-watched-folder-and-ingest-architecture.md) - recommended technical architecture for automatic local ingest
 - [14-ux-reset-and-information-architecture.md](./14-ux-reset-and-information-architecture.md) - simplified IA, page model, and UX cleanup rules
 - [15-implementation-plan-watched-ingest.md](./15-implementation-plan-watched-ingest.md) - detailed implementation plan for the next build cycle
+- [16-auto-grouping-target-workflow.md](./16-auto-grouping-target-workflow.md) - target workflow for automatic grouping and stock creation
+- [17-auto-grouping-architecture.md](./17-auto-grouping-architecture.md) - technical shape for descriptor extraction, clustering, and confidence-based stock commits
+- [18-implementation-plan-auto-grouping.md](./18-implementation-plan-auto-grouping.md) - step-by-step implementation plan for the next automation phase
 
 Current product decision:
 
@@ -36,3 +40,4 @@ Current product decision:
 - Keep copy/export as a valid success path.
 - Pivot the next cycle toward `watched folder -> Inbox -> Stock -> Review`.
 - Remove `studio sessions` from the user-facing workflow.
+- Next major automation phase is `import -> cluster -> auto-create stock items -> review only uncertain cases`.
