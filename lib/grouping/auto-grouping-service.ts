@@ -29,6 +29,7 @@ export interface AutoGroupingResult {
 
 interface AutoGroupingOptions {
   useVisualDescriptors?: boolean;
+  clusterLoosePhotos?: boolean;
 }
 
 function compareOptionalString(left: string | null, right: string | null) {
@@ -563,12 +564,14 @@ export async function runSessionAutoGrouping(
     ...nextSession,
     groupingRuns: [groupingRun, ...nextSession.groupingRuns],
   };
+  const shouldClusterLoosePhotos = options.clusterLoosePhotos ?? true;
   const scopedPhotoAssetIds =
     importedPhotoAssetIds.length > 0 ? new Set(importedPhotoAssetIds) : null;
 
   const descriptorTargetIds = nextSession.photoAssets
     .filter(
       (photoAsset) =>
+        shouldClusterLoosePhotos &&
         (!scopedPhotoAssetIds || scopedPhotoAssetIds.has(photoAsset.id)) &&
         !photoAsset.stockItemId &&
         !photoAsset.candidateClusterId &&
@@ -592,7 +595,9 @@ export async function runSessionAutoGrouping(
     nextSession,
     scopedPhotoAssetIds
   );
-  const looseClusters = buildLooseClusters(nextSession, scopedPhotoAssetIds);
+  const looseClusters = shouldClusterLoosePhotos
+    ? buildLooseClusters(nextSession, scopedPhotoAssetIds)
+    : [];
   let autoCommittedCount = 0;
   let reviewClusterCount = 0;
 
@@ -617,7 +622,9 @@ export async function runSessionAutoGrouping(
     "completed",
     descriptorProvider,
     descriptorModel,
-    `Auto-committed ${autoCommittedCount} cluster(s); ${reviewClusterCount} cluster(s) need review.`
+    shouldClusterLoosePhotos
+      ? `Auto-committed ${autoCommittedCount} cluster(s); ${reviewClusterCount} cluster(s) need review.`
+      : `Auto-stocked ${autoCommittedCount} folder group(s); loose photos stayed in Inbox.`
   );
 
   const savedSession = await studioSessionRepository.saveGroupingState({

@@ -19,9 +19,9 @@ Desired workflow:
 1. seller pastes photos into watched folder
 2. app reliably notices them
 3. app imports them
-4. app auto-groups obvious cases
-5. app leaves uncertain cases in review
-6. seller fixes those cases quickly
+4. app leaves new loose photos ready for manual grouping by default
+5. seller groups photos into items directly
+6. app can optionally suggest groups for ambiguous batches
 7. stock items continue into Review later
 
 ## Scope
@@ -67,7 +67,8 @@ Tasks:
 
 Deliverable:
 
-New files are detected consistently without relying only on in-process `fs.watch`.
+New files are detected consistently without relying only on in-process `fs.watch`,
+and loose photos remain available for manual grouping.
 
 Verification:
 
@@ -120,7 +121,7 @@ Tasks:
 
 Deliverable:
 
-Seller can resolve uncertain cases quickly.
+Seller can build stock items directly without waiting on auto-grouping.
 
 Verification:
 
@@ -135,6 +136,7 @@ Improve grouping quality after ingest is dependable.
 Tasks:
 
 - keep folder-per-item as strongest signal
+- keep manual grouping as the default Inbox path
 - improve descriptor extraction
 - improve similarity scoring
 - tune confidence thresholds
@@ -142,7 +144,8 @@ Tasks:
 
 Deliverable:
 
-Obvious cases auto-create stock items; ambiguous cases become manageable review work.
+Obvious cases auto-create stock items when strong signals exist; otherwise the app
+offers suggestions without blocking manual grouping.
 
 Verification:
 
@@ -215,7 +218,8 @@ This cycle is successful if all are true:
 
 - watched-folder ingest works reliably without manual debugging
 - seller can see whether ingest and grouping ran
-- obvious groups become stock automatically
+- manual grouping is the primary successful path in Inbox
+- obvious groups can still become stock automatically
 - ambiguous cases can be fixed quickly by hand
 - downstream Stock and Review flow remains intact
 
@@ -223,6 +227,6 @@ This cycle is successful if all are true:
 
 The next cycle should build:
 
-`reliable ingest -> visible status -> hybrid grouping -> stronger clustering`
+`reliable ingest -> manual-first Inbox -> optional suggestions -> stronger clustering`
 
 That is the shortest path to a trustworthy workflow.

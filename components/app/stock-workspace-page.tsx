@@ -180,7 +180,7 @@ export function StockWorkspacePage({
               Grouped items ready for generation.
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Inbox handles uncertain intake. Stock is the clean item layer.
+              Inbox is where you group items. Stock is the clean item layer after that.
             </p>
           </div>
 
@@ -220,9 +220,9 @@ export function StockWorkspacePage({
         {pendingReviewCount > 0 || loosePhotoCount > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>Inbox still has unresolved intake</CardTitle>
+              <CardTitle>Inbox still has work</CardTitle>
               <CardDescription>
-                Finish Inbox review before treating Stock as complete.
+                Finish manual grouping or suggestion review before treating Stock as complete.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center justify-between gap-3">

@@ -10,14 +10,14 @@ The app should not chase perfect full autonomy first.
 
 The correct goal is:
 
-`strong automatic grouping + fast manual correction`
+`manual-first grouping + optional automatic help`
 
 ## Product rule
 
 Support both paths:
 
-1. automatic grouping path
-2. manual grouping path
+1. manual grouping path
+2. automatic suggestion path
 
 This is not a fallback-only idea.
 
@@ -25,7 +25,7 @@ It is the intended product shape.
 
 ## Why this is the right approach
 
-### Automatic grouping is valuable
+### Automatic grouping is still valuable
 
 It removes the obvious repetitive work:
 
@@ -33,7 +33,7 @@ It removes the obvious repetitive work:
 - clear front/back/detail shots of one garment
 - easy high-confidence batches
 
-### Manual grouping is necessary
+### Manual grouping must be the default
 
 Some batches will always be ambiguous:
 
@@ -48,7 +48,17 @@ Wrong grouping is more expensive than asking for help.
 
 ## Target grouping model
 
-### Lane 1 - Auto-commit
+### Lane 1 - Manual-first Inbox
+
+Default Inbox behavior:
+
+- photos arrive ungrouped
+- seller selects matching photos
+- seller creates one stock item directly
+
+This must be the shortest path.
+
+### Lane 2 - Auto-commit
 
 For high-confidence cases:
 
@@ -58,7 +68,7 @@ For high-confidence cases:
 
 Seller does nothing.
 
-### Lane 2 - Needs review
+### Lane 3 - Needs review
 
 For medium-confidence cases:
 
@@ -67,7 +77,7 @@ For medium-confidence cases:
 
 Seller spends a few seconds, not full manual organization time.
 
-### Lane 3 - Loose photos
+### Lane 4 - Loose photos
 
 For low-confidence or failed cases:
 
@@ -78,7 +88,7 @@ This is the safe fallback.
 
 ## Manual grouping requirements
 
-Manual grouping must be fast and explicit.
+Manual grouping must be fast, explicit, and primary.
 
 Required actions:
 

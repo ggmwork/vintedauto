@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 
 import {
   assignSelectedPhotoAssetsToStockItemAction,
+  clearInboxSuggestionsAction,
   commitCandidateClusterAction,
   createStockItemFromSelectionAction,
   dissolveCandidateClusterAction,
@@ -23,6 +24,8 @@ import {
   resumeInboxWatcherAction,
   saveInboxWatcherSettingsAction,
   scanInboxWatcherNowAction,
+  suggestInboxGroupsAction,
+  suggestSelectedInboxGroupsAction,
 } from "@/app/actions";
 import { CopyTextButton } from "@/components/app/copy-text-button";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
@@ -191,10 +194,10 @@ export function InboxPage({
           <div className="max-w-3xl space-y-2">
             <Badge variant="secondary">Inbox</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Drop photos in one folder. The app imports and groups them first.
+              Drop photos in one folder. Group the item here.
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Only uncertain clusters and truly loose photos should stay here.
+              Import is automatic. Manual grouping is the default. Suggestions stay optional.
             </p>
           </div>
         </section>
@@ -216,8 +219,8 @@ export function InboxPage({
             <CardHeader>
               <CardTitle>Watched folder</CardTitle>
               <CardDescription>
-                Keep one desktop folder as the intake inbox. The watcher runs while the
-                app is open.
+                Keep one desktop folder as the intake inbox. New photos land here while
+                the app is open.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -286,10 +289,9 @@ export function InboxPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Status</CardTitle>
+              <CardTitle>Watcher</CardTitle>
               <CardDescription>
-                This is the only operational summary you need before moving to Stock or
-                Review.
+                Auto import runs here. Grouping stays manual unless you ask for a suggestion.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
@@ -369,36 +371,13 @@ export function InboxPage({
           </Card>
         </section>
 
-        {inbox.reviewClusters.length > 0 ? (
-          <section>
-            <Card>
-              <CardHeader>
-                <CardTitle>Needs grouping review</CardTitle>
-                <CardDescription>
-                  These images were clustered, but not confidently enough to auto-commit
-                  into Stock.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 xl:grid-cols-2">
-                {inbox.reviewClusters.map((clusterEntry) => (
-                  <ReviewClusterCard
-                    key={clusterEntry.cluster.id}
-                    clusterEntry={clusterEntry}
-                    sessionId={watchedSession?.id ?? ""}
-                  />
-                ))}
-              </CardContent>
-            </Card>
-          </section>
-        ) : null}
-
         <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
           <Card>
             <CardHeader>
-              <CardTitle>Loose photos</CardTitle>
+              <CardTitle>Ungrouped photos</CardTitle>
               <CardDescription>
-                These images were not confidently grouped. Use this only as the manual
-                fallback.
+                Select matching photos and create an item. Use suggestions only when you
+                want help.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -412,37 +391,71 @@ export function InboxPage({
               </div>
 
               {watchedSession ? (
-                <form
-                  action={createStockItemFromSelectionAction.bind(
-                    null,
-                    watchedSession.id,
-                    "inbox"
-                  )}
-                  className="grid gap-4 rounded-lg border border-border/70 bg-background px-4 py-4"
-                >
-                  <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      New stock item name
-                    </label>
-                    <input
-                      type="text"
-                      name="stockItemName"
-                      placeholder="Blue Nike hoodie"
-                      className={inputClassName}
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <PendingSubmitButton
-                      type="submit"
-                      disabled={selectedPhotoAssetIds.length === 0}
-                      pendingLabel="Creating stock item"
+                <div className="grid gap-4 rounded-lg border border-border/70 bg-background px-4 py-4">
+                  <form
+                    action={createStockItemFromSelectionAction.bind(
+                      null,
+                      watchedSession.id,
+                      "inbox"
+                    )}
+                    className="grid gap-4"
+                  >
+                    <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium text-foreground">
+                        New item name
+                      </label>
+                      <input
+                        type="text"
+                        name="stockItemName"
+                        placeholder="Blue Nike hoodie"
+                        className={inputClassName}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <PendingSubmitButton
+                        type="submit"
+                        disabled={selectedPhotoAssetIds.length === 0}
+                        pendingLabel="Creating item"
+                      >
+                        <BoxIcon data-icon="inline-start" />
+                        Create item
+                      </PendingSubmitButton>
+                    </div>
+                  </form>
+
+                  <div className="flex flex-wrap gap-3 border-t border-border/70 pt-4">
+                    <form action={suggestInboxGroupsAction.bind(null, watchedSession.id)}>
+                      <PendingSubmitButton
+                        type="submit"
+                        variant="outline"
+                        disabled={inbox.loosePhotoAssets.length < 2}
+                        pendingLabel="Suggesting groups"
+                      >
+                        <SparklesIcon data-icon="inline-start" />
+                        Suggest groups
+                      </PendingSubmitButton>
+                    </form>
+
+                    <form
+                      action={suggestSelectedInboxGroupsAction.bind(
+                        null,
+                        watchedSession.id
+                      )}
                     >
-                      <BoxIcon data-icon="inline-start" />
-                      Create stock item
-                    </PendingSubmitButton>
+                      <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
+                      <PendingSubmitButton
+                        type="submit"
+                        variant="outline"
+                        disabled={selectedPhotoAssetIds.length < 2}
+                        pendingLabel="Suggesting selection"
+                      >
+                        <SparklesIcon data-icon="inline-start" />
+                        Suggest selected
+                      </PendingSubmitButton>
+                    </form>
                   </div>
-                </form>
+                </div>
               ) : null}
 
               {inbox.loosePhotoAssets.length === 0 ? (
@@ -501,7 +514,7 @@ export function InboxPage({
             <CardHeader>
               <CardTitle>Existing stock items</CardTitle>
               <CardDescription>
-                Use this when a loose photo belongs to an item that is already in Stock.
+                Use this when selected photos belong to an item that already exists.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -564,6 +577,45 @@ export function InboxPage({
             </CardContent>
           </Card>
         </section>
+
+        {inbox.reviewClusters.length > 0 ? (
+          <section>
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-1">
+                    <CardTitle>Suggested groups</CardTitle>
+                    <CardDescription>
+                      Optional auto-grouping help. Review the suggestion, then create the
+                      item or send the photos back to Inbox.
+                    </CardDescription>
+                  </div>
+                  {watchedSession ? (
+                    <form action={clearInboxSuggestionsAction.bind(null, watchedSession.id)}>
+                      <PendingSubmitButton
+                        type="submit"
+                        variant="outline"
+                        pendingLabel="Clearing suggestions"
+                      >
+                        <SplitSquareVerticalIcon data-icon="inline-start" />
+                        Clear suggestions
+                      </PendingSubmitButton>
+                    </form>
+                  ) : null}
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-4 xl:grid-cols-2">
+                {inbox.reviewClusters.map((clusterEntry) => (
+                  <ReviewClusterCard
+                    key={clusterEntry.cluster.id}
+                    clusterEntry={clusterEntry}
+                    sessionId={watchedSession?.id ?? ""}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+          </section>
+        ) : null}
       </div>
     </main>
   );
@@ -629,7 +681,7 @@ function ReviewClusterCard({
         >
         <div className="grid gap-2">
           <label className="text-sm font-medium text-foreground">
-            Stock item name
+            Item name
           </label>
           <input
             type="text"
@@ -642,7 +694,7 @@ function ReviewClusterCard({
         <div className="flex flex-wrap gap-3">
           <PendingSubmitButton type="submit" pendingLabel="Committing cluster">
             <SparklesIcon data-icon="inline-start" />
-            Commit to Stock
+            Create item from suggestion
           </PendingSubmitButton>
         </div>
         </form>
@@ -661,7 +713,7 @@ function ReviewClusterCard({
             pendingLabel="Dissolving cluster"
           >
             <SplitSquareVerticalIcon data-icon="inline-start" />
-            Break back to loose
+            Send back to Inbox
           </PendingSubmitButton>
         </form>
       </div>

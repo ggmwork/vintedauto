@@ -261,6 +261,15 @@ function redirectAfterSessionStockAction(
   redirectToSession(sessionId, query);
 }
 
+function getManualInboxPhotoAssetIds(session: StudioSessionDetail) {
+  return session.photoAssets
+    .filter(
+      (photoAsset) =>
+        photoAsset.stockItemId === null && photoAsset.candidateClusterId === null
+    )
+    .map((photoAsset) => photoAsset.id);
+}
+
 export async function importStudioSessionAction(formData: FormData) {
   const files = formData
     .getAll("photos")
@@ -521,6 +530,8 @@ export async function scanInboxWatcherNowAction() {
   const groupingSuffix =
     result.autoCommittedCount > 0 || result.reviewClusterCount > 0
       ? ` Grouped ${result.autoCommittedCount} cluster${result.autoCommittedCount === 1 ? "" : "s"} automatically and left ${result.reviewClusterCount} for review.`
+      : result.importedCount > 0
+        ? " Loose photos stayed in Inbox for manual grouping."
       : "";
   const flash =
     result.importedCount > 0
@@ -531,6 +542,141 @@ export async function scanInboxWatcherNowAction() {
 
   redirectToHome({
     flash,
+  });
+}
+
+function buildInboxSuggestionFlash(result: {
+  autoCommittedCount: number;
+  reviewClusterCount: number;
+}) {
+  const suggestedCount = result.autoCommittedCount + result.reviewClusterCount;
+
+  if (suggestedCount === 0) {
+    return "No photo groups were suggested.";
+  }
+
+  const movedToStock =
+    result.autoCommittedCount > 0
+      ? `${result.autoCommittedCount} obvious group${result.autoCommittedCount === 1 ? "" : "s"} moved to Stock.`
+      : null;
+  const leftForReview =
+    result.reviewClusterCount > 0
+      ? `${result.reviewClusterCount} suggestion${result.reviewClusterCount === 1 ? "" : "s"} need review.`
+      : null;
+
+  return [movedToStock, leftForReview].filter(Boolean).join(" ");
+}
+
+export async function suggestInboxGroupsAction(sessionId: string) {
+  const session = await studioSessionRepository.getById(sessionId);
+
+  if (!session) {
+    redirectToHome({
+      error: "Inbox session not found.",
+    });
+  }
+
+  const loosePhotoAssetIds = getManualInboxPhotoAssetIds(session);
+
+  if (loosePhotoAssetIds.length < 2) {
+    redirectToHome({
+      error: "Need at least two loose photos before suggesting groups.",
+    });
+  }
+
+  const result = await runSessionAutoGrouping(session.id, loosePhotoAssetIds, {
+    useVisualDescriptors: true,
+    clusterLoosePhotos: true,
+  });
+
+  redirectToHome({
+    flash: buildInboxSuggestionFlash(result),
+  });
+}
+
+export async function suggestSelectedInboxGroupsAction(
+  sessionId: string,
+  formData: FormData
+) {
+  const session = await studioSessionRepository.getById(sessionId);
+
+  if (!session) {
+    redirectToHome({
+      error: "Inbox session not found.",
+    });
+  }
+
+  const loosePhotoAssetIds = new Set(getManualInboxPhotoAssetIds(session));
+  const selectedPhotoAssetIds = parseStringArray(formData.getAll("photoAssetIds")).filter(
+    (photoAssetId) => loosePhotoAssetIds.has(photoAssetId)
+  );
+
+  if (selectedPhotoAssetIds.length < 2) {
+    redirectToHome({
+      error: "Select at least two loose photos before suggesting a group.",
+    });
+  }
+
+  const result = await runSessionAutoGrouping(session.id, selectedPhotoAssetIds, {
+    useVisualDescriptors: true,
+    clusterLoosePhotos: true,
+  });
+
+  redirectToHome({
+    flash: buildInboxSuggestionFlash(result),
+  });
+}
+
+export async function clearInboxSuggestionsAction(sessionId: string) {
+  const session = await studioSessionRepository.getById(sessionId);
+
+  if (!session) {
+    redirectToHome({
+      error: "Inbox session not found.",
+    });
+  }
+
+  const reviewClusterIds = new Set(
+    session.candidateClusters
+      .filter((cluster) => cluster.status === "needs_review")
+      .map((cluster) => cluster.id)
+  );
+
+  if (reviewClusterIds.size === 0) {
+    redirectToHome({
+      flash: "No suggestions to clear.",
+    });
+  }
+
+  const now = new Date().toISOString();
+
+  await studioSessionRepository.saveGroupingState({
+    sessionId: session.id,
+    photoAssets: session.photoAssets.map((photoAsset) =>
+      photoAsset.candidateClusterId &&
+      reviewClusterIds.has(photoAsset.candidateClusterId)
+        ? {
+            ...photoAsset,
+            candidateClusterId: null,
+            organizationStatus: "unassigned" as const,
+          }
+        : photoAsset
+    ),
+    stockItems: session.stockItems,
+    candidateClusters: session.candidateClusters.map((cluster) =>
+      reviewClusterIds.has(cluster.id)
+        ? {
+            ...cluster,
+            status: "dissolved" as const,
+            updatedAt: now,
+          }
+        : cluster
+    ),
+    groupingRuns: session.groupingRuns,
+  });
+
+  redirectToHome({
+    flash: "Cleared all suggestions back into Inbox.",
   });
 }
 

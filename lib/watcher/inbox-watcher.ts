@@ -108,12 +108,16 @@ function buildScanSummary(result: {
     parts.push("Re-ran grouping for existing loose photos.");
   }
 
-  parts.push(
-    `Auto-grouped ${result.autoCommittedCount} cluster${result.autoCommittedCount === 1 ? "" : "s"}.`
-  );
-  parts.push(
-    `${result.reviewClusterCount} cluster${result.reviewClusterCount === 1 ? "" : "s"} need review.`
-  );
+  if (result.autoCommittedCount > 0 || result.reviewClusterCount > 0) {
+    parts.push(
+      `Auto-grouped ${result.autoCommittedCount} cluster${result.autoCommittedCount === 1 ? "" : "s"}.`
+    );
+    parts.push(
+      `${result.reviewClusterCount} cluster${result.reviewClusterCount === 1 ? "" : "s"} need review.`
+    );
+  } else if (result.importedCount > 0) {
+    parts.push("Loose photos stayed in Inbox for manual grouping.");
+  }
 
   return parts.join(" ");
 }
@@ -188,6 +192,7 @@ async function importLooseAndGroupedFiles(
   options?: {
     forceRegroupExistingLoose?: boolean;
     useVisualDescriptors?: boolean;
+    clusterLoosePhotos?: boolean;
   }
 ) {
   const watcherState = await readInboxWatcherState();
@@ -215,17 +220,7 @@ async function importLooseAndGroupedFiles(
 
     const files = await walkImageFiles(folderPath);
     const existingSession = await getWatchedSession(folderPath);
-    const shouldRegroupExistingLoose =
-      options?.forceRegroupExistingLoose ??
-      Boolean(
-        existingSession &&
-          existingSession.groupingRuns.length === 0 &&
-          existingSession.photoAssets.some(
-            (photoAsset) =>
-              photoAsset.stockItemId === null &&
-              photoAsset.candidateClusterId === null
-          )
-      );
+    const shouldRegroupExistingLoose = Boolean(options?.forceRegroupExistingLoose);
 
     if (!existingSession && files.length === 0) {
       await writeScanState({
@@ -352,6 +347,7 @@ async function importLooseAndGroupedFiles(
       importedPhotoAssetIds,
       {
         useVisualDescriptors: options?.useVisualDescriptors ?? false,
+        clusterLoosePhotos: options?.clusterLoosePhotos ?? false,
       }
     );
 
@@ -587,10 +583,7 @@ export async function scanInboxWatcherNow() {
   const watcherState = await readInboxWatcherState();
 
   await ensureFolderExists(watcherState.config.folderPath);
-  const result = await importLooseAndGroupedFiles(watcherState.config.folderPath, {
-    forceRegroupExistingLoose: true,
-    useVisualDescriptors: true,
-  });
+  const result = await importLooseAndGroupedFiles(watcherState.config.folderPath);
 
   return result;
 }
