@@ -77,7 +77,7 @@ function createSourceFingerprint(relativePath: string, fileStat: fs.Stats) {
   return `${relativePath}:${fileStat.size}:${fileStat.mtimeMs}`;
 }
 
-async function getOrCreateWatchedSession(folderPath: string) {
+async function getWatchedSession(folderPath: string) {
   const sessions = await studioSessionRepository.list();
   const existingSession = sessions.find(
     (session) =>
@@ -95,6 +95,10 @@ async function getOrCreateWatchedSession(folderPath: string) {
     return detail;
   }
 
+  return null;
+}
+
+async function createWatchedSession(folderPath: string) {
   return studioSessionRepository.create({
     name: createDefaultIntakeName(folderPath),
     intakeConfig: {
@@ -127,9 +131,30 @@ async function importLooseAndGroupedFiles(
   runtime.scanning = true;
 
   try {
-    const session = await getOrCreateWatchedSession(folderPath);
     const files = await walkImageFiles(folderPath);
-    const currentSession = (await studioSessionRepository.getById(session.id)) ?? session;
+    const existingSession = await getWatchedSession(folderPath);
+    const shouldRegroupExistingLoose = options?.forceRegroupExistingLoose ?? false;
+
+    if (!existingSession && files.length === 0) {
+      return {
+        importedCount: 0,
+        sessionId: null as string | null,
+        autoCommittedCount: 0,
+        reviewClusterCount: 0,
+      };
+    }
+
+    if (!existingSession && shouldRegroupExistingLoose) {
+      return {
+        importedCount: 0,
+        sessionId: null as string | null,
+        autoCommittedCount: 0,
+        reviewClusterCount: 0,
+      };
+    }
+
+    const currentSession =
+      existingSession ?? (await createWatchedSession(folderPath));
     const existingFingerprints = new Set(watcherState.processedFingerprints);
     const existingPhotoAssets = currentSession.photoAssets.slice();
     const importedPhotoAssetIds: string[] = [];
@@ -191,8 +216,6 @@ async function importLooseAndGroupedFiles(
       importedCount += 1;
       nextSortOrder += 1;
     }
-
-    const shouldRegroupExistingLoose = options?.forceRegroupExistingLoose ?? false;
 
     if (importedCount === 0 && !shouldRegroupExistingLoose) {
       return {
