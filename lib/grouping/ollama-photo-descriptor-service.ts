@@ -147,6 +147,8 @@ class OllamaPhotoDescriptorService implements PhotoDescriptorService {
           ],
           format: descriptorSchema,
           options: {
+            // Keep vision prompts out of Ollama's retained prefix window.
+            num_keep: 0,
             temperature: 0,
           },
           think: false,

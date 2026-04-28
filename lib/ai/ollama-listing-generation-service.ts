@@ -389,6 +389,9 @@ class OllamaListingGenerationService implements ListingGenerationService {
         ],
         format: generationSchema,
         options: {
+          // Qwen3.5 vision requests can fail in Ollama when image batches fall
+          // inside the default num_keep window.
+          num_keep: 0,
           temperature: 0.1,
         },
         think: false,
