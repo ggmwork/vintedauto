@@ -41,8 +41,10 @@ function createDefaultWatcherState(): InboxWatcherState {
     },
     health: "idle",
     lastStartedAt: null,
+    lastScanAt: null,
     lastEventAt: null,
     lastImportAt: null,
+    lastScanSummary: null,
     lastError: null,
     importedFileCount: 0,
     processedFingerprints: [],
@@ -82,16 +84,23 @@ function normalizeWatcherState(value: unknown): InboxWatcherState {
     },
     health:
       candidate.health === "idle" ||
+      candidate.health === "scanning" ||
       candidate.health === "watching" ||
       candidate.health === "error"
         ? candidate.health
         : fallback.health,
     lastStartedAt:
       typeof candidate.lastStartedAt === "string" ? candidate.lastStartedAt : null,
+    lastScanAt:
+      typeof candidate.lastScanAt === "string" ? candidate.lastScanAt : null,
     lastEventAt:
       typeof candidate.lastEventAt === "string" ? candidate.lastEventAt : null,
     lastImportAt:
       typeof candidate.lastImportAt === "string" ? candidate.lastImportAt : null,
+    lastScanSummary:
+      typeof candidate.lastScanSummary === "string"
+        ? candidate.lastScanSummary
+        : null,
     lastError:
       typeof candidate.lastError === "string" ? candidate.lastError : null,
     importedFileCount:

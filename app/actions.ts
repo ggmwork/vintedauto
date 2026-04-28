@@ -525,6 +525,8 @@ export async function scanInboxWatcherNowAction() {
   const flash =
     result.importedCount > 0
       ? `Imported ${result.importedCount} new photo${result.importedCount === 1 ? "" : "s"} from the watched folder.${groupingSuffix}`
+      : result.regroupedExistingLoose
+        ? `Regrouped existing loose photos.${groupingSuffix}`
       : `Scan complete. No new images found.${groupingSuffix}`;
 
   redirectToHome({

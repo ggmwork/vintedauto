@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
 import { ollamaPhotoDescriptorService } from "@/lib/grouping/ollama-photo-descriptor-service";
+import { buildFallbackDescriptor } from "@/lib/grouping/photo-descriptor-service";
 import type {
   CandidateCluster,
   GroupingConfidence,
@@ -24,6 +25,10 @@ export interface AutoGroupingResult {
   autoCommittedCount: number;
   reviewClusterCount: number;
   stockItemCount: number;
+}
+
+interface AutoGroupingOptions {
+  useVisualDescriptors?: boolean;
 }
 
 function compareOptionalString(left: string | null, right: string | null) {
@@ -217,11 +222,38 @@ async function enrichDescriptors(
   };
 }
 
-function buildFolderRuleClusters(session: StudioSessionDetail) {
+function applyFallbackDescriptors(
+  session: StudioSessionDetail,
+  photoAssetIds: string[]
+) {
+  const targetIds = new Set(photoAssetIds);
+
+  return {
+    ...session,
+    photoAssets: session.photoAssets.map((photoAsset) =>
+      targetIds.has(photoAsset.id)
+        ? {
+            ...photoAsset,
+            descriptor: buildFallbackDescriptor(photoAsset),
+          }
+        : photoAsset
+    ),
+  };
+}
+
+function buildFolderRuleClusters(
+  session: StudioSessionDetail,
+  scopedPhotoAssetIds: Set<string> | null
+) {
   const groupedPhotoIds = new Map<string, string[]>();
 
   for (const photoAsset of session.photoAssets) {
-    if (photoAsset.stockItemId || photoAsset.candidateClusterId || !photoAsset.relativePath) {
+    if (
+      (scopedPhotoAssetIds && !scopedPhotoAssetIds.has(photoAsset.id)) ||
+      photoAsset.stockItemId ||
+      photoAsset.candidateClusterId ||
+      !photoAsset.relativePath
+    ) {
       continue;
     }
 
@@ -246,9 +278,13 @@ function buildFolderRuleClusters(session: StudioSessionDetail) {
   }));
 }
 
-function buildLooseClusters(session: StudioSessionDetail) {
+function buildLooseClusters(
+  session: StudioSessionDetail,
+  scopedPhotoAssetIds: Set<string> | null
+) {
   const loosePhotoAssets = session.photoAssets.filter(
     (photoAsset) =>
+      (!scopedPhotoAssetIds || scopedPhotoAssetIds.has(photoAsset.id)) &&
       !photoAsset.stockItemId &&
       !photoAsset.candidateClusterId &&
       (!photoAsset.relativePath || !photoAsset.relativePath.includes("/"))
@@ -512,7 +548,8 @@ function finalizeGroupingRun(
 
 export async function runSessionAutoGrouping(
   sessionId: string,
-  importedPhotoAssetIds: string[] = []
+  importedPhotoAssetIds: string[] = [],
+  options: AutoGroupingOptions = {}
 ): Promise<AutoGroupingResult> {
   const session = await studioSessionRepository.getById(sessionId);
 
@@ -526,10 +563,13 @@ export async function runSessionAutoGrouping(
     ...nextSession,
     groupingRuns: [groupingRun, ...nextSession.groupingRuns],
   };
+  const scopedPhotoAssetIds =
+    importedPhotoAssetIds.length > 0 ? new Set(importedPhotoAssetIds) : null;
 
   const descriptorTargetIds = nextSession.photoAssets
     .filter(
       (photoAsset) =>
+        (!scopedPhotoAssetIds || scopedPhotoAssetIds.has(photoAsset.id)) &&
         !photoAsset.stockItemId &&
         !photoAsset.candidateClusterId &&
         (!photoAsset.relativePath || !photoAsset.relativePath.includes("/"))
@@ -539,15 +579,20 @@ export async function runSessionAutoGrouping(
   let descriptorProvider: string | null = null;
   let descriptorModel: string | null = null;
 
-  if (descriptorTargetIds.length > 0) {
+  if (descriptorTargetIds.length > 0 && options.useVisualDescriptors !== false) {
     const descriptorResult = await enrichDescriptors(nextSession, descriptorTargetIds);
     nextSession = descriptorResult.session;
     descriptorProvider = descriptorResult.provider;
     descriptorModel = descriptorResult.model;
+  } else if (descriptorTargetIds.length > 0) {
+    nextSession = applyFallbackDescriptors(nextSession, descriptorTargetIds);
   }
 
-  const folderRuleClusters = buildFolderRuleClusters(nextSession);
-  const looseClusters = buildLooseClusters(nextSession);
+  const folderRuleClusters = buildFolderRuleClusters(
+    nextSession,
+    scopedPhotoAssetIds
+  );
+  const looseClusters = buildLooseClusters(nextSession, scopedPhotoAssetIds);
   let autoCommittedCount = 0;
   let reviewClusterCount = 0;
 

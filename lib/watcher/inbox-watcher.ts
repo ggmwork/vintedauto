@@ -17,8 +17,11 @@ interface RuntimeState {
   watcher: fs.FSWatcher | null;
   folderPath: string | null;
   scanTimer: NodeJS.Timeout | null;
+  pollTimer: NodeJS.Timeout | null;
   scanning: boolean;
 }
+
+const AUTO_SCAN_INTERVAL_MS = 5_000;
 
 declare global {
   var __vintedautoInboxWatcherRuntime: RuntimeState | undefined;
@@ -30,6 +33,7 @@ function getRuntimeState() {
       watcher: null,
       folderPath: null,
       scanTimer: null,
+      pollTimer: null,
       scanning: false,
     };
   }
@@ -77,6 +81,75 @@ function createSourceFingerprint(relativePath: string, fileStat: fs.Stats) {
   return `${relativePath}:${fileStat.size}:${fileStat.mtimeMs}`;
 }
 
+function buildScanSummary(result: {
+  importedCount: number;
+  autoCommittedCount: number;
+  reviewClusterCount: number;
+  regroupedExistingLoose: boolean;
+}) {
+  if (
+    result.importedCount === 0 &&
+    result.autoCommittedCount === 0 &&
+    result.reviewClusterCount === 0 &&
+    !result.regroupedExistingLoose
+  ) {
+    return "No new images found.";
+  }
+
+  const parts: string[] = [];
+
+  if (result.importedCount > 0) {
+    parts.push(
+      `Imported ${result.importedCount} file${result.importedCount === 1 ? "" : "s"}.`
+    );
+  }
+
+  if (result.regroupedExistingLoose && result.importedCount === 0) {
+    parts.push("Re-ran grouping for existing loose photos.");
+  }
+
+  parts.push(
+    `Auto-grouped ${result.autoCommittedCount} cluster${result.autoCommittedCount === 1 ? "" : "s"}.`
+  );
+  parts.push(
+    `${result.reviewClusterCount} cluster${result.reviewClusterCount === 1 ? "" : "s"} need review.`
+  );
+
+  return parts.join(" ");
+}
+
+async function writeScanState(update: {
+  health: "watching" | "scanning" | "error";
+  lastScanAt?: string | null;
+  lastImportAt?: string | null;
+  lastScanSummary?: string | null;
+  lastError?: string | null;
+  importedFileCountDelta?: number;
+  processedFingerprints?: string[];
+  lastEventAt?: string | null;
+}) {
+  await updateInboxWatcherState((current) => ({
+    ...current,
+    health: update.health,
+    lastScanAt:
+      update.lastScanAt === undefined ? current.lastScanAt : update.lastScanAt,
+    lastImportAt:
+      update.lastImportAt === undefined ? current.lastImportAt : update.lastImportAt,
+    lastScanSummary:
+      update.lastScanSummary === undefined
+        ? current.lastScanSummary
+        : update.lastScanSummary,
+    lastError:
+      update.lastError === undefined ? current.lastError : update.lastError,
+    lastEventAt:
+      update.lastEventAt === undefined ? current.lastEventAt : update.lastEventAt,
+    importedFileCount:
+      current.importedFileCount + (update.importedFileCountDelta ?? 0),
+    processedFingerprints:
+      update.processedFingerprints ?? current.processedFingerprints,
+  }));
+}
+
 async function getWatchedSession(folderPath: string) {
   const sessions = await studioSessionRepository.list();
   const existingSession = sessions.find(
@@ -114,42 +187,77 @@ async function importLooseAndGroupedFiles(
   folderPath: string,
   options?: {
     forceRegroupExistingLoose?: boolean;
+    useVisualDescriptors?: boolean;
   }
 ) {
   const watcherState = await readInboxWatcherState();
   const runtime = getRuntimeState();
 
-    if (runtime.scanning) {
-      return {
-        importedCount: 0,
-        sessionId: null as string | null,
-        autoCommittedCount: 0,
-        reviewClusterCount: 0,
-      };
-    }
+  if (runtime.scanning) {
+    return {
+      importedCount: 0,
+      sessionId: null as string | null,
+      autoCommittedCount: 0,
+      reviewClusterCount: 0,
+      regroupedExistingLoose: false,
+    };
+  }
 
   runtime.scanning = true;
 
   try {
+    const scanStartedAt = new Date().toISOString();
+    await writeScanState({
+      health: "scanning",
+      lastScanAt: scanStartedAt,
+      lastError: null,
+    });
+
     const files = await walkImageFiles(folderPath);
     const existingSession = await getWatchedSession(folderPath);
-    const shouldRegroupExistingLoose = options?.forceRegroupExistingLoose ?? false;
+    const shouldRegroupExistingLoose =
+      options?.forceRegroupExistingLoose ??
+      Boolean(
+        existingSession &&
+          existingSession.groupingRuns.length === 0 &&
+          existingSession.photoAssets.some(
+            (photoAsset) =>
+              photoAsset.stockItemId === null &&
+              photoAsset.candidateClusterId === null
+          )
+      );
 
     if (!existingSession && files.length === 0) {
+      await writeScanState({
+        health: "watching",
+        lastScanAt: scanStartedAt,
+        lastScanSummary: "No images found in the watched folder.",
+        lastError: null,
+      });
+
       return {
         importedCount: 0,
         sessionId: null as string | null,
         autoCommittedCount: 0,
         reviewClusterCount: 0,
+        regroupedExistingLoose: false,
       };
     }
 
     if (!existingSession && shouldRegroupExistingLoose) {
+      await writeScanState({
+        health: "watching",
+        lastScanAt: scanStartedAt,
+        lastScanSummary: "No existing loose photos were available to regroup.",
+        lastError: null,
+      });
+
       return {
         importedCount: 0,
         sessionId: null as string | null,
         autoCommittedCount: 0,
         reviewClusterCount: 0,
+        regroupedExistingLoose: false,
       };
     }
 
@@ -218,11 +326,19 @@ async function importLooseAndGroupedFiles(
     }
 
     if (importedCount === 0 && !shouldRegroupExistingLoose) {
+      await writeScanState({
+        health: "watching",
+        lastScanAt: scanStartedAt,
+        lastScanSummary: "No new images found.",
+        lastError: null,
+      });
+
       return {
         importedCount: 0,
         sessionId: currentSession.id,
         autoCommittedCount: 0,
         reviewClusterCount: 0,
+        regroupedExistingLoose: false,
       };
     }
 
@@ -233,27 +349,40 @@ async function importLooseAndGroupedFiles(
 
     const groupingResult = await runSessionAutoGrouping(
       currentSession.id,
-      importedPhotoAssetIds
+      importedPhotoAssetIds,
+      {
+        useVisualDescriptors: options?.useVisualDescriptors ?? false,
+      }
     );
 
     const refreshedSession =
       (await studioSessionRepository.getById(currentSession.id)) ?? currentSession;
+    const lastImportAt = importedCount > 0 ? new Date().toISOString() : null;
+    const regroupedExistingLoose =
+      importedCount === 0 && shouldRegroupExistingLoose;
 
-    await updateInboxWatcherState((current) => ({
-      ...current,
+    await writeScanState({
       health: "watching",
-      lastEventAt: new Date().toISOString(),
-      lastImportAt: new Date().toISOString(),
+      lastScanAt: new Date().toISOString(),
+      lastImportAt,
+      lastScanSummary: buildScanSummary({
+        importedCount,
+        autoCommittedCount: groupingResult.autoCommittedCount,
+        reviewClusterCount: groupingResult.reviewClusterCount,
+        regroupedExistingLoose,
+      }),
       lastError: null,
-      importedFileCount: current.importedFileCount + importedCount,
+      importedFileCountDelta: importedCount,
       processedFingerprints,
-    }));
+      lastEventAt: importedCount > 0 ? lastImportAt : undefined,
+    });
 
     return {
       importedCount,
       sessionId: refreshedSession.id,
       autoCommittedCount: groupingResult.autoCommittedCount,
       reviewClusterCount: groupingResult.reviewClusterCount,
+      regroupedExistingLoose,
     };
   } finally {
     runtime.scanning = false;
@@ -273,14 +402,52 @@ function scheduleScan(folderPath: string) {
     try {
       await importLooseAndGroupedFiles(folderPath);
     } catch (error) {
-      await updateInboxWatcherState((current) => ({
-        ...current,
+      await writeScanState({
         health: "error",
+        lastScanAt: new Date().toISOString(),
+        lastScanSummary: "Automatic event scan failed.",
         lastError:
           error instanceof Error ? error.message : "Unknown inbox watcher error.",
-      }));
+      });
     }
   }, 1200);
+}
+
+function clearPolling(runtime: RuntimeState) {
+  if (runtime.pollTimer) {
+    clearTimeout(runtime.pollTimer);
+    runtime.pollTimer = null;
+  }
+}
+
+function schedulePolling(folderPath: string) {
+  const runtime = getRuntimeState();
+
+  if (runtime.pollTimer) {
+    return;
+  }
+
+  runtime.pollTimer = setTimeout(async () => {
+    runtime.pollTimer = null;
+
+    try {
+      await importLooseAndGroupedFiles(folderPath);
+    } catch (error) {
+      await writeScanState({
+        health: "error",
+        lastScanAt: new Date().toISOString(),
+        lastScanSummary: "Automatic polling scan failed.",
+        lastError:
+          error instanceof Error ? error.message : "Unknown inbox watcher error.",
+      });
+    } finally {
+      const nextRuntime = getRuntimeState();
+
+      if (nextRuntime.folderPath === folderPath && nextRuntime.watcher) {
+        schedulePolling(folderPath);
+      }
+    }
+  }, AUTO_SCAN_INTERVAL_MS);
 }
 
 function getContentTypeFromFileName(fileName: string) {
@@ -319,6 +486,12 @@ export async function ensureInboxWatcherRunning() {
   }
 
   if (runtime.watcher && runtime.folderPath === folderPath) {
+    schedulePolling(folderPath);
+
+    if (!watcherState.lastScanAt) {
+      scheduleScan(folderPath);
+    }
+
     return getInboxWatcherStateSnapshot({
       running: true,
     });
@@ -328,6 +501,8 @@ export async function ensureInboxWatcherRunning() {
     runtime.watcher.close();
     runtime.watcher = null;
   }
+
+  clearPolling(runtime);
 
   runtime.folderPath = folderPath;
   runtime.watcher = fs.watch(
@@ -350,6 +525,7 @@ export async function ensureInboxWatcherRunning() {
   }));
 
   scheduleScan(folderPath);
+  schedulePolling(folderPath);
 
   return getInboxWatcherStateSnapshot({
     running: true,
@@ -368,6 +544,8 @@ export async function stopInboxWatcher() {
     runtime.watcher.close();
     runtime.watcher = null;
   }
+
+  clearPolling(runtime);
 
   runtime.folderPath = null;
 
@@ -411,6 +589,7 @@ export async function scanInboxWatcherNow() {
   await ensureFolderExists(watcherState.config.folderPath);
   const result = await importLooseAndGroupedFiles(watcherState.config.folderPath, {
     forceRegroupExistingLoose: true,
+    useVisualDescriptors: true,
   });
 
   return result;

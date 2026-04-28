@@ -69,6 +69,18 @@ function formatFileSize(value: number | null) {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function getWatcherStatusLabel(health: string, running: boolean) {
+  if (health === "scanning") {
+    return "scanning";
+  }
+
+  if (running) {
+    return "watching";
+  }
+
+  return health;
+}
+
 function HiddenPhotoAssetInputs({ photoAssetIds }: { photoAssetIds: string[] }) {
   return (
     <>
@@ -282,8 +294,16 @@ export function InboxPage({
             </CardHeader>
             <CardContent className="space-y-4 text-sm">
               <div className="flex flex-wrap gap-2">
-                <Badge variant={inbox.watcher.running ? "default" : "secondary"}>
-                  {inbox.watcher.running ? "watching" : inbox.watcher.health}
+                <Badge
+                  variant={
+                    inbox.watcher.health === "error"
+                      ? "destructive"
+                      : inbox.watcher.health === "scanning" || inbox.watcher.running
+                        ? "default"
+                        : "secondary"
+                  }
+                >
+                  {getWatcherStatusLabel(inbox.watcher.health, inbox.watcher.running)}
                 </Badge>
                 <Badge variant="outline">{inbox.autoStockedItemsCount} stock</Badge>
                 <Badge variant="outline">
@@ -309,6 +329,10 @@ export function InboxPage({
                   <dd>{formatDate(inbox.watcher.lastEventAt)}</dd>
                 </div>
                 <div className="flex items-center justify-between gap-3">
+                  <dt className="text-muted-foreground">Last scan</dt>
+                  <dd>{formatDate(inbox.watcher.lastScanAt)}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
                   <dt className="text-muted-foreground">Last import</dt>
                   <dd>{formatDate(inbox.watcher.lastImportAt)}</dd>
                 </div>
@@ -317,6 +341,15 @@ export function InboxPage({
                   <dd>{inbox.watcher.importedFileCount}</dd>
                 </div>
               </dl>
+
+              {inbox.watcher.lastScanSummary ? (
+                <div className="rounded-lg border border-border/70 bg-background px-4 py-3">
+                  <p className="font-medium text-foreground">Last scan result</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {inbox.watcher.lastScanSummary}
+                  </p>
+                </div>
+              ) : null}
 
               {latestGroupingRun?.notes ? (
                 <div className="rounded-lg border border-border/70 bg-background px-4 py-3">

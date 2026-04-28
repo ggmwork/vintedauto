@@ -1,4 +1,4 @@
-export type InboxWatcherHealth = "idle" | "watching" | "error";
+export type InboxWatcherHealth = "idle" | "watching" | "scanning" | "error";
 
 export interface InboxWatcherConfig {
   folderPath: string;
@@ -9,8 +9,10 @@ export interface InboxWatcherState {
   config: InboxWatcherConfig;
   health: InboxWatcherHealth;
   lastStartedAt: string | null;
+  lastScanAt: string | null;
   lastEventAt: string | null;
   lastImportAt: string | null;
+  lastScanSummary: string | null;
   lastError: string | null;
   importedFileCount: number;
   processedFingerprints: string[];
