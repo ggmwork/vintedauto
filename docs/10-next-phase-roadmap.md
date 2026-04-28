@@ -4,137 +4,126 @@ Last updated: 2026-04-28
 
 ## Purpose
 
-This roadmap covers the next cycle after the current local MVP and first batch-workstation prototype.
+This roadmap covers the next cycle after the current local MVP, watched-folder pivot, and first round of real ingest testing.
 
-The product direction has changed.
-
-The next goal is:
+The target workflow still is:
 
 `watched folder -> Inbox -> Stock -> Review`
 
-## Phase A - UX and IA reset
+But the sequencing changed.
+
+The next goal is now:
+
+`make watched-folder ingest reliable before adding more grouping sophistication`
+
+## Phase A - Ingest reliability
 
 Goal:
 
-Simplify the app before adding more automation.
+Make automatic intake dependable.
 
 Tasks:
 
-- make Inbox the main landing surface
-- hide sessions from main navigation
-- reduce repeated text, badges, and nav clusters
-- de-emphasize Draft list as a primary workflow
+- replace fragile passive watcher dependence with reliable auto-scan / polling
+- keep explicit `Scan now`
+- prevent overlapping scans
+- persist last scan and import state clearly
 
 Deliverable:
 
-The product reads as one simple operator flow instead of several internal concepts.
+Pasting files into the watched folder causes dependable import behavior while the app is open.
 
-## Phase B - Watched-folder foundation
+## Phase B - Ingest observability
 
 Goal:
 
-Make automatic local ingest real.
+Make it obvious what the ingest pipeline actually did.
 
 Tasks:
 
-- add watched-folder configuration
-- add local watcher companion
-- support start and stop while app is open
-- surface watcher status
+- show last scan
+- show last import
+- show last grouping run
+- show counts for:
+  - imported
+  - auto-grouped
+  - needs review
+  - failed
 
 Deliverable:
 
-The app can monitor one chosen local folder.
+Seller can tell whether the app imported files and whether grouping succeeded.
 
-## Phase C - Automatic ingest pipeline
+## Phase C - Manual grouping tools
 
 Goal:
 
-Remove manual import as the default action.
+Make uncertain grouping cases fast to resolve.
 
 Tasks:
 
-- detect new image files
-- debounce partial writes
-- copy files into managed app storage
-- create ingest records
-- show imported files in Inbox automatically
+- select photos and create one stock item
+- assign selected photos to existing stock item
+- move photos between items
+- merge and split groups
+- set cover image
 
 Deliverable:
 
-New files appear in the app without a manual import step.
+Seller can fix ambiguous batches quickly instead of fighting the app.
 
-## Phase D - Automatic stock creation
+## Phase D - Stronger auto-grouping
 
 Goal:
 
-Create stock items automatically when the grouping signal is strong.
+Improve grouping quality only after ingest is dependable.
 
 Tasks:
 
-- map top-level subfolder to one stock item
-- choose default cover image
-- route loose root files into Inbox as `needs grouping`
-- keep internal import traceability
+- keep folder-per-item as strongest signal
+- improve per-image descriptor extraction
+- improve similarity scoring
+- tune confidence thresholds
+- auto-commit only strong groups
 
 Deliverable:
 
-The app creates stock items automatically for the strong cases and flags the weak cases clearly.
+Obvious cases become stock automatically; uncertain cases go to review.
 
-## Phase E - Auto-grouping and clustering
+## Phase E - Batch evaluation
 
 Goal:
 
-Stop relying on folder structure as the main grouping method.
+Tune grouping with evidence.
 
 Tasks:
 
-- extract image descriptors
-- compare imported photos for likely same-item matches
-- build candidate item clusters
-- assign confidence to each cluster
-- auto-commit only high-confidence clusters to stock
+- test folder-per-item batches
+- test flat-folder mixed batches
+- test similar items
+- record false merges and false splits
 
 Deliverable:
 
-Flat-folder imports no longer require full manual grouping.
+Grouping quality can be improved against real cases, not guesswork.
 
-## Phase F - Stock and Review alignment
+## Phase F - Dedicated local watcher later
 
 Goal:
 
-Preserve the working review loop while re-centering it on automatic ingest.
+Move to a true watcher companion only if polling-based ingest is not enough.
 
 Tasks:
 
-- connect Inbox to Stock
-- keep generation entry from Stock
-- keep Review as the main editing surface
-- simplify user-facing Draft language where possible
+- build small local background watcher
+- separate watcher lifecycle from Next runtime
+- write imports/grouping triggers into shared app storage
 
 Deliverable:
 
-Automatically imported items can move cleanly into the existing review workflow.
+True desktop watched-folder behavior outside request-driven app runtime.
 
-## Phase G - Grouping polish
-
-Goal:
-
-Handle the cases where full automation is not reliable.
-
-Tasks:
-
-- regroup
-- move photo between items
-- merge items
-- split item
-- choose cover image
-
-Deliverable:
-
-Seller can correct grouping quickly without fighting the app.
-
-## Phase H - Seller presets
+## Phase G - Seller presets
 
 Goal:
 
@@ -152,7 +141,7 @@ Deliverable:
 
 Generation becomes more consistent and less manual.
 
-## Phase I - Real persistence and deployment
+## Phase H - Real persistence and deployment
 
 Goal:
 
@@ -169,7 +158,7 @@ Deliverable:
 
 App becomes reusable beyond one machine.
 
-## Phase J - Stronger Vinted handoff
+## Phase I - Stronger Vinted handoff
 
 Goal:
 
@@ -189,27 +178,24 @@ Publishing gets faster without changing the current safety boundary.
 
 Recommended order:
 
-1. UX and IA reset
-2. watched-folder foundation
-3. automatic ingest pipeline
-4. automatic stock creation
-5. auto-grouping and clustering
-6. Stock and Review alignment
-7. grouping polish
-8. seller presets
-9. persistence/deploy
-10. stronger Vinted handoff
+1. ingest reliability
+2. ingest observability
+3. manual grouping tools
+4. stronger auto-grouping
+5. batch evaluation
+6. dedicated local watcher later
+7. seller presets
+8. persistence/deploy
+9. stronger Vinted handoff
 
 ## Why this order
 
-This order attacks the actual time sinks first:
+This order attacks the actual blockers first:
 
-- manual import friction
-- photo organization overhead
-- manual grouping overhead
-- too many visible workflow concepts
-- repeated review
-- repeated prompt setup
+- unreliable watched-folder behavior
+- lack of clear ingest/grouping feedback
+- grouping correction friction
+- only then clustering quality
 
 ## Anti-roadmap
 

@@ -1,6 +1,6 @@
 # Vinted Auto Documentation Index
 
-Last updated: 2026-04-27
+Last updated: 2026-04-28
 
 This folder captures current product context, market research, MVP scope, and technical direction for the desktop-first Vinted listing assistant.
 
@@ -8,8 +8,9 @@ Important:
 
 - documents `01` through `11` include the original MVP path and the first batch-workstation iteration
 - documents `12` through `15` capture the watched-folder ingest pivot
-- documents `16` through `18` capture the next automation target: auto-grouping imported photos into stock items
-- for the next implementation cycle, treat `16` through `18` as the current source of truth
+- documents `16` through `18` capture the original auto-grouping target
+- documents `19` through `21` capture the current recovery plan after testing the watched-folder workflow
+- for the next implementation cycle, treat `19` through `21` as the current source of truth
 
 Documents:
 
@@ -31,6 +32,9 @@ Documents:
 - [16-auto-grouping-target-workflow.md](./16-auto-grouping-target-workflow.md) - target workflow for automatic grouping and stock creation
 - [17-auto-grouping-architecture.md](./17-auto-grouping-architecture.md) - technical shape for descriptor extraction, clustering, and confidence-based stock commits
 - [18-implementation-plan-auto-grouping.md](./18-implementation-plan-auto-grouping.md) - step-by-step implementation plan for the next automation phase
+- [19-ingest-reliability-diagnosis.md](./19-ingest-reliability-diagnosis.md) - what is actually broken in the current auto-ingest flow and why
+- [20-hybrid-grouping-strategy.md](./20-hybrid-grouping-strategy.md) - product direction for automatic grouping plus fast manual correction
+- [21-implementation-plan-reliable-ingest-and-grouping.md](./21-implementation-plan-reliable-ingest-and-grouping.md) - next implementation plan: reliable ingest first, manual grouping second, stronger clustering third
 
 Current product decision:
 
@@ -40,4 +44,7 @@ Current product decision:
 - Keep copy/export as a valid success path.
 - Pivot the next cycle toward `watched folder -> Inbox -> Stock -> Review`.
 - Remove `studio sessions` from the user-facing workflow.
-- Next major automation phase is `import -> cluster -> auto-create stock items -> review only uncertain cases`.
+- Next major implementation cycle is:
+  - fix watched-folder ingest reliability
+  - keep hybrid auto + manual grouping
+  - then strengthen automatic clustering

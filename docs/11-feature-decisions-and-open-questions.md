@@ -63,9 +63,25 @@ Reason:
 - the real target flow requires photo clustering into stock items
 - watched ingest alone is not enough
 
+### Keep both automatic grouping and manual grouping
+
+Reason:
+
+- automatic grouping removes obvious work
+- manual grouping is still required for ambiguous batches
+- the product should optimize for trust, not fake full autonomy
+
+### Fix ingest reliability before adding more grouping sophistication
+
+Reason:
+
+- current watched-folder trigger is the weak point
+- grouping quality work is hard to evaluate if ingest itself is unreliable
+- product trust depends on reliable intake first
+
 ## Recommended next feature candidates
 
-### Candidate 1 - UX and IA reset
+### Candidate 1 - Ingest reliability
 
 Value:
 
@@ -73,14 +89,14 @@ Value:
 
 Why:
 
-- stops the app from getting noisier while automation is added
-- removes the wrong mental model before more code locks it in
+- fixes the actual foundation that is currently failing
+- makes watched-folder automation trustworthy
 
 Risk:
 
 - low
 
-### Candidate 2 - Watched-folder foundation
+### Candidate 2 - Ingest observability
 
 Value:
 
@@ -88,14 +104,14 @@ Value:
 
 Why:
 
-- removes the manual import step
-- gets the app closer to the desired "drop photos and let it run" behavior
+- shows whether import and grouping really ran
+- removes silent failure
 
 Risk:
 
 - medium
 
-### Candidate 3 - Automatic ingest pipeline
+### Candidate 3 - Manual grouping tools
 
 Value:
 
@@ -103,14 +119,14 @@ Value:
 
 Why:
 
-- turns watcher events into usable app data
-- creates Inbox automatically
+- makes uncertain cases cheap to fix
+- supports the correct hybrid product shape
 
 Risk:
 
 - medium
 
-### Candidate 4 - Automatic stock creation
+### Candidate 4 - Stronger automatic grouping
 
 Value:
 
@@ -118,38 +134,23 @@ Value:
 
 Why:
 
-- removes more manual organization work
-- gives the app a real stock-first behavior
+- improves clustering quality after the ingest path is dependable
+- makes flat-folder batches more usable
 
 Risk:
 
 - medium
 
-### Candidate 4.5 - Auto-grouping and clustering
+### Candidate 5 - Dedicated local watcher companion later
 
 Value:
 
-- very high
+- medium to high
 
 Why:
 
-- removes the biggest remaining manual step after ingest
-- lets flat-folder imports become usable
-- enables real automatic stock creation
-
-Risk:
-
-- high
-
-### Candidate 5 - Grouping polish
-
-Value:
-
-- high
-
-Why:
-
-- needed for the weak cases where auto-grouping is not reliable
+- likely the right long-term architecture
+- not required before a reliable polling-based fix
 
 Risk:
 
@@ -187,42 +188,41 @@ Reason not first:
 
 If choosing the next feature set now, build in this order:
 
-1. UX and IA reset
-2. watched-folder foundation
-3. automatic ingest pipeline
-4. automatic stock creation
-5. auto-grouping and clustering
-6. Stock and Review alignment
-7. grouping polish
+1. ingest reliability
+2. ingest observability
+3. manual grouping tools
+4. stronger automatic grouping
+5. batch evaluation
+6. dedicated local watcher later
 
 ## Important open questions
 
 These should be decided before the next implementation cycle starts.
 
-### 1. Watcher lifecycle
+### 1. Ingest trigger model
 
-Should the watcher run:
+Should the next reliable solution use:
 
-- only while app is open
-- or as a background service
+- automatic polling/scan in app
+- or a dedicated local watcher service first
 
 Recommendation:
 
-- while app is open first
+- automatic polling/scan first
+- dedicated local watcher later if still needed
 
 ### 2. Grouping strategy
 
 Should grouping start as:
 
-- strong auto-grouping for folder-per-item
-- loose files into Inbox fallback
-- or aggressive flat-file auto-grouping by default
+- fully automatic only
+- or hybrid automatic plus manual correction
 
 Recommendation:
 
-- folder-per-item automatic grouping first
-- loose-file fallback second
-- now move to confidence-based clustering for flat-folder batches
+- hybrid automatic plus manual correction
+- keep folder-per-item as strongest signal
+- use confidence-based clustering for flat-folder batches
 
 ### 2.5. Clustering method
 
@@ -309,10 +309,10 @@ Recommendation:
 
 When deciding what to build next, ask:
 
-1. does it remove a manual import step?
+1. does it make watched-folder ingest more reliable?
 2. does it reduce photo organization overhead?
-3. does it simplify the visible workflow?
-4. does it help move items faster into Review?
-5. does it reduce manual grouping after import?
+3. does it keep ambiguous cases fast to correct?
+4. does it simplify the visible workflow?
+5. does it help move items faster into Review?
 
 If not, it is probably not the next best feature.
