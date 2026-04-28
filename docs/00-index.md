@@ -10,7 +10,8 @@ Important:
 - documents `12` through `15` capture the watched-folder ingest pivot
 - documents `16` through `18` capture the original auto-grouping target
 - documents `19` through `21` capture the current recovery plan after testing the watched-folder workflow
-- for the next implementation cycle, treat `19` through `21` as the current source of truth
+- documents `22` through `25` capture the current shift toward safe Vinted autofill, multi-account admin, and profit tracking
+- for the next implementation cycle, treat `22` through `25` as the current source of truth
 
 Documents:
 
@@ -35,6 +36,10 @@ Documents:
 - [19-ingest-reliability-diagnosis.md](./19-ingest-reliability-diagnosis.md) - what is actually broken in the current auto-ingest flow and why
 - [20-hybrid-grouping-strategy.md](./20-hybrid-grouping-strategy.md) - product direction for automatic grouping plus fast manual correction
 - [21-implementation-plan-reliable-ingest-and-grouping.md](./21-implementation-plan-reliable-ingest-and-grouping.md) - next implementation plan: reliable ingest first, manual grouping second, stronger clustering third
+- [22-safe-vinted-extension-strategy.md](./22-safe-vinted-extension-strategy.md) - current product reset toward reviewed Vinted web autofill and manual final submit
+- [23-dotb-feature-map-and-scope.md](./23-dotb-feature-map-and-scope.md) - safe feature mapping from Dotb into build-now, build-later, and avoid buckets
+- [24-multi-account-operations-and-finance.md](./24-multi-account-operations-and-finance.md) - internal multi-account control, stock, order, and profit model
+- [25-implementation-plan-extension-and-admin.md](./25-implementation-plan-extension-and-admin.md) - phased implementation plan for extension, account admin, orders, and finance
 
 Current product decision:
 
@@ -42,9 +47,9 @@ Current product decision:
 - Target desktop only.
 - Target Vinted web in browser, not the native mobile app.
 - Keep copy/export as a valid success path.
-- Pivot the next cycle toward `watched folder -> Inbox -> Stock -> Review`.
-- Remove `studio sessions` from the user-facing workflow.
+- Keep manual final submit as a hard safety boundary.
 - Next major implementation cycle is:
-  - fix watched-folder ingest reliability
-  - keep hybrid auto + manual grouping
-  - then strengthen automatic clustering
+  - stabilize Vinted listing payload
+  - build Chrome extension autofill
+  - add internal multi-account management
+  - add orders and profit tracking

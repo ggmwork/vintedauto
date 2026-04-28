@@ -26,6 +26,14 @@ Reason:
 - lower-risk than direct automation
 - lets product evolve without depending on fragile publish automation
 
+### Keep manual final submit as a hard boundary
+
+Reason:
+
+- reduces platform risk
+- still removes most listing friction
+- fits the desired extension-assisted workflow
+
 ### Evolve toward automatic ingest workflow
 
 Reason:
@@ -71,17 +79,32 @@ Reason:
 - manual grouping is still required for ambiguous batches
 - the product should optimize for trust, not fake full autonomy
 
-### Fix ingest reliability before adding more grouping sophistication
+### Focus the next cycle on Vinted web autofill
 
 Reason:
 
-- current watched-folder trigger is the weak point
-- grouping quality work is hard to evaluate if ingest itself is unreliable
-- product trust depends on reliable intake first
+- this is now the main user priority
+- it reduces the largest remaining publish friction
+- it can be done without crossing into unattended automation
+
+### Add internal multi-account management
+
+Reason:
+
+- seller wants to manage more than one Vinted account
+- internal account context is useful even without risky cross-account automation
+- stock, queues, and performance should be separable by account
+
+### Add orders and profit tracking
+
+Reason:
+
+- seller workspace should track what sold and what was profitable
+- finance visibility is core operational value, not extra reporting
 
 ## Recommended next feature candidates
 
-### Candidate 1 - Ingest reliability
+### Candidate 1 - Chrome extension autofill
 
 Value:
 
@@ -89,14 +112,15 @@ Value:
 
 Why:
 
-- fixes the actual foundation that is currently failing
-- makes watched-folder automation trustworthy
+- removes the biggest remaining friction on Vinted web
+- preserves manual final review
+- creates the base for account-aware publishing
 
 Risk:
 
-- low
+- medium
 
-### Candidate 2 - Ingest observability
+### Candidate 2 - Shared handoff payload
 
 Value:
 
@@ -104,14 +128,10 @@ Value:
 
 Why:
 
-- shows whether import and grouping really ran
-- removes silent failure
+- keeps app and extension aligned
+- reduces future integration churn
 
-Risk:
-
-- medium
-
-### Candidate 3 - Manual grouping tools
+### Candidate 3 - Multi-account management
 
 Value:
 
@@ -119,14 +139,14 @@ Value:
 
 Why:
 
-- makes uncertain cases cheap to fix
-- supports the correct hybrid product shape
+- required for internal control over multiple Vinted accounts
+- unlocks per-account queues and presets
 
 Risk:
 
 - medium
 
-### Candidate 4 - Stronger automatic grouping
+### Candidate 4 - Orders and stock admin
 
 Value:
 
@@ -134,29 +154,14 @@ Value:
 
 Why:
 
-- improves clustering quality after the ingest path is dependable
-- makes flat-folder batches more usable
+- connects listings to real sales operations
+- supports later finance tracking
 
 Risk:
 
 - medium
 
-### Candidate 5 - Dedicated local watcher companion later
-
-Value:
-
-- medium to high
-
-Why:
-
-- likely the right long-term architecture
-- not required before a reliable polling-based fix
-
-Risk:
-
-- medium
-
-### Candidate 6 - Seller presets
+### Candidate 5 - Profit tracking
 
 Value:
 
@@ -164,13 +169,28 @@ Value:
 
 Why:
 
-- productizes the repeated custom prompt
+- makes the app operationally meaningful
+- shows what accounts and items actually work
+
+Risk:
+
+- medium
+
+### Candidate 6 - CSV export
+
+Value:
+
+- high
+
+Why:
+
+- makes the data usable outside the app
 
 Risk:
 
 - low
 
-### Candidate 7 - Vinted browser autofill
+### Candidate 7 - Selected safe operations modules
 
 Value:
 
@@ -178,108 +198,77 @@ Value:
 
 Why:
 
-- reduces final handoff friction
+- quick replies, label helpers, and order filters are useful follow-ons
 
 Reason not first:
 
-- ingest and simplification still offer higher leverage right now
+- extension and core admin layers are higher leverage
 
 ## Recommended immediate build order
 
 If choosing the next feature set now, build in this order:
 
-1. ingest reliability
-2. ingest observability
-3. manual grouping tools
-4. stronger automatic grouping
-5. batch evaluation
-6. dedicated local watcher later
+1. shared handoff payload
+2. Chrome extension autofill
+3. multi-account management
+4. orders and stock admin
+5. profit tracking
+6. CSV export
 
 ## Important open questions
 
 These should be decided before the next implementation cycle starts.
 
-### 1. Ingest trigger model
+### 1. Extension boundary
 
-Should the next reliable solution use:
+Should the extension:
 
-- automatic polling/scan in app
-- or a dedicated local watcher service first
-
-Recommendation:
-
-- automatic polling/scan first
-- dedicated local watcher later if still needed
-
-### 2. Grouping strategy
-
-Should grouping start as:
-
-- fully automatic only
-- or hybrid automatic plus manual correction
+- only fill visible fields
+- fill fields plus upload images
+- or try to publish too
 
 Recommendation:
 
-- hybrid automatic plus manual correction
-- keep folder-per-item as strongest signal
-- use confidence-based clustering for flat-folder batches
+- fill fields plus upload images
+- manual final submit only
 
-### 2.5. Clustering method
+### 2. Account model
 
-Should grouping use:
+Should one stock item be:
 
-- one large AI call over the whole batch
-- or one descriptor pass per image plus clustering in code
-
-Recommendation:
-
-- descriptor pass per image
-- clustering and thresholds in code
-
-Reason:
-
-- easier to debug
-- easier to tune
-- safer than opaque batch grouping
-
-### 3. Internal batch model
-
-Should internal session or ingest-batch records:
-
-- stay hidden but exist
-- or be removed entirely
+- assigned to one primary account
+- or linked to multiple account contexts
 
 Recommendation:
 
-- keep a hidden internal batch model if it helps trace imports
-- do not expose it as a primary user concept
+- one primary target account first
+- multi-account references later only if needed
 
-### 4. Source file handling
+### 3. Orders data capture
 
-Should the app:
+Should orders start as:
 
-- reference files in the watched folder
-- copy them into managed storage
-- or move them out of the watched folder
-
-Recommendation:
-
-- copy into managed storage
-
-### 5. Generation timing
-
-Should generation start:
-
-- immediately when files arrive
-- after import stabilizes automatically
-- or from an explicit Stock action
+- manual entry
+- semi-manual entry
+- or scraped extension-assisted capture
 
 Recommendation:
 
-- explicit Stock action first
-- automatic generation after stable ingest later
+- manual or semi-manual first
+- extension-assisted capture later
 
-### 6. AI provider strategy
+### 4. Profit model depth
+
+Should finance start as:
+
+- simple item P&L
+- or full accounting logic
+
+Recommendation:
+
+- simple item and account P&L first
+
+### 5. AI provider strategy
 
 Should batch generation use:
 
@@ -293,26 +282,26 @@ Recommendation:
 - use Ollama-first locally
 - keep OpenAI ready as next provider
 
-### 7. Publish target
+### 6. Export depth
 
-Next handoff step should be:
+Should export start as:
 
-- copy and next
-- Vinted web autofill
-- full browser extension
+- CSV only
+- CSV plus Google Sheets
 
 Recommendation:
 
-- copy and next before extension work
+- CSV first
+- Sheets later if really needed
 
 ## Guidance for future decisions
 
 When deciding what to build next, ask:
 
-1. does it make watched-folder ingest more reliable?
-2. does it reduce photo organization overhead?
-3. does it keep ambiguous cases fast to correct?
-4. does it simplify the visible workflow?
-5. does it help move items faster into Review?
+1. does it reduce Vinted web publishing friction safely?
+2. does it improve internal account control?
+3. does it improve stock, orders, or profit visibility?
+4. does it keep the human in control for risky actions?
+5. does it make repeated listing work faster?
 
 If not, it is probably not the next best feature.

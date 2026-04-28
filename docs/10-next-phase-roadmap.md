@@ -4,206 +4,179 @@ Last updated: 2026-04-28
 
 ## Purpose
 
-This roadmap covers the next cycle after the current local MVP, watched-folder pivot, and first round of real ingest testing.
+This roadmap covers the next product cycle after the current local listing workflow.
 
-The target workflow still is:
+The current goal is now:
 
-`watched folder -> Inbox -> Stock -> Review`
+`review in app -> fill Vinted web via extension -> manual submit -> manage accounts, orders, and profit internally`
 
-But the sequencing changed.
-
-The next goal is now:
-
-`make watched-folder ingest reliable before adding more grouping sophistication`
-
-## Phase A - Ingest reliability
+## Phase A - Listing payload stabilization
 
 Goal:
 
-Make automatic intake dependable.
+Create one reliable handoff payload between the app and future Chrome extension.
 
 Tasks:
 
-- replace fragile passive watcher dependence with reliable auto-scan / polling
-- keep explicit `Scan now`
-- prevent overlapping scans
-- persist last scan and import state clearly
+- normalize listing fields
+- normalize ordered image payload
+- include account context
+- keep one shared handoff contract
 
 Deliverable:
 
-Pasting files into the watched folder causes dependable import behavior while the app is open.
+The app can produce one clean Vinted fill payload from any reviewed listing.
 
-## Phase B - Ingest observability
+## Phase B - Chrome extension MVP
 
 Goal:
 
-Make it obvious what the ingest pipeline actually did.
+Build the first safe Vinted web autofill workflow.
 
 Tasks:
 
-- show last scan
-- show last import
-- show last grouping run
-- show counts for:
-  - imported
-  - auto-grouped
-  - needs review
-  - failed
+- extension scaffold
+- Vinted page detection
+- field filling
+- image upload
+- manual final submit only
 
 Deliverable:
 
-Seller can tell whether the app imported files and whether grouping succeeded.
+Seller can open Vinted web and have the form filled from the app.
 
-## Phase C - Manual grouping tools
+## Phase C - Handoff workflow polish
 
 Goal:
 
-Make uncertain grouping cases fast to resolve.
+Make repeated listing publication fast.
 
 Tasks:
 
-- select photos and create one stock item
-- assign selected photos to existing stock item
-- move photos between items
-- merge and split groups
-- set cover image
+- `Fill on Vinted`
+- `fill and next`
+- handoff success state
+- handoff failure state
+- account-aware queue actions
 
 Deliverable:
 
-Seller can fix ambiguous batches quickly instead of fighting the app.
+Seller can move through many listings with low friction.
 
-## Phase D - Stronger auto-grouping
+## Phase D - Multi-account management
 
 Goal:
 
-Improve grouping quality only after ingest is dependable.
+Add safe internal support for multiple Vinted accounts.
 
 Tasks:
 
-- keep folder-per-item as strongest signal
-- improve per-image descriptor extraction
-- improve similarity scoring
-- tune confidence thresholds
-- auto-commit only strong groups
+- account profiles
+- account assignment on stock and listings
+- per-account presets
+- per-account queue views
 
 Deliverable:
 
-Obvious cases become stock automatically; uncertain cases go to review.
+Seller can manage multiple accounts without risky cross-account automation.
 
-## Phase E - Batch evaluation
+## Phase E - Orders and stock admin
 
 Goal:
 
-Tune grouping with evidence.
+Turn the app into a stronger seller operations workspace.
 
 Tasks:
 
-- test folder-per-item batches
-- test flat-folder mixed batches
-- test similar items
-- record false merges and false splits
+- SKU
+- location
+- sale records
+- order status
+- sold-state tracking
 
 Deliverable:
 
-Grouping quality can be improved against real cases, not guesswork.
+Listing work stays connected to real stock and sales operations.
 
-## Phase F - Dedicated local watcher later
+## Phase F - Profit tracking
 
 Goal:
 
-Move to a true watcher companion only if polling-based ingest is not enough.
+Add simple seller finance visibility.
 
 Tasks:
 
-- build small local background watcher
-- separate watcher lifecycle from Next runtime
-- write imports/grouping triggers into shared app storage
+- cost basis
+- packaging and extra costs
+- profit and margin
+- per-account and monthly summaries
 
 Deliverable:
 
-True desktop watched-folder behavior outside request-driven app runtime.
+Seller can measure profit, not only activity.
 
-## Phase G - Seller presets
+## Phase G - CSV and accounting export
 
 Goal:
 
-Turn repeated prompt behavior into reusable settings.
+Make the data portable.
 
 Tasks:
 
-- listing style presets
-- output language
-- description tone
-- pricing style
-- category instructions
+- stock export
+- orders export
+- profit export
 
 Deliverable:
 
-Generation becomes more consistent and less manual.
+Seller can move the data into accounting or analysis workflows.
 
-## Phase H - Real persistence and deployment
+## Phase H - Selected safe operations modules
 
 Goal:
 
-Move from local prototype to durable product.
+Add secondary features that improve workflow without crossing the safety boundary.
 
 Tasks:
 
-- replace local `.data` persistence with Supabase
-- move images into Supabase Storage
-- persist watcher and Inbox state cleanly
-- deploy app
+- quick replies
+- shipping label helpers
+- order filters
+- account stats
 
 Deliverable:
 
-App becomes reusable beyond one machine.
-
-## Phase I - Stronger Vinted handoff
-
-Goal:
-
-Reduce final copy friction without expanding platform risk too early.
-
-Tasks:
-
-- improve handoff formatting
-- keep `copy and next`
-- later evaluate narrow Vinted web autofill
-
-Deliverable:
-
-Publishing gets faster without changing the current safety boundary.
+Seller operations get faster without aggressive platform automation.
 
 ## Priority order
 
 Recommended order:
 
-1. ingest reliability
-2. ingest observability
-3. manual grouping tools
-4. stronger auto-grouping
-5. batch evaluation
-6. dedicated local watcher later
-7. seller presets
-8. persistence/deploy
-9. stronger Vinted handoff
+1. listing payload stabilization
+2. Chrome extension MVP
+3. handoff workflow polish
+4. multi-account management
+5. orders and stock admin
+6. profit tracking
+7. CSV export
+8. selected safe operations modules
 
 ## Why this order
 
-This order attacks the actual blockers first:
+This order follows the actual target:
 
-- unreliable watched-folder behavior
-- lack of clear ingest/grouping feedback
-- grouping correction friction
-- only then clustering quality
+- reduce Vinted web publishing friction first
+- add internal management second
+- add finance visibility third
 
 ## Anti-roadmap
 
 Do not prioritize these ahead of the roadmap above:
 
-- native mobile
-- advanced analytics
-- multi-marketplace support
-- aggressive Vinted automation
-- buyer messaging features
-- complex business dashboards
+- private Vinted API automation
+- unattended publishing
+- auto messages to likes
+- smart negotiation
+- auto reposting
+- cross-account cloning/import
+- mobile app automation
