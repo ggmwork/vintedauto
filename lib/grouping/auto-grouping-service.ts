@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { getPhotoDescriptorService } from "@/lib/ai";
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
-import { ollamaPhotoDescriptorService } from "@/lib/grouping/ollama-photo-descriptor-service";
 import { buildFallbackDescriptor } from "@/lib/grouping/photo-descriptor-service";
 import type {
   CandidateCluster,
@@ -170,6 +170,7 @@ async function enrichDescriptors(
   session: StudioSessionDetail,
   photoAssetIds: string[]
 ) {
+  const descriptorService = getPhotoDescriptorService();
   const targetPhotos = photoAssetIds
     .map((photoAssetId) => getPhotoAsset(session, photoAssetId))
     .filter(
@@ -187,7 +188,7 @@ async function enrichDescriptors(
 
   const descriptorResults = await mapWithConcurrency(targetPhotos, 2, async (photoAsset) => {
     const bytes = await photoAssetStorage.read(photoAsset.storagePath);
-    const result = await ollamaPhotoDescriptorService.extract({
+    const result = await descriptorService.extract({
       photoAsset,
       bytes,
     });

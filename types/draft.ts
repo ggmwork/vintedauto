@@ -33,7 +33,7 @@ export interface DraftGenerationSnapshot {
 }
 
 export interface DraftGenerationInfo {
-  provider: "openai" | "mock" | "ollama";
+  provider: "openai" | "mock" | "ollama" | "anthropic";
   model: string;
   generatedAt: string;
   conditionNotes: string | null;
