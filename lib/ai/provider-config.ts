@@ -1,7 +1,10 @@
 import "server-only";
 
+import { getRecommendedOllamaPreset } from "@/lib/ai/ollama-presets";
 import { readStoredAiSettingsSync } from "@/lib/settings/ai-settings";
 import type { AiProvider, AiRouterMode, AiTask } from "@/types/ai";
+
+const defaultLocalPreset = getRecommendedOllamaPreset("light-local");
 
 function parseProvider(value: string | undefined | null): AiProvider | null {
   const normalized = value?.trim().toLowerCase();
@@ -66,12 +69,13 @@ function getProviderSpecificModel(task: AiTask, provider: AiProvider) {
   switch (provider) {
     case "ollama":
       return task === "listing"
-        ? process.env.OLLAMA_MODEL?.trim() || "qwen3.5:4b"
+        ? process.env.OLLAMA_MODEL?.trim() || defaultLocalPreset?.listingModel || "gemma3:4b"
         : stored.groupingProvider === "ollama" && stored.groupingModel
           ? stored.groupingModel
           : process.env.OLLAMA_GROUPING_MODEL?.trim() ||
             process.env.OLLAMA_MODEL?.trim() ||
-            "qwen3.5:4b";
+            defaultLocalPreset?.groupingModel ||
+            "qwen2.5vl:3b";
     case "openai":
       return task === "listing"
         ? process.env.OPENAI_MODEL?.trim() || null
@@ -159,7 +163,7 @@ export function getListingMaxImages() {
     stored.listingMaxImages !== null
       ? String(stored.listingMaxImages)
       : process.env.AI_LISTING_MAX_IMAGES ?? process.env.OLLAMA_MAX_GENERATION_IMAGES,
-    4,
+    defaultLocalPreset?.listingMaxImages ?? 4,
     1,
     8
   );

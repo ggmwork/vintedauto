@@ -1,6 +1,10 @@
 import "server-only";
 
 import {
+  buildOllamaPullCommand,
+  getOllamaCompatibilityIssue,
+} from "@/lib/ai/ollama-presets";
+import {
   getAnthropicBaseUrl,
   getGroupingProviderConfig,
   getListingProviderConfig,
@@ -70,12 +74,33 @@ async function testOllamaProvider() {
       .filter((value): value is string => Boolean(value))
   );
   const taskModels = getModelsUsingProvider("ollama");
+  const compatibilityIssues = taskModels
+    .map((entry) => {
+      const issue = getOllamaCompatibilityIssue(entry.task, entry.model);
+
+      if (!issue) {
+        return null;
+      }
+
+      return `${entry.task}:${issue}`;
+    })
+    .filter((value): value is string => Boolean(value));
+
+  if (compatibilityIssues.length > 0) {
+    throw new Error(compatibilityIssues.join(" "));
+  }
+
   const missingModels = taskModels
     .map((entry) => entry.model)
     .filter((model) => !availableModels.has(model));
 
   if (missingModels.length > 0) {
-    throw new Error(`Connected to Ollama, but these configured models are missing: ${missingModels.join(", ")}`);
+    const pullCommands = missingModels.map((model) => buildOllamaPullCommand(model));
+    throw new Error(
+      `Connected to Ollama, but these configured models are missing: ${missingModels.join(
+        ", "
+      )}. Run ${pullCommands.join(" and ")}.`
+    );
   }
 
   return createResult(

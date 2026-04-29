@@ -8,9 +8,16 @@ import {
 } from "lucide-react";
 
 import {
+  applyAiPresetAction,
   saveAiSettingsAction,
   testAiProviderConnectionAction,
 } from "@/app/actions";
+import {
+  buildOllamaPullCommand,
+  getRecommendedOllamaModelProfile,
+  recommendedOllamaModelProfiles,
+  recommendedOllamaPresets,
+} from "@/lib/ai/ollama-presets";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,6 +58,48 @@ function getKeyStatusLabel(hasKey: boolean, stored: boolean) {
   }
 
   return stored ? "stored" : "env only";
+}
+
+function PresetCard({
+  preset,
+}: {
+  preset: (typeof recommendedOllamaPresets)[number];
+}) {
+  const action = applyAiPresetAction.bind(null, preset.id);
+
+  return (
+    <Card>
+      <CardHeader className="gap-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <CardTitle className="text-base">{preset.label}</CardTitle>
+            <CardDescription>{preset.description}</CardDescription>
+          </div>
+          <Badge variant="outline">Ollama</Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        <div className="space-y-2">
+          <p className="text-foreground">
+            Listing: <span className="text-muted-foreground">{preset.listingModel}</span>
+          </p>
+          <p className="text-foreground">
+            Grouping: <span className="text-muted-foreground">{preset.groupingModel}</span>
+          </p>
+          <p className="text-foreground">
+            Listing images:{" "}
+            <span className="text-muted-foreground">{preset.listingMaxImages}</span>
+          </p>
+        </div>
+        <form action={action}>
+          <PendingSubmitButton type="submit" pendingLabel={`Applying ${preset.label}`}>
+            <Settings2Icon data-icon="inline-start" />
+            Apply preset
+          </PendingSubmitButton>
+        </form>
+      </CardContent>
+    </Card>
+  );
 }
 
 function ProviderTestCard({
@@ -148,6 +197,9 @@ export function AiSettingsPage({
     error: string | null;
   };
 }) {
+  const listingProfile = getRecommendedOllamaModelProfile(settings.tasks.listing.model);
+  const groupingProfile = getRecommendedOllamaModelProfile(settings.tasks.grouping.model);
+
   return (
     <main className="flex-1 bg-muted/20">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 lg:px-8">
@@ -158,8 +210,8 @@ export function AiSettingsPage({
               Switch providers without touching env files.
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Route listing and grouping to different models. Save first, then
-              run provider tests.
+              Route listing and grouping to different models. For local use,
+              both tasks need vision-capable models.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -186,6 +238,12 @@ export function AiSettingsPage({
             {feedback.flash}
           </div>
         ) : null}
+
+        <section className="grid gap-6 xl:grid-cols-3">
+          {recommendedOllamaPresets.map((preset) => (
+            <PresetCard key={preset.id} preset={preset} />
+          ))}
+        </section>
 
         <form action={saveAiSettingsAction} className="space-y-6">
           <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -244,8 +302,11 @@ export function AiSettingsPage({
                     name="listingModel"
                     defaultValue={settings.tasks.listing.model ?? ""}
                     className={inputClassName}
-                    placeholder="gpt-5.2 / claude-sonnet-4-20250514 / qwen3.5:4b"
+                    placeholder="gemma3:4b / qwen2.5vl:7b / gpt-5.2"
                   />
+                  <span className="text-xs text-muted-foreground">
+                    Recommended local default: <code>gemma3:4b</code>
+                  </span>
                 </label>
 
                 <label className="grid gap-2 text-sm">
@@ -268,8 +329,11 @@ export function AiSettingsPage({
                     name="groupingModel"
                     defaultValue={settings.tasks.grouping.model ?? ""}
                     className={inputClassName}
-                    placeholder="gpt-5 mini / claude-3-5-haiku-latest / qwen3.5:4b"
+                    placeholder="qwen2.5vl:3b / qwen2.5vl:7b / gpt-5 mini"
                   />
+                  <span className="text-xs text-muted-foreground">
+                    Recommended local default: <code>qwen2.5vl:3b</code>
+                  </span>
                 </label>
               </CardContent>
             </Card>
@@ -290,12 +354,24 @@ export function AiSettingsPage({
                   <p className="text-muted-foreground">
                     {settings.tasks.listing.provider}:{settings.tasks.listing.model ?? "missing model"}
                   </p>
+                  {listingProfile ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {listingProfile.label} · {listingProfile.sizeLabel} ·{" "}
+                      {listingProfile.vision ? "vision" : "text only"}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="rounded-lg border border-border bg-background px-4 py-3">
                   <p className="font-medium text-foreground">Photo grouping</p>
                   <p className="text-muted-foreground">
                     {settings.tasks.grouping.provider}:{settings.tasks.grouping.model ?? "missing model"}
                   </p>
+                  {groupingProfile ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {groupingProfile.label} · {groupingProfile.sizeLabel} ·{" "}
+                      {groupingProfile.vision ? "vision" : "text only"}
+                    </p>
+                  ) : null}
                 </div>
                 <p className="text-muted-foreground">
                   Manual mode keeps task routing explicit. Fallback mode is saved now,
@@ -469,6 +545,69 @@ export function AiSettingsPage({
             </Button>
           </div>
         </form>
+
+        <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CpuIcon className="size-4" />
+                Local model guidance
+              </CardTitle>
+              <CardDescription>
+                Use vision-capable models for this workflow. Text-only Gemma variants
+                are not suitable for image grouping or listing generation.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {recommendedOllamaModelProfiles.map((profile) => (
+                <div
+                  key={profile.id}
+                  className="rounded-lg border border-border bg-background px-4 py-3 text-sm"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-foreground">{profile.label}</p>
+                    <Badge variant="outline">{profile.sizeLabel}</Badge>
+                    <Badge variant={profile.vision ? "default" : "secondary"}>
+                      {profile.vision ? "vision" : "text only"}
+                    </Badge>
+                    {profile.recommendedFor.length > 0 ? (
+                      <Badge variant="outline">
+                        good for {profile.recommendedFor.join(" + ")}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 text-muted-foreground">{profile.note}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BotIcon className="size-4" />
+                Install commands
+              </CardTitle>
+              <CardDescription>
+                Pull the recommended models locally before you run the provider test.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {recommendedOllamaPresets.map((preset) => (
+                <div
+                  key={preset.id}
+                  className="rounded-lg border border-border bg-background px-4 py-3"
+                >
+                  <p className="font-medium text-foreground">{preset.label}</p>
+                  <div className="mt-2 space-y-1 font-mono text-xs text-muted-foreground">
+                    <p>{buildOllamaPullCommand(preset.groupingModel)}</p>
+                    <p>{buildOllamaPullCommand(preset.listingModel)}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </section>
 
         <section className="grid gap-6 xl:grid-cols-3">
           <ProviderTestCard
