@@ -102,6 +102,14 @@ Reason:
 - seller workspace should track what sold and what was profitable
 - finance visibility is core operational value, not extra reporting
 
+### Use API providers, not consumer chat products
+
+Reason:
+
+- backend integration needs stable API auth
+- provider switching should be built around server-side keys
+- consumer ChatGPT / Claude access is not the right backend contract
+
 ## Recommended next feature candidates
 
 ### Candidate 1 - Chrome extension autofill
@@ -204,16 +212,34 @@ Reason not first:
 
 - extension and core admin layers are higher leverage
 
+### Candidate 8 - Multi-provider AI foundation
+
+Value:
+
+- high
+
+Why:
+
+- current app is still Ollama-first
+- model switching is now an explicit requirement
+- different tasks should be able to use different providers
+
+Reason not first:
+
+- extension handoff remains the main product priority
+- but this can be built as a cross-cutting technical foundation in parallel
+
 ## Recommended immediate build order
 
 If choosing the next feature set now, build in this order:
 
 1. shared handoff payload
 2. Chrome extension autofill
-3. multi-account management
-4. orders and stock admin
-5. profit tracking
-6. CSV export
+3. multi-provider AI foundation
+4. multi-account management
+5. orders and stock admin
+6. profit tracking
+7. CSV export
 
 ## Important open questions
 
@@ -293,6 +319,18 @@ Recommendation:
 
 - CSV first
 - Sheets later if really needed
+
+### 7. Provider routing mode
+
+Should provider switching start as:
+
+- one global provider selector
+- or task-based provider routing
+
+Recommendation:
+
+- task-based routing
+- separate `listing` and `grouping` provider/model settings
 
 ## Guidance for future decisions
 

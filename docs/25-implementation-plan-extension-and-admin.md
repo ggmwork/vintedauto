@@ -10,6 +10,11 @@ The new priority is:
 
 `safe Vinted web autofill first, then internal multi-account admin, then orders and profit tracking`
 
+Important:
+
+- multi-provider AI support is a cross-cutting technical foundation
+- if model switching becomes urgent, implement [28-implementation-plan-multi-provider-ai.md](./28-implementation-plan-multi-provider-ai.md) before or in parallel with the extension work
+
 ## Phase A - Stabilize current listing payload
 
 Goal:

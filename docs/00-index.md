@@ -11,7 +11,9 @@ Important:
 - documents `16` through `18` capture the original auto-grouping target
 - documents `19` through `21` capture the current recovery plan after testing the watched-folder workflow
 - documents `22` through `25` capture the current shift toward safe Vinted autofill, multi-account admin, and profit tracking
-- for the next implementation cycle, treat `22` through `25` as the current source of truth
+- documents `26` through `28` capture the recommended multi-provider AI research and implementation plan
+- for extension/admin work, treat `22` through `25` as the source of truth
+- for AI provider routing work, treat `26` through `28` as the source of truth
 
 Documents:
 
@@ -40,6 +42,9 @@ Documents:
 - [23-dotb-feature-map-and-scope.md](./23-dotb-feature-map-and-scope.md) - safe feature mapping from Dotb into build-now, build-later, and avoid buckets
 - [24-multi-account-operations-and-finance.md](./24-multi-account-operations-and-finance.md) - internal multi-account control, stock, order, and profit model
 - [25-implementation-plan-extension-and-admin.md](./25-implementation-plan-extension-and-admin.md) - phased implementation plan for extension, account admin, orders, and finance
+- [26-ai-provider-research.md](./26-ai-provider-research.md) - official-doc-backed research on OpenAI, Anthropic, and Ollama integration strategy
+- [27-ai-provider-architecture.md](./27-ai-provider-architecture.md) - recommended task-based provider routing architecture
+- [28-implementation-plan-multi-provider-ai.md](./28-implementation-plan-multi-provider-ai.md) - phased implementation plan for model and provider switching
 
 Current product decision:
 
