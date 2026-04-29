@@ -26,6 +26,7 @@ import {
   formatVintedHandoffText,
 } from "@/lib/vinted/handoff";
 import type { DraftDetail } from "@/types/draft";
+import type { VintedListingPayload } from "@/types/vinted";
 
 interface ExportItem {
   key: string;
@@ -33,15 +34,15 @@ interface ExportItem {
   value: string;
 }
 
-function formatMetadataSection(draft: DraftDetail) {
+function formatMetadataSection(payload: VintedListingPayload) {
   const metadataEntries = [
-    ["Brand", draft.metadata.brand],
-    ["Category", draft.metadata.category],
-    ["Size", draft.metadata.size],
-    ["Condition", draft.metadata.condition],
-    ["Color", draft.metadata.color],
-    ["Material", draft.metadata.material],
-    ["Notes", draft.metadata.notes],
+    ["Brand", payload.listing.metadata.brand],
+    ["Category", payload.listing.metadata.category],
+    ["Size", payload.listing.metadata.size],
+    ["Condition", payload.listing.metadata.condition],
+    ["Color", payload.listing.metadata.color],
+    ["Material", payload.listing.metadata.material],
+    ["Notes", payload.listing.metadata.notes],
   ].filter(([, value]) => typeof value === "string" && value.length > 0);
 
   if (metadataEntries.length === 0) {
@@ -51,8 +52,8 @@ function formatMetadataSection(draft: DraftDetail) {
   return metadataEntries.map(([label, value]) => `${label}: ${value}`).join("\n");
 }
 
-function formatPrice(draft: DraftDetail) {
-  const suggestion = draft.priceSuggestion;
+function formatPrice(payload: VintedListingPayload) {
+  const suggestion = payload.listing.price;
 
   if (!suggestion) {
     return "Price not set.";
@@ -69,18 +70,19 @@ function formatPrice(draft: DraftDetail) {
   return `Price not set (${suggestion.currency}).`;
 }
 
-function formatFullPackage(draft: DraftDetail) {
+function formatFullPackage(payload: VintedListingPayload) {
   return [
-    `Title: ${draft.title ?? "Not set"}`,
+    `Title: ${payload.listing.title ?? "Not set"}`,
     "",
     "Description:",
-    draft.description ?? "Not set",
+    payload.listing.description ?? "Not set",
     "",
-    `Keywords: ${draft.keywords.length > 0 ? draft.keywords.join(", ") : "Not set"}`,
-    `Price: ${formatPrice(draft)}`,
+    `Keywords: ${payload.listing.keywords.length > 0 ? payload.listing.keywords.join(", ") : "Not set"}`,
+    `Price: ${formatPrice(payload)}`,
+    `Images: ${payload.images.length}`,
     "",
     "Metadata:",
-    formatMetadataSection(draft),
+    formatMetadataSection(payload),
   ].join("\n");
 }
 
@@ -130,10 +132,10 @@ export function DraftExportPanel({
       {
         key: "price",
         label: "Price",
-        value: formatPrice(draft),
+        value: formatPrice(handoffPayload),
       },
     ],
-    [draft]
+    [draft, handoffPayload]
   );
 
   const primaryItems = useMemo<ExportItem[]>(
@@ -146,15 +148,15 @@ export function DraftExportPanel({
       {
         key: "full-package",
         label: "Full package",
-        value: formatFullPackage(draft),
+        value: formatFullPackage(handoffPayload),
       },
       {
         key: "vinted-json",
-        label: "Vinted JSON",
+        label: "Autofill JSON",
         value: handoffJson,
       },
     ],
-    [draft, handoffJson, handoffText]
+    [handoffJson, handoffPayload, handoffText]
   );
 
   async function handleCopy(item: ExportItem) {
@@ -240,7 +242,7 @@ export function DraftExportPanel({
             }
           >
             <FileJsonIcon data-icon="inline-start" />
-            Copy JSON payload
+            Copy autofill JSON
           </Button>
         </div>
 

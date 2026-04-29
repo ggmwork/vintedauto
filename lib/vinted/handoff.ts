@@ -1,33 +1,21 @@
-import type { DraftDetail, DraftStatus } from "@/types/draft";
+import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
+import type { DraftDetail } from "@/types/draft";
+import type { VintedListingPayload } from "@/types/vinted";
 
-export interface VintedHandoffPayload {
-  title: string | null;
-  description: string | null;
-  keywords: string[];
-  price: {
-    amount: number | null;
-    minAmount: number | null;
-    maxAmount: number | null;
-    currency: "EUR";
-    confidence: "low" | "medium" | "high";
-    rationale: string;
-  } | null;
-  item: {
-    brand: string | null;
-    category: string | null;
-    size: string | null;
-    condition: string | null;
-    color: string | null;
-    material: string | null;
-    notes: string | null;
-  };
-  workflow: {
-    status: DraftStatus;
-    imageCount: number;
-    generatedAt: string | null;
-    provider: string | null;
-    model: string | null;
-  };
+function buildDraftImageApiPath(draftId: string, imageId: string) {
+  return `/api/drafts/${draftId}/images/${imageId}`;
+}
+
+function formatPriceLabel(payload: VintedListingPayload) {
+  if (!payload.listing.price) {
+    return "Not set";
+  }
+
+  if (payload.listing.price.amount !== null) {
+    return `${payload.listing.price.amount.toFixed(2)} ${payload.listing.price.currency}`;
+  }
+
+  return `${payload.listing.price.minAmount?.toFixed(2) ?? "?"} - ${payload.listing.price.maxAmount?.toFixed(2) ?? "?"} ${payload.listing.price.currency}`;
 }
 
 export function createVintedHandoffPayload(
@@ -39,69 +27,107 @@ export function createVintedHandoffPayload(
     | "priceSuggestion"
     | "metadata"
     | "status"
-    | "imageCount"
+    | "images"
     | "generation"
+    | "id"
+    | "createdAt"
+    | "updatedAt"
   >
-): VintedHandoffPayload {
-  return {
+): VintedListingPayload {
+  const readiness = getDraftReadiness({
+    imageCount: draft.images.length,
     title: draft.title,
     description: draft.description,
     keywords: draft.keywords,
-    price: draft.priceSuggestion
-      ? {
-          amount: draft.priceSuggestion.amount,
-          minAmount: draft.priceSuggestion.minAmount,
-          maxAmount: draft.priceSuggestion.maxAmount,
-          currency: draft.priceSuggestion.currency,
-          confidence: draft.priceSuggestion.confidence,
-          rationale: draft.priceSuggestion.rationale,
-        }
-      : null,
-    item: {
-      brand: draft.metadata.brand,
-      category: draft.metadata.category,
-      size: draft.metadata.size,
-      condition: draft.metadata.condition,
-      color: draft.metadata.color,
-      material: draft.metadata.material,
-      notes: draft.metadata.notes,
+    metadata: draft.metadata,
+    priceSuggestion: draft.priceSuggestion,
+  });
+
+  return {
+    version: "2026-04-29",
+    marketplace: "vinted",
+    source: {
+      draftId: draft.id,
+      draftStatus: draft.status,
+      createdAt: draft.createdAt,
+      updatedAt: draft.updatedAt,
+      generation: {
+        generatedAt: draft.generation?.generatedAt ?? null,
+        provider: draft.generation?.provider ?? null,
+        model: draft.generation?.model ?? null,
+      },
     },
-    workflow: {
-      status: draft.status,
-      imageCount: draft.imageCount,
-      generatedAt: draft.generation?.generatedAt ?? null,
-      provider: draft.generation?.provider ?? null,
-      model: draft.generation?.model ?? null,
+    target: {
+      accountId: null,
+      accountLabel: null,
     },
+    handoff: {
+      ready: readiness.ready,
+      missingFields: readiness.missing,
+      manualSubmitRequired: true,
+    },
+    listing: {
+      title: draft.title,
+      description: draft.description,
+      keywords: draft.keywords,
+      price: draft.priceSuggestion
+        ? {
+            amount: draft.priceSuggestion.amount,
+            minAmount: draft.priceSuggestion.minAmount,
+            maxAmount: draft.priceSuggestion.maxAmount,
+            currency: draft.priceSuggestion.currency,
+            confidence: draft.priceSuggestion.confidence,
+            rationale: draft.priceSuggestion.rationale,
+          }
+        : null,
+      metadata: {
+        brand: draft.metadata.brand,
+        category: draft.metadata.category,
+        size: draft.metadata.size,
+        condition: draft.metadata.condition,
+        color: draft.metadata.color,
+        material: draft.metadata.material,
+        notes: draft.metadata.notes,
+      },
+    },
+    images: [...draft.images]
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+      .map((image) => ({
+        id: image.id,
+        filename: image.originalFilename,
+        sortOrder: image.sortOrder,
+        contentType: image.contentType,
+        sizeBytes: image.sizeBytes,
+        width: image.width,
+        height: image.height,
+        apiPath: buildDraftImageApiPath(draft.id, image.id),
+      })),
   };
 }
 
-export function formatVintedHandoffText(payload: VintedHandoffPayload) {
-  const priceLabel = payload.price
-    ? payload.price.amount !== null
-      ? `${payload.price.amount.toFixed(2)} ${payload.price.currency}`
-      : `${payload.price.minAmount?.toFixed(2) ?? "?"} - ${payload.price.maxAmount?.toFixed(2) ?? "?"} ${payload.price.currency}`
-    : "Not set";
+export function formatVintedHandoffText(payload: VintedListingPayload) {
+  const priceLabel = formatPriceLabel(payload);
 
   return [
-    `Title: ${payload.title ?? "Not set"}`,
-    `Category: ${payload.item.category ?? "Not set"}`,
-    `Brand: ${payload.item.brand ?? "Not set"}`,
-    `Size: ${payload.item.size ?? "Not set"}`,
-    `Condition: ${payload.item.condition ?? "Not set"}`,
-    `Color: ${payload.item.color ?? "Not set"}`,
-    `Material: ${payload.item.material ?? "Not set"}`,
+    `Title: ${payload.listing.title ?? "Not set"}`,
+    `Category: ${payload.listing.metadata.category ?? "Not set"}`,
+    `Brand: ${payload.listing.metadata.brand ?? "Not set"}`,
+    `Size: ${payload.listing.metadata.size ?? "Not set"}`,
+    `Condition: ${payload.listing.metadata.condition ?? "Not set"}`,
+    `Color: ${payload.listing.metadata.color ?? "Not set"}`,
+    `Material: ${payload.listing.metadata.material ?? "Not set"}`,
     `Price: ${priceLabel}`,
-    `Keywords: ${payload.keywords.length > 0 ? payload.keywords.join(", ") : "Not set"}`,
+    `Keywords: ${payload.listing.keywords.length > 0 ? payload.listing.keywords.join(", ") : "Not set"}`,
+    `Images: ${payload.images.length}`,
     "",
     "Description:",
-    payload.description ?? "Not set",
+    payload.listing.description ?? "Not set",
     "",
     "Notes:",
-    payload.item.notes ?? "No notes set.",
+    payload.listing.metadata.notes ?? "No notes set.",
   ].join("\n");
 }
 
-export function formatVintedHandoffJson(payload: VintedHandoffPayload) {
+export function formatVintedHandoffJson(payload: VintedListingPayload) {
   return JSON.stringify(payload, null, 2);
 }
