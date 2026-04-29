@@ -1,6 +1,6 @@
 # Vinted Auto Documentation Index
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 
 This folder captures current product context, market research, MVP scope, and technical direction for the desktop-first Vinted listing assistant.
 
@@ -12,8 +12,10 @@ Important:
 - documents `19` through `21` capture the current recovery plan after testing the watched-folder workflow
 - documents `22` through `25` capture the current shift toward safe Vinted autofill, multi-account admin, and profit tracking
 - documents `26` through `28` capture the recommended multi-provider AI research and implementation plan
+- documents `29` through `32` capture the Vinted extension MVP research, architecture, field contract, and implementation plan
 - for extension/admin work, treat `22` through `25` as the source of truth
 - for AI provider routing work, treat `26` through `28` as the source of truth
+- for the actual Vinted extension build, treat `29` through `32` as the source of truth
 
 Documents:
 
@@ -45,6 +47,10 @@ Documents:
 - [26-ai-provider-research.md](./26-ai-provider-research.md) - official-doc-backed research on OpenAI, Anthropic, and Ollama integration strategy
 - [27-ai-provider-architecture.md](./27-ai-provider-architecture.md) - recommended task-based provider routing architecture
 - [28-implementation-plan-multi-provider-ai.md](./28-implementation-plan-multi-provider-ai.md) - phased implementation plan for model and provider switching
+- [29-vinted-extension-research.md](./29-vinted-extension-research.md) - current research baseline for the safe Vinted extension MVP
+- [30-vinted-extension-architecture.md](./30-vinted-extension-architecture.md) - recommended MV3 extension shape, handoff flow, and adapter boundaries
+- [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md) - MVP field contract between the app and the extension
+- [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) - step-by-step implementation plan for the extension MVP
 
 Current product decision:
 
@@ -54,7 +60,7 @@ Current product decision:
 - Keep copy/export as a valid success path.
 - Keep manual final submit as a hard safety boundary.
 - Next major implementation cycle is:
-  - stabilize Vinted listing payload
-  - build Chrome extension autofill
+  - finalize the Vinted extension contract
+  - build Chrome extension autofill MVP
   - add internal multi-account management
   - add orders and profit tracking

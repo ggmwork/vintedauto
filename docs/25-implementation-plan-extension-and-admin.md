@@ -1,6 +1,6 @@
 # Implementation Plan: Extension And Seller Admin
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 
 ## Purpose
 
@@ -47,6 +47,13 @@ Tasks:
 - fill title, description, price, and structured fields
 - upload images
 - require manual final submit
+
+Detailed execution source of truth:
+
+- [29-vinted-extension-research.md](./29-vinted-extension-research.md)
+- [30-vinted-extension-architecture.md](./30-vinted-extension-architecture.md)
+- [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md)
+- [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md)
 
 Deliverable:
 

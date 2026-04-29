@@ -1,6 +1,6 @@
 # Feature Decisions And Open Questions
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 
 ## Purpose
 
@@ -233,13 +233,20 @@ Reason not first:
 
 If choosing the next feature set now, build in this order:
 
-1. shared handoff payload
+1. finalize extension contract
 2. Chrome extension autofill
 3. multi-provider AI foundation
 4. multi-account management
 5. orders and stock admin
 6. profit tracking
 7. CSV export
+
+Current extension source of truth:
+
+- [29-vinted-extension-research.md](./29-vinted-extension-research.md)
+- [30-vinted-extension-architecture.md](./30-vinted-extension-architecture.md)
+- [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md)
+- [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md)
 
 ## Important open questions
 
