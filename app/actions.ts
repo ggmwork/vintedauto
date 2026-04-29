@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getListingGenerationService } from "@/lib/ai";
+import { testAiProviderConnection } from "@/lib/ai/provider-health";
 import { draftRepository } from "@/lib/drafts";
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import {
@@ -18,6 +19,7 @@ import {
   runSessionAutoGrouping,
 } from "@/lib/grouping";
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
+import { updateStoredAiSettings } from "@/lib/settings/ai-settings";
 import { draftImageStorage } from "@/lib/storage";
 import {
   ensureInboxWatcherRunning,
@@ -25,6 +27,7 @@ import {
   stopInboxWatcher,
   updateInboxWatcherConfig,
 } from "@/lib/watcher";
+import type { AiProvider, AiRouterMode } from "@/types/ai";
 import type { DraftDetail, DraftImage, DraftStatus } from "@/types/draft";
 import type { PhotoAsset, StockItem, StudioSessionDetail } from "@/types/intake";
 import type { PriceConfidence, PriceSuggestion } from "@/types/pricing";
@@ -77,6 +80,32 @@ function parseStringArray(values: FormDataEntryValue[]) {
     .filter((value): value is string => typeof value === "string")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function parseOptionalInteger(value: FormDataEntryValue | null) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+
+  return Number.isFinite(parsed) ? Math.floor(parsed) : null;
+}
+
+function parseAiProvider(value: FormDataEntryValue | null): AiProvider | null {
+  return value === "ollama" || value === "openai" || value === "anthropic"
+    ? value
+    : null;
+}
+
+function parseAiRouterMode(value: FormDataEntryValue | null): AiRouterMode | null {
+  return value === "manual" || value === "fallback" ? value : null;
 }
 
 function parseConfidence(value: FormDataEntryValue | null): PriceConfidence {
@@ -231,6 +260,29 @@ function buildSessionRedirectUrl(
   }
 
   return `${nextUrl.pathname}${nextUrl.search}`;
+}
+
+function buildAiSettingsRedirectUrl(
+  query?: Record<string, string | null | undefined>
+) {
+  const nextUrl = new URL("/settings/ai", "http://localhost");
+
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (!value) {
+      continue;
+    }
+
+    nextUrl.searchParams.set(key, value);
+  }
+
+  return `${nextUrl.pathname}${nextUrl.search}`;
+}
+
+function redirectToAiSettings(
+  query?: Record<string, string | null | undefined>
+): never {
+  revalidatePath("/settings/ai");
+  redirect(buildAiSettingsRedirectUrl(query));
 }
 
 function redirectToSession(
@@ -1507,5 +1559,62 @@ export async function restoreDraftGenerationAction(
 
   redirectToDraft(draftId, {
     flash: "Restored a previous generation snapshot.",
+  });
+}
+
+export async function saveAiSettingsAction(formData: FormData) {
+  await updateStoredAiSettings((current) => {
+    const nextOpenAiApiKey = parseStringOrNull(formData.get("openAiApiKey"));
+    const nextAnthropicApiKey = parseStringOrNull(formData.get("anthropicApiKey"));
+
+    return {
+      ...current,
+      routerMode: parseAiRouterMode(formData.get("routerMode")),
+      listingProvider: parseAiProvider(formData.get("listingProvider")),
+      listingModel: parseStringOrNull(formData.get("listingModel")),
+      groupingProvider: parseAiProvider(formData.get("groupingProvider")),
+      groupingModel: parseStringOrNull(formData.get("groupingModel")),
+      listingMaxImages: parseOptionalInteger(formData.get("listingMaxImages")),
+      ollamaBaseUrl: parseStringOrNull(formData.get("ollamaBaseUrl")),
+      openAiBaseUrl: parseStringOrNull(formData.get("openAiBaseUrl")),
+      anthropicBaseUrl: parseStringOrNull(formData.get("anthropicBaseUrl")),
+      ollamaTimeoutMs: parseOptionalInteger(formData.get("ollamaTimeoutMs")),
+      openAiTimeoutMs: parseOptionalInteger(formData.get("openAiTimeoutMs")),
+      anthropicTimeoutMs: parseOptionalInteger(formData.get("anthropicTimeoutMs")),
+      openAiApiKey:
+        formData.get("clearOpenAiApiKey") === "on"
+          ? null
+          : nextOpenAiApiKey ?? current.openAiApiKey,
+      anthropicApiKey:
+        formData.get("clearAnthropicApiKey") === "on"
+          ? null
+          : nextAnthropicApiKey ?? current.anthropicApiKey,
+    };
+  });
+
+  redirectToAiSettings({
+    flash: "Saved AI routing and provider settings.",
+  });
+}
+
+export async function testAiProviderConnectionAction(provider: AiProvider) {
+  const result = await testAiProviderConnection(provider);
+
+  await updateStoredAiSettings((current) => ({
+    ...current,
+    lastTests: {
+      ...current.lastTests,
+      [provider]: result,
+    },
+  }));
+
+  if (result.status === "success") {
+    redirectToAiSettings({
+      flash: `${provider} test passed. ${result.message}`,
+    });
+  }
+
+  redirectToAiSettings({
+    error: `${provider} test failed. ${result.message}`,
   });
 }

@@ -10,6 +10,7 @@ const navItems = [
   { href: "/", label: "Inbox" },
   { href: "/stock", label: "Stock" },
   { href: "/review", label: "Review" },
+  { href: "/settings/ai", label: "AI" },
 ];
 
 export function AppTopNav() {

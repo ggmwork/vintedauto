@@ -3,7 +3,6 @@ import { anthropicListingGenerationService } from "@/lib/ai/anthropic-listing-ge
 import {
   getGroupingProviderConfig,
   getListingProviderConfig,
-  type AiProvider,
 } from "@/lib/ai/provider-config";
 import { openAiListingGenerationService } from "@/lib/ai/openai-listing-generation-service";
 import { ollamaListingGenerationService } from "@/lib/ai/ollama-listing-generation-service";
@@ -11,6 +10,7 @@ import { anthropicPhotoDescriptorService } from "@/lib/grouping/anthropic-photo-
 import type { PhotoDescriptorService } from "@/lib/grouping/photo-descriptor-service";
 import { openAiPhotoDescriptorService } from "@/lib/grouping/openai-photo-descriptor-service";
 import { ollamaPhotoDescriptorService } from "@/lib/grouping/ollama-photo-descriptor-service";
+import type { AiProvider } from "@/types/ai";
 
 function getListingProviderService(provider: AiProvider): ListingGenerationService {
   switch (provider) {
@@ -21,6 +21,8 @@ function getListingProviderService(provider: AiProvider): ListingGenerationServi
     case "ollama":
       return ollamaListingGenerationService;
   }
+
+  throw new Error(`Unsupported listing provider: ${provider}`);
 }
 
 function getGroupingProviderService(provider: AiProvider): PhotoDescriptorService {
@@ -32,6 +34,8 @@ function getGroupingProviderService(provider: AiProvider): PhotoDescriptorServic
     case "ollama":
       return ollamaPhotoDescriptorService;
   }
+
+  throw new Error(`Unsupported grouping provider: ${provider}`);
 }
 
 export function getListingGenerationService(): ListingGenerationService {
