@@ -1,6 +1,6 @@
 # Vinted Auto Documentation Index
 
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 
 This folder captures current product context, market research, MVP scope, and technical direction for the desktop-first Vinted listing assistant.
 
@@ -13,9 +13,11 @@ Important:
 - documents `22` through `25` capture the current shift toward safe Vinted autofill, multi-account admin, and profit tracking
 - documents `26` through `28` capture the recommended multi-provider AI research and implementation plan
 - documents `29` through `32` capture the Vinted extension MVP research, architecture, field contract, and implementation plan
+- document `33` captures the current repo-state checkpoint and recommended next implementation step
 - for extension/admin work, treat `22` through `25` as the source of truth
 - for AI provider routing work, treat `26` through `28` as the source of truth
 - for the actual Vinted extension build, treat `29` through `32` as the source of truth
+- for deciding what to implement next, start with `33`
 
 Documents:
 
@@ -51,6 +53,7 @@ Documents:
 - [30-vinted-extension-architecture.md](./30-vinted-extension-architecture.md) - recommended MV3 extension shape, handoff flow, and adapter boundaries
 - [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md) - MVP field contract between the app and the extension
 - [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) - step-by-step implementation plan for the extension MVP
+- [33-current-state-and-next-step.md](./33-current-state-and-next-step.md) - current repo-state checkpoint and recommended next implementation step
 
 Current product decision:
 
