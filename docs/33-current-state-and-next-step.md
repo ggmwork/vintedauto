@@ -78,6 +78,18 @@ Important nuance:
 panel, but it is not exposed through an API endpoint that an extension can fetch.
 That makes the payload API the correct first implementation step.
 
+## Existing Docs For This Feature
+
+These markdown files already cover the missing extension and API work:
+
+- [10-next-phase-roadmap.md](./10-next-phase-roadmap.md) defines listing payload stabilization, Chrome extension MVP, `Fill on Vinted`, and manual final submit.
+- [25-implementation-plan-extension-and-admin.md](./25-implementation-plan-extension-and-admin.md) defines the larger extension/admin cycle and puts payload stabilization before the extension.
+- [29-vinted-extension-research.md](./29-vinted-extension-research.md) explains the safety boundary, MV3 choice, service worker, content script, popup, and app-as-source-of-truth model.
+- [30-vinted-extension-architecture.md](./30-vinted-extension-architecture.md) defines the app endpoint, service worker, content script, popup, image upload, error model, and versioning rule.
+- [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md) defines fields, required payload data, fill rules, image rules, status result, and future queue events.
+- [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) is the build plan for payload endpoint, MV3 scaffold, app connection, page detection, field fill, image upload, app trigger, queue polish, and hardening.
+- This file records the current repo-state gap and recommends the exact first endpoint: `GET /api/drafts/[draftId]/vinted-handoff`.
+
 ## Main Gap
 
 The app already has enough local listing workflow to justify the extension path.
@@ -149,4 +161,3 @@ Do not start multi-account admin, orders, profit tracking, or CSV export next.
 
 Those matter later, but publishing friction is the current bottleneck. Build the
 payload endpoint first, then the extension scaffold, then the first form fill.
-

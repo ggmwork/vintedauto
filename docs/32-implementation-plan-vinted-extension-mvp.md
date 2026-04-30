@@ -1,6 +1,6 @@
 # Implementation Plan: Vinted Extension MVP
 
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 
 ## Purpose
 
@@ -22,16 +22,33 @@ Goal:
 
 Make the app produce one stable payload that the extension can consume.
 
+Current repo alignment:
+
+- `lib/vinted/handoff.ts` already builds the Vinted payload used by the export panel
+- `app/api/drafts/[draftId]/images/[imageId]/route.ts` already serves draft image binaries
+- no extension-fetchable payload route exists yet
+
 Tasks:
 
 - confirm field scope from [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md)
-- add versioned payload endpoint
-- expose ordered image URLs
+- add `GET /api/drafts/[draftId]/vinted-handoff`
+- return `createVintedHandoffPayload(draft)` from `lib/vinted/handoff.ts`
+- expose ordered image URLs that resolve through the existing draft image route
 - expose ready / missing field status
+- return `404` for missing drafts
+- return `200` with `handoff.ready=false` for incomplete drafts
 
 Deliverable:
 
 Extension can fetch a deterministic payload from the app.
+
+Verification:
+
+- request a real draft id and confirm JSON contains `version`, `source.draftId`, `handoff`, `listing`, and ordered `images`
+- request a missing draft id and confirm `404`
+- open one image URL from the payload and confirm the binary response loads
+- run `corepack pnpm lint`
+- run `corepack pnpm typecheck`
 
 ## Phase B - Scaffold the extension
 

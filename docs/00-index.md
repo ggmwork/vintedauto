@@ -52,7 +52,7 @@ Documents:
 - [29-vinted-extension-research.md](./29-vinted-extension-research.md) - current research baseline for the safe Vinted extension MVP
 - [30-vinted-extension-architecture.md](./30-vinted-extension-architecture.md) - recommended MV3 extension shape, handoff flow, and adapter boundaries
 - [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md) - MVP field contract between the app and the extension
-- [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) - step-by-step implementation plan for the extension MVP
+- [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) - step-by-step implementation plan for the extension MVP and first handoff API endpoint
 - [33-current-state-and-next-step.md](./33-current-state-and-next-step.md) - current repo-state checkpoint and recommended next implementation step
 
 Current product decision:
