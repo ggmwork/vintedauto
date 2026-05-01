@@ -33,7 +33,7 @@
         "https://www.vinted.nl/*",
         "https://www.vinted.be/*"
       ],
-      "js": ["content-script.js"],
+      "js": ["vinted-form-adapter.js", "vinted-content-script.js"],
       "run_at": "document_idle"
     }
   ]

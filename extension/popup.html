@@ -22,12 +22,20 @@
           <p class="label">Current page</p>
           <p id="page-status" class="value">Checking...</p>
           <p id="page-detail" class="muted"></p>
+          <details class="diagnostic-block">
+            <summary>Page diagnostics</summary>
+            <pre id="page-debug" class="debug-output">Waiting for page details...</pre>
+          </details>
         </div>
 
         <div class="status-card">
           <p class="label">Last draft</p>
           <p id="draft-status" class="value">No handoff loaded yet.</p>
           <p id="fill-status" class="muted"></p>
+          <details class="diagnostic-block">
+            <summary>Last fill diagnostics</summary>
+            <pre id="fill-debug" class="debug-output">No fill attempt yet.</pre>
+          </details>
         </div>
       </section>
 

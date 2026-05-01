@@ -2,12 +2,43 @@ import { NextResponse } from "next/server";
 
 import { draftRepository } from "@/lib/drafts";
 import type { DraftVintedHandoffState } from "@/types/draft";
-import type { VintedFillResultPayload } from "@/types/vinted";
+import type {
+  VintedFieldDiagnosticPayload,
+  VintedFillResultPayload,
+} from "@/types/vinted";
 
 function normalizeStringArray(value: unknown) {
   return Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === "string")
     : [];
+}
+
+function normalizeFieldDiagnostics(
+  value: unknown
+): Record<string, VintedFieldDiagnosticPayload> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, entry]) => entry && typeof entry === "object")
+      .map(([key, entry]) => {
+        const candidate = entry as Partial<VintedFieldDiagnosticPayload>;
+
+        return [
+          key,
+          {
+            detail:
+              typeof candidate.detail === "string"
+                ? candidate.detail
+                : "No diagnostic detail saved.",
+            matchedBy:
+              typeof candidate.matchedBy === "string" ? candidate.matchedBy : null,
+          },
+        ];
+      })
+  );
 }
 
 function parseFillResultPayload(value: unknown): VintedFillResultPayload | null {
@@ -31,6 +62,19 @@ function parseFillResultPayload(value: unknown): VintedFillResultPayload | null 
     skippedFields: normalizeStringArray(candidate.skippedFields),
     failedFields: normalizeStringArray(candidate.failedFields),
     message: typeof candidate.message === "string" ? candidate.message : "",
+    debug:
+      candidate.debug && typeof candidate.debug === "object"
+        ? {
+            pageReason:
+              typeof candidate.debug.pageReason === "string"
+                ? candidate.debug.pageReason
+                : null,
+            debugLog: normalizeStringArray(candidate.debug.debugLog),
+            fieldDiagnostics: normalizeFieldDiagnostics(
+              candidate.debug.fieldDiagnostics
+            ),
+          }
+        : null,
   };
 }
 

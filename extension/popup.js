@@ -3,8 +3,10 @@
 const elements = {
   pageStatus: document.getElementById("page-status"),
   pageDetail: document.getElementById("page-detail"),
+  pageDebug: document.getElementById("page-debug"),
   draftStatus: document.getElementById("draft-status"),
   fillStatus: document.getElementById("fill-status"),
+  fillDebug: document.getElementById("fill-debug"),
   actionStatus: document.getElementById("action-status"),
   configForm: document.getElementById("config-form"),
   appOrigin: document.getElementById("app-origin"),
@@ -38,6 +40,59 @@ function describeFillResult(result) {
   return `${result.status}: ${result.message}${fieldSummary ? ` (${fieldSummary})` : ""}`;
 }
 
+function formatFieldDiagnostics(fieldDiagnostics) {
+  const entries = Object.entries(fieldDiagnostics ?? {});
+
+  if (entries.length === 0) {
+    return "No field diagnostics yet.";
+  }
+
+  return entries
+    .map(([field, diagnostic]) => {
+      const matchedBy = diagnostic?.matchedBy ? ` [${diagnostic.matchedBy}]` : "";
+      return `${field}${matchedBy}: ${diagnostic?.detail ?? "No detail."}`;
+    })
+    .join("\n");
+}
+
+function describePageDiagnostics(pageState) {
+  if (!pageState) {
+    return "Open a Vinted page to inspect diagnostics.";
+  }
+
+  const sections = [
+    `Reason: ${pageState.reason ?? "No reason reported."}`,
+    "",
+    "Field diagnostics:",
+    formatFieldDiagnostics(pageState.fieldDiagnostics),
+  ];
+
+  if (Array.isArray(pageState.debugLog) && pageState.debugLog.length > 0) {
+    sections.push("", "Trace:", pageState.debugLog.join("\n"));
+  }
+
+  return sections.join("\n");
+}
+
+function describeFillDiagnostics(result) {
+  if (!result?.debug) {
+    return "No fill diagnostics yet.";
+  }
+
+  const sections = [
+    `Page reason: ${result.debug.pageReason ?? "No page reason recorded."}`,
+    "",
+    "Field diagnostics:",
+    formatFieldDiagnostics(result.debug.fieldDiagnostics),
+  ];
+
+  if (Array.isArray(result.debug.debugLog) && result.debug.debugLog.length > 0) {
+    sections.push("", "Trace:", result.debug.debugLog.join("\n"));
+  }
+
+  return sections.join("\n");
+}
+
 function renderPopupState(state) {
   const config = state.config ?? {};
   const pageState = state.pageState ?? null;
@@ -62,6 +117,10 @@ function renderPopupState(state) {
     elements.pageDetail.textContent = pageState?.reason ?? "Open the target Vinted page.";
   }
 
+  if (elements.pageDebug) {
+    elements.pageDebug.textContent = describePageDiagnostics(pageState);
+  }
+
   if (elements.draftStatus) {
     elements.draftStatus.textContent = lastContext?.draftId
       ? `Draft ${lastContext.draftId}`
@@ -70,6 +129,10 @@ function renderPopupState(state) {
 
   if (elements.fillStatus) {
     elements.fillStatus.textContent = describeFillResult(lastFillResult);
+  }
+
+  if (elements.fillDebug) {
+    elements.fillDebug.textContent = describeFillDiagnostics(lastFillResult);
   }
 
   const canUseStoredContext = Boolean(lastContext?.draftId && lastContext?.appOrigin);

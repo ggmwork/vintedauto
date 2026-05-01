@@ -12,7 +12,10 @@ import type {
 } from "@/types/draft";
 import type { GenerationResult } from "@/types/generation";
 import type { PriceSuggestion } from "@/types/pricing";
-import type { VintedFillResultPayload } from "@/types/vinted";
+import type {
+  VintedFieldDiagnosticPayload,
+  VintedFillResultPayload,
+} from "@/types/vinted";
 
 import type {
   CreateDraftInput,
@@ -198,7 +201,48 @@ function normalizeVintedFillResult(
       typeof candidate.message === "string"
         ? candidate.message
         : "No Vinted fill result message saved yet.",
+    debug:
+      candidate.debug && typeof candidate.debug === "object"
+        ? {
+            pageReason:
+              typeof candidate.debug.pageReason === "string"
+                ? candidate.debug.pageReason
+                : null,
+            debugLog: normalizeStringArray(candidate.debug.debugLog),
+            fieldDiagnostics: normalizeVintedFieldDiagnostics(
+              candidate.debug.fieldDiagnostics
+            ),
+          }
+        : null,
   };
+}
+
+function normalizeVintedFieldDiagnostics(
+  value: unknown
+): Record<string, VintedFieldDiagnosticPayload> {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, entry]) => entry && typeof entry === "object")
+      .map(([key, entry]) => {
+        const candidate = entry as Partial<VintedFieldDiagnosticPayload>;
+
+        return [
+          key,
+          {
+            detail:
+              typeof candidate.detail === "string"
+                ? candidate.detail
+                : "No diagnostic detail saved.",
+            matchedBy:
+              typeof candidate.matchedBy === "string" ? candidate.matchedBy : null,
+          },
+        ];
+      })
+  );
 }
 
 function normalizeVintedHandoffState(value: unknown): DraftVintedHandoffState {

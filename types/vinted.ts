@@ -34,12 +34,24 @@ export interface VintedListingImagePayload {
 
 export type VintedFillResultStatus = "success" | "partial_success" | "failure";
 
+export interface VintedFieldDiagnosticPayload {
+  detail: string;
+  matchedBy: string | null;
+}
+
+export interface VintedFillDebugPayload {
+  pageReason: string | null;
+  debugLog: string[];
+  fieldDiagnostics: Record<string, VintedFieldDiagnosticPayload>;
+}
+
 export interface VintedFillResultPayload {
   status: VintedFillResultStatus;
   filledFields: string[];
   skippedFields: string[];
   failedFields: string[];
   message: string;
+  debug: VintedFillDebugPayload | null;
 }
 
 export interface VintedListingPayload {

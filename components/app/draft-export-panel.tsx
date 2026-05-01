@@ -51,6 +51,23 @@ function formatFieldSummary(fields: string[]) {
   return fields.length > 0 ? fields.join(", ") : "None";
 }
 
+function formatFieldDiagnostics(
+  fieldDiagnostics: Record<string, { detail: string; matchedBy: string | null }>
+) {
+  const entries = Object.entries(fieldDiagnostics);
+
+  if (entries.length === 0) {
+    return "No selector diagnostics recorded.";
+  }
+
+  return entries
+    .map(([field, diagnostic]) => {
+      const matchedBy = diagnostic.matchedBy ? ` [${diagnostic.matchedBy}]` : "";
+      return `${field}${matchedBy}: ${diagnostic.detail}`;
+    })
+    .join("\n");
+}
+
 function getVintedHandoffCopy(draft: DraftDetail) {
   switch (draft.vintedHandoff.status) {
     case "not_started":
@@ -318,9 +335,39 @@ export function DraftExportPanel({
             </div>
 
             {draft.vintedHandoff.lastResult ? (
-              <p className="text-sm text-muted-foreground">
-                {draft.vintedHandoff.lastResult.message}
-              </p>
+              <>
+                <p className="text-sm text-muted-foreground">
+                  {draft.vintedHandoff.lastResult.message}
+                </p>
+                {draft.vintedHandoff.lastResult.debug ? (
+                  <details className="rounded-lg border border-border bg-card/60">
+                    <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-foreground">
+                      Selector diagnostics
+                    </summary>
+                    <div className="space-y-3 border-t border-border px-3 py-3">
+                      <p className="text-sm text-muted-foreground">
+                        Page reason:{" "}
+                        {draft.vintedHandoff.lastResult.debug.pageReason ??
+                          "No page reason recorded."}
+                      </p>
+                      <textarea
+                        readOnly
+                        value={formatFieldDiagnostics(
+                          draft.vintedHandoff.lastResult.debug.fieldDiagnostics
+                        )}
+                        className="min-h-28 w-full resize-y rounded-lg border border-border bg-background px-3 py-3 text-xs leading-5 text-foreground outline-none"
+                      />
+                      {draft.vintedHandoff.lastResult.debug.debugLog.length > 0 ? (
+                        <textarea
+                          readOnly
+                          value={draft.vintedHandoff.lastResult.debug.debugLog.join("\n")}
+                          className="min-h-28 w-full resize-y rounded-lg border border-border bg-background px-3 py-3 text-xs leading-5 text-foreground outline-none"
+                        />
+                      ) : null}
+                    </div>
+                  </details>
+                ) : null}
+              </>
             ) : null}
           </div>
         </div>

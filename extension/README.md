@@ -45,7 +45,15 @@ From a ready draft in the app:
 - supported flow: create-listing page
 - supported fields: title, description, price, brand, category, size, condition, color, material, images
 - app tracks `handed off`, `filled on Vinted`, `needs manual fix`, and `fill failed`
+- popup exposes page diagnostics and last fill diagnostics for selector debugging
 - manual final submit remains required
+
+## Debug workflow
+
+- use the popup `Page diagnostics` block when the page is unsupported or not ready
+- use the popup `Last fill diagnostics` block when a field fill partially fails
+- use the app draft `Selector diagnostics` block to compare the latest persisted callback result
+- use [docs/34-vinted-extension-dom-smoke-test.md](../docs/34-vinted-extension-dom-smoke-test.md) as the repeatable repair checklist
 
 ## Out of scope for this MVP
 

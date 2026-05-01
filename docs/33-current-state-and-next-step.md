@@ -86,6 +86,7 @@ These markdown files already cover the missing extension and API work:
 - [30-vinted-extension-architecture.md](./30-vinted-extension-architecture.md) defines the app endpoint, service worker, content script, popup, image upload, error model, and versioning rule.
 - [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md) defines fields, required payload data, fill rules, image rules, status result, and future queue events.
 - [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) is the build plan for payload endpoint, MV3 scaffold, app connection, page detection, field fill, image upload, app trigger, queue polish, and hardening.
+- [34-vinted-extension-dom-smoke-test.md](./34-vinted-extension-dom-smoke-test.md) is the repeatable selector-repair and smoke-test checklist for the supported Vinted page.
 - This file records the current repo-state gap and recommends the exact first endpoint: `GET /api/drafts/[draftId]/vinted-handoff`.
 
 ## Main Gap
