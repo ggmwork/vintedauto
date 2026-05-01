@@ -159,6 +159,15 @@ export function InboxPage({
   const [selectedPhotoAssetIds, setSelectedPhotoAssetIds] = useState<string[]>([]);
   const watchedSession = inbox.watchedSession;
   const latestGroupingRun = watchedSession?.groupingRuns[0] ?? null;
+  const loosePhotoAssetIds = useMemo(
+    () => new Set(inbox.loosePhotoAssets.map((photoAsset) => photoAsset.id)),
+    [inbox.loosePhotoAssets]
+  );
+  const selectedLoosePhotoAssetIds = useMemo(
+    () =>
+      selectedPhotoAssetIds.filter((photoAssetId) => loosePhotoAssetIds.has(photoAssetId)),
+    [loosePhotoAssetIds, selectedPhotoAssetIds]
+  );
   const draftableStockItems = useMemo(
     () =>
       watchedSession?.stockItems.filter((stockItem) => stockItem.draftId === null) ?? [],
@@ -166,7 +175,11 @@ export function InboxPage({
   );
 
   useEffect(() => {
-    if (!inbox.watcher.running || !inbox.watcher.config.enabled) {
+    if (
+      !inbox.watcher.running ||
+      !inbox.watcher.config.enabled ||
+      selectedLoosePhotoAssetIds.length > 0
+    ) {
       return;
     }
 
@@ -177,7 +190,12 @@ export function InboxPage({
     return () => {
       window.clearInterval(interval);
     };
-  }, [inbox.watcher.config.enabled, inbox.watcher.running, router]);
+  }, [
+    inbox.watcher.config.enabled,
+    inbox.watcher.running,
+    router,
+    selectedLoosePhotoAssetIds.length,
+  ]);
 
   function toggleSelection(photoAssetId: string) {
     setSelectedPhotoAssetIds((current) =>
@@ -185,6 +203,10 @@ export function InboxPage({
         ? current.filter((entry) => entry !== photoAssetId)
         : [...current, photoAssetId]
     );
+  }
+
+  function clearSelection() {
+    setSelectedPhotoAssetIds([]);
   }
 
   return (
@@ -382,12 +404,21 @@ export function InboxPage({
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/70 bg-background px-4 py-4">
-                <Badge variant="secondary">{selectedPhotoAssetIds.length} selected</Badge>
+                <Badge variant="secondary">{selectedLoosePhotoAssetIds.length} selected</Badge>
                 <span className="text-sm text-muted-foreground">
                   {watchedSession?.intakeConfig.folderLabel ??
                     watchedSession?.intakeConfig.folderPath ??
                     "No imported photos yet"}
                 </span>
+                {selectedLoosePhotoAssetIds.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
+                  >
+                    Clear selection
+                  </button>
+                ) : null}
               </div>
 
               {watchedSession ? (
@@ -400,7 +431,7 @@ export function InboxPage({
                     )}
                     className="grid gap-4"
                   >
-                    <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
+                    <HiddenPhotoAssetInputs photoAssetIds={selectedLoosePhotoAssetIds} />
                     <div className="grid gap-2">
                       <label className="text-sm font-medium text-foreground">
                         New item name
@@ -412,14 +443,18 @@ export function InboxPage({
                         className={inputClassName}
                       />
                     </div>
+                    <p className="text-sm text-muted-foreground">
+                      Click the matching photos below, then group them into one stock item
+                      here. Auto-refresh pauses while you have a selection.
+                    </p>
                     <div className="flex flex-wrap gap-3">
                       <PendingSubmitButton
                         type="submit"
-                        disabled={selectedPhotoAssetIds.length === 0}
-                        pendingLabel="Creating item"
+                        disabled={selectedLoosePhotoAssetIds.length === 0}
+                        pendingLabel="Grouping photos"
                       >
                         <BoxIcon data-icon="inline-start" />
-                        Create item
+                        Group selected into item
                       </PendingSubmitButton>
                     </div>
                   </form>
@@ -443,11 +478,11 @@ export function InboxPage({
                         watchedSession.id
                       )}
                     >
-                      <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
+                      <HiddenPhotoAssetInputs photoAssetIds={selectedLoosePhotoAssetIds} />
                       <PendingSubmitButton
                         type="submit"
                         variant="outline"
-                        disabled={selectedPhotoAssetIds.length < 2}
+                        disabled={selectedLoosePhotoAssetIds.length < 2}
                         pendingLabel="Suggesting selection"
                       >
                         <SparklesIcon data-icon="inline-start" />
@@ -473,6 +508,7 @@ export function InboxPage({
                         key={photoAsset.id}
                         type="button"
                         onClick={() => toggleSelection(photoAsset.id)}
+                        aria-pressed={selected}
                         className={cn(
                           "overflow-hidden rounded-xl border bg-card text-left transition",
                           selected
@@ -489,6 +525,9 @@ export function InboxPage({
                             className="object-cover"
                             unoptimized
                           />
+                          <div className="absolute top-3 right-3 rounded-full bg-background/90 px-2 py-1 text-xs font-medium text-foreground">
+                            {selected ? "selected" : "pick"}
+                          </div>
                         </div>
                         <div className="space-y-3 px-4 py-4">
                           <div className="space-y-1">
@@ -560,11 +599,11 @@ export function InboxPage({
                           "inbox"
                         )}
                       >
-                        <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
+                        <HiddenPhotoAssetInputs photoAssetIds={selectedLoosePhotoAssetIds} />
                         <PendingSubmitButton
                           type="submit"
                           variant="outline"
-                          disabled={selectedPhotoAssetIds.length === 0}
+                          disabled={selectedLoosePhotoAssetIds.length === 0}
                           pendingLabel="Assigning photos"
                         >
                           Add selected here
