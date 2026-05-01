@@ -199,6 +199,9 @@ export function AiSettingsPage({
 }) {
   const listingProfile = getRecommendedOllamaModelProfile(settings.tasks.listing.model);
   const groupingProfile = getRecommendedOllamaModelProfile(settings.tasks.grouping.model);
+  const localOllamaModelIds = recommendedOllamaModelProfiles.map(
+    (profile) => profile.id
+  );
 
   return (
     <main className="flex-1 bg-muted/20">
@@ -300,12 +303,21 @@ export function AiSettingsPage({
                   <input
                     type="text"
                     name="listingModel"
+                    list="ollama-listing-model-options"
                     defaultValue={settings.tasks.listing.model ?? ""}
                     className={inputClassName}
-                    placeholder="gemma3:4b / qwen2.5vl:7b / gpt-5.2"
+                    placeholder="qwen3.5:9b / qwen3-vl:8b / gpt-5.2"
                   />
+                  <datalist id="ollama-listing-model-options">
+                    {localOllamaModelIds.map((modelId) => (
+                      <option key={modelId} value={modelId} />
+                    ))}
+                  </datalist>
                   <span className="text-xs text-muted-foreground">
-                    Recommended local default: <code>gemma3:4b</code>
+                    Installed local options: <code>{localOllamaModelIds.join(", ")}</code>
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Recommended local default: <code>qwen3.5:9b</code>
                   </span>
                 </label>
 
@@ -327,12 +339,21 @@ export function AiSettingsPage({
                   <input
                     type="text"
                     name="groupingModel"
+                    list="ollama-grouping-model-options"
                     defaultValue={settings.tasks.grouping.model ?? ""}
                     className={inputClassName}
-                    placeholder="qwen2.5vl:3b / qwen2.5vl:7b / gpt-5 mini"
+                    placeholder="qwen3-vl:8b / qwen3.5:9b / gpt-5 mini"
                   />
+                  <datalist id="ollama-grouping-model-options">
+                    {localOllamaModelIds.map((modelId) => (
+                      <option key={modelId} value={modelId} />
+                    ))}
+                  </datalist>
                   <span className="text-xs text-muted-foreground">
-                    Recommended local default: <code>qwen2.5vl:3b</code>
+                    Installed local options: <code>{localOllamaModelIds.join(", ")}</code>
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Recommended local default: <code>qwen3-vl:8b</code>
                   </span>
                 </label>
               </CardContent>
@@ -356,7 +377,7 @@ export function AiSettingsPage({
                   </p>
                   {listingProfile ? (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {listingProfile.label} · {listingProfile.sizeLabel} ·{" "}
+                      {listingProfile.label} - {listingProfile.sizeLabel} -{" "}
                       {listingProfile.vision ? "vision" : "text only"}
                     </p>
                   ) : null}
@@ -368,7 +389,7 @@ export function AiSettingsPage({
                   </p>
                   {groupingProfile ? (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      {groupingProfile.label} · {groupingProfile.sizeLabel} ·{" "}
+                      {groupingProfile.label} - {groupingProfile.sizeLabel} -{" "}
                       {groupingProfile.vision ? "vision" : "text only"}
                     </p>
                   ) : null}
@@ -388,7 +409,7 @@ export function AiSettingsPage({
                   <CpuIcon className="size-4" />
                   Ollama
                 </CardTitle>
-                <CardDescription>Local models and base URL.</CardDescription>
+                <CardDescription>Local models, runtime URL, and current model options.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <label className="grid gap-2 text-sm">
@@ -411,6 +432,10 @@ export function AiSettingsPage({
                     className={inputClassName}
                   />
                 </label>
+                <div className="rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                  Local options for this setup:{" "}
+                  <code>{localOllamaModelIds.join(", ")}</code>
+                </div>
               </CardContent>
             </Card>
 
@@ -554,8 +579,8 @@ export function AiSettingsPage({
                 Local model guidance
               </CardTitle>
               <CardDescription>
-                Use vision-capable models for this workflow. Text-only Gemma variants
-                are not suitable for image grouping or listing generation.
+                Listing and grouping are image tasks. Use the installed multimodal
+                models there and keep the text-only local model for future non-image work.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -586,22 +611,29 @@ export function AiSettingsPage({
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BotIcon className="size-4" />
-                Install commands
+                Ollama model commands
               </CardTitle>
               <CardDescription>
-                Pull the recommended models locally before you run the provider test.
+                Use these exact model ids when you pull or switch local Ollama models.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {recommendedOllamaPresets.map((preset) => (
+              {recommendedOllamaModelProfiles.map((profile) => (
                 <div
-                  key={preset.id}
+                  key={profile.id}
                   className="rounded-lg border border-border bg-background px-4 py-3"
                 >
-                  <p className="font-medium text-foreground">{preset.label}</p>
-                  <div className="mt-2 space-y-1 font-mono text-xs text-muted-foreground">
-                    <p>{buildOllamaPullCommand(preset.groupingModel)}</p>
-                    <p>{buildOllamaPullCommand(preset.listingModel)}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-foreground">{profile.label}</p>
+                    <Badge variant={profile.vision ? "default" : "secondary"}>
+                      {profile.vision ? "vision" : "text only"}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <p className="font-mono text-xs text-muted-foreground">
+                      {buildOllamaPullCommand(profile.id)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{profile.note}</p>
                   </div>
                 </div>
               ))}

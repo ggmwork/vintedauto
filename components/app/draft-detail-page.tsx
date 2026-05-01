@@ -516,7 +516,7 @@ export function DraftDetailPage({
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">
                       {draft.generation
                         ? `${draft.generation.provider}:${draft.generation.model}`
-                        : "ollama:qwen3.5:4b (default unless env overrides it)"}
+                        : "ollama:qwen3.5:9b (default unless env overrides it)"}
                     </p>
                   </div>
 

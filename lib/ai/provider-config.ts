@@ -4,7 +4,7 @@ import { getRecommendedOllamaPreset } from "@/lib/ai/ollama-presets";
 import { readStoredAiSettingsSync } from "@/lib/settings/ai-settings";
 import type { AiProvider, AiRouterMode, AiTask } from "@/types/ai";
 
-const defaultLocalPreset = getRecommendedOllamaPreset("light-local");
+const defaultLocalPreset = getRecommendedOllamaPreset("balanced-local");
 
 function parseProvider(value: string | undefined | null): AiProvider | null {
   const normalized = value?.trim().toLowerCase();
@@ -69,13 +69,15 @@ function getProviderSpecificModel(task: AiTask, provider: AiProvider) {
   switch (provider) {
     case "ollama":
       return task === "listing"
-        ? process.env.OLLAMA_MODEL?.trim() || defaultLocalPreset?.listingModel || "gemma3:4b"
+        ? process.env.OLLAMA_MODEL?.trim() ||
+            defaultLocalPreset?.listingModel ||
+            "qwen3.5:9b"
         : stored.groupingProvider === "ollama" && stored.groupingModel
           ? stored.groupingModel
           : process.env.OLLAMA_GROUPING_MODEL?.trim() ||
             process.env.OLLAMA_MODEL?.trim() ||
             defaultLocalPreset?.groupingModel ||
-            "qwen2.5vl:3b";
+            "qwen3-vl:8b";
     case "openai":
       return task === "listing"
         ? process.env.OPENAI_MODEL?.trim() || null
