@@ -31,6 +31,17 @@ export async function GET(
     );
   }
 
+  const requestedAt = new Date().toISOString();
+
+  await draftRepository.update(draft.id, {
+    vintedHandoff: {
+      status: "handed_off",
+      lastRequestedAt: requestedAt,
+      lastUpdatedAt: requestedAt,
+      lastResult: null,
+    },
+  });
+
   const nextUrl = new URL(appConfig.vinted.createListingUrl);
   nextUrl.searchParams.set("vinted_auto_fill", "1");
   nextUrl.searchParams.set("vinted_auto_draft_id", draft.id);

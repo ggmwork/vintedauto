@@ -1,4 +1,3 @@
-/* eslint-env browser */
 /* global chrome */
 
 const TITLE_MATCHERS = ["title", "titulo", "titulo do anuncio", "titulo do anúncio"];

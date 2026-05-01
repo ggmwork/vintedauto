@@ -21,6 +21,7 @@ export interface UpdateDraftInput {
   metadata?: Partial<DraftMetadata>;
   priceSuggestion?: PriceSuggestion | null;
   generation?: DraftDetail["generation"] | null;
+  vintedHandoff?: DraftDetail["vintedHandoff"];
 }
 
 export interface SaveDraftImagesInput {

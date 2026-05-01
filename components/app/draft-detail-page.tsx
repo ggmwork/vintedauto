@@ -137,6 +137,19 @@ function getStepCopy(draft: DraftDetail) {
     return "Review and complete the generated fields.";
   }
 
+  switch (draft.vintedHandoff.status) {
+    case "handed_off":
+      return "Vinted handoff started. Keep moving while the extension fills the new tab.";
+    case "filled_on_vinted":
+      return "Vinted page filled. Review there and submit manually.";
+    case "needs_manual_fix":
+      return "Vinted fill needs manual fixes before submit.";
+    case "fill_failed":
+      return "Retry the Vinted handoff after fixing the fill issue.";
+    case "not_started":
+      break;
+  }
+
   return "Copy the Vinted handoff and move into Vinted web.";
 }
 

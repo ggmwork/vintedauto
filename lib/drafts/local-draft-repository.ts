@@ -8,9 +8,11 @@ import type {
   DraftGenerationInfo,
   DraftImage,
   DraftMetadata,
+  DraftVintedHandoffState,
 } from "@/types/draft";
 import type { GenerationResult } from "@/types/generation";
 import type { PriceSuggestion } from "@/types/pricing";
+import type { VintedFillResultPayload } from "@/types/vinted";
 
 import type {
   CreateDraftInput,
@@ -43,6 +45,18 @@ function createDefaultMetadata(
   };
 }
 
+function createDefaultVintedHandoffState(
+  overrides?: Partial<DraftVintedHandoffState>
+): DraftVintedHandoffState {
+  return {
+    status: "not_started",
+    lastRequestedAt: null,
+    lastUpdatedAt: null,
+    lastResult: null,
+    ...overrides,
+  };
+}
+
 function toDraftSummary(draft: DraftDetail): Draft {
   return {
     id: draft.id,
@@ -54,6 +68,7 @@ function toDraftSummary(draft: DraftDetail): Draft {
     priceSuggestion: draft.priceSuggestion,
     generation: draft.generation,
     generationHistory: draft.generationHistory,
+    vintedHandoff: draft.vintedHandoff,
     imageCount: draft.imageCount,
     createdAt: draft.createdAt,
     updatedAt: draft.updatedAt,
@@ -160,6 +175,54 @@ function normalizePriceSuggestion(
   };
 }
 
+function normalizeVintedFillResult(
+  value: unknown
+): VintedFillResultPayload | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<VintedFillResultPayload>;
+
+  return {
+    status:
+      candidate.status === "success" ||
+      candidate.status === "partial_success" ||
+      candidate.status === "failure"
+        ? candidate.status
+        : "failure",
+    filledFields: normalizeStringArray(candidate.filledFields),
+    skippedFields: normalizeStringArray(candidate.skippedFields),
+    failedFields: normalizeStringArray(candidate.failedFields),
+    message:
+      typeof candidate.message === "string"
+        ? candidate.message
+        : "No Vinted fill result message saved yet.",
+  };
+}
+
+function normalizeVintedHandoffState(value: unknown): DraftVintedHandoffState {
+  if (!value || typeof value !== "object") {
+    return createDefaultVintedHandoffState();
+  }
+
+  const candidate = value as Partial<DraftVintedHandoffState>;
+
+  return createDefaultVintedHandoffState({
+    status:
+      candidate.status === "not_started" ||
+      candidate.status === "handed_off" ||
+      candidate.status === "filled_on_vinted" ||
+      candidate.status === "needs_manual_fix" ||
+      candidate.status === "fill_failed"
+        ? candidate.status
+        : "not_started",
+    lastRequestedAt: normalizeNullableString(candidate.lastRequestedAt),
+    lastUpdatedAt: normalizeNullableString(candidate.lastUpdatedAt),
+    lastResult: normalizeVintedFillResult(candidate.lastResult),
+  });
+}
+
 function normalizeGenerationInfo(
   value: unknown,
   draft: Pick<
@@ -242,6 +305,7 @@ function normalizeDraftDetail(value: unknown): DraftDetail {
   );
   const images = normalizeImages(Array.isArray(candidate.images) ? candidate.images : []);
   const priceSuggestion = normalizePriceSuggestion(candidate.priceSuggestion);
+  const vintedHandoff = normalizeVintedHandoffState(candidate.vintedHandoff);
 
   const normalizedDraft: DraftDetail = {
     id: typeof candidate.id === "string" ? candidate.id : randomUUID(),
@@ -259,6 +323,7 @@ function normalizeDraftDetail(value: unknown): DraftDetail {
     priceSuggestion,
     generation: null,
     generationHistory: [],
+    vintedHandoff,
     imageCount: images.length,
     createdAt:
       typeof candidate.createdAt === "string"
@@ -500,6 +565,7 @@ function applyDraftUpdate(
     generation:
       update.generation === undefined ? draft.generation : update.generation,
     generationHistory: draft.generationHistory,
+    vintedHandoff: update.vintedHandoff ?? draft.vintedHandoff,
   };
 }
 
@@ -543,6 +609,7 @@ class LocalDraftRepository implements DraftRepository {
       priceSuggestion: null,
       generation: null,
       generationHistory: [],
+      vintedHandoff: createDefaultVintedHandoffState(),
       imageCount: 0,
       createdAt: now,
       updatedAt: now,

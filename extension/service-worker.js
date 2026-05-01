@@ -1,4 +1,3 @@
-/* eslint-env serviceworker */
 /* global chrome */
 
 const STORAGE_KEYS = {
@@ -127,6 +126,12 @@ function buildHandoffUrl(context) {
   )}/vinted-handoff`;
 }
 
+function buildFillResultUrl(context) {
+  return `${normalizeAppOrigin(context.appOrigin)}/api/drafts/${encodeURIComponent(
+    context.draftId
+  )}/vinted-fill-result`;
+}
+
 function isValidPayload(payload) {
   return Boolean(
     payload &&
@@ -157,6 +162,24 @@ async function fetchHandoffPayload(context) {
   }
 
   return payload;
+}
+
+async function reportFillResult(context, result) {
+  const response = await fetch(buildFillResultUrl(context), {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    cache: "no-store",
+    body: JSON.stringify(result),
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    throw new Error(
+      responseText || `App returned ${response.status} for the fill result request.`
+    );
+  }
 }
 
 async function getActiveTab() {
@@ -200,7 +223,22 @@ async function fillTabFromContext(tabId, context) {
 
   await setLastFillResult(result);
 
-  return result;
+  try {
+    await reportFillResult(normalizedContext, result);
+    return result;
+  } catch (error) {
+    const syncedResult = {
+      ...result,
+      message: `${result.message} App sync failed: ${toMessage(
+        error,
+        "Unknown app sync failure."
+      )}`,
+    };
+
+    await setLastFillResult(syncedResult);
+
+    return syncedResult;
+  }
 }
 
 async function getPopupState() {

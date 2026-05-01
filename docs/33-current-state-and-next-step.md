@@ -46,6 +46,12 @@ Implemented app surface:
 - AI listing generation from item photos
 - editable title, description, metadata, keywords, and price fields
 - export/copy panel for Vinted handoff text and JSON
+- `GET /api/drafts/[draftId]/vinted-handoff` for a stable extension payload
+- `GET /api/drafts/[draftId]/fill-on-vinted` to launch the supported Vinted create page
+- `POST /api/drafts/[draftId]/vinted-fill-result` to persist extension fill results
+- review-queue `Fill on Vinted` and `Fill and next` actions
+- persisted queue state for `handed_off`, `filled_on_vinted`, `needs_manual_fix`, and `fill_failed`
+- unpacked Chrome MV3 extension with popup, service worker, and content script
 - multi-provider AI routing for Ollama, OpenAI, and Anthropic
 - AI settings page with task-specific provider/model config
 
@@ -58,25 +64,17 @@ Current local data snapshot:
 - stock items: `2`
 - drafts: `1`
 
-## What Is Only Planned
+## What Is Still Planned
 
-The Vinted extension is planned but not implemented.
+The extension MVP exists now. The remaining gap is hardening, not first build.
 
-Missing pieces:
+Missing or still narrow pieces:
 
-- no `extension/` or `extensions/` directory yet
-- no Chrome MV3 manifest yet
-- no extension service worker, popup, or content script
-- no app endpoint for a versioned Vinted handoff payload
-- no `Fill on Vinted` UI action
-- no extension-side Vinted form adapter
-- no fill result state in app
-
-Important nuance:
-
-`lib/vinted/handoff.ts` already builds a useful payload object for the export
-panel, but it is not exposed through an API endpoint that an extension can fetch.
-That makes the payload API the correct first implementation step.
+- selector hardening and maintenance workflow when Vinted changes
+- broader diagnostics for field mismatches across markets
+- edit-listing support
+- market-generalization beyond the first supported create-listing flow
+- shipping, discounts, promo, and other advanced Vinted controls
 
 ## Existing Docs For This Feature
 
@@ -92,72 +90,66 @@ These markdown files already cover the missing extension and API work:
 
 ## Main Gap
 
-The app already has enough local listing workflow to justify the extension path.
-The next missing contract is:
+The MVP handoff loop is present:
 
-`draft -> stable Vinted payload API -> extension fetches payload`
+`draft -> stable payload API -> extension fill -> result callback -> queue continues`
 
-Without that API, extension work would need to invent its own data shape or scrape
-the app UI. That would add fragility immediately.
+The next gap is survivability:
+
+`selector changes -> fast diagnosis -> fast repair`
 
 ## Recommended Next Step
 
-Build Phase A of the extension MVP:
+Build Phase I of the extension MVP plan:
 
-`versioned Vinted handoff payload endpoint`
+`hardening and selector maintenance`
 
 Scope:
 
-- add `GET /api/drafts/[draftId]/vinted-handoff`
-- return the existing `createVintedHandoffPayload(draft)` JSON shape
-- include absolute image URLs when request origin allows it
-- return `404` for missing drafts
-- return `200` with `handoff.ready=false` when draft exists but required fields are missing
-- keep image binary route unchanged
-- add focused tests or at least typecheck/build verification
+- isolate and document fragile Vinted selectors
+- add a repeatable DOM smoke-test checklist for the supported page
+- add clearer debug logging for field-match failures
+- capture market-specific overrides only when one shared selector path fails
 
 First acceptance criteria:
 
-- opening `/api/drafts/<id>/vinted-handoff` returns deterministic JSON
-- payload includes title, description, price, metadata, ready/missing fields, and ordered images
-- image entries include fetchable URLs or paths usable by the future extension
-- incomplete drafts are explicit, not hidden
-- endpoint reuses current payload builder instead of duplicating field mapping
+- one broken field can be diagnosed quickly from logs
+- supported-page detection failures are explicit
+- field mismatch reports name the exact failed field
+- selector changes can be repaired without changing the app payload contract
 
-## Why This Before The Extension
+## Why This Next
 
-This is the smallest useful step because:
+This is the best next step because:
 
-- it turns current in-app export data into a real machine contract
-- it lets the future extension stay dumb and debuggable
-- it gives one endpoint to test before Chrome-specific complexity starts
-- it preserves the manual-submit safety boundary
+- the MVP already proves the payload and fill loop
+- Vinted DOM churn is now the main operational risk
+- selector maintenance is cheaper while the scope is still narrow
+- the manual-submit safety boundary stays intact
 
 ## Next Three Milestones
 
-1. Payload API
+1. Selector hardening
 
 Deliverable:
 
-`GET /api/drafts/[draftId]/vinted-handoff` works and is documented.
+Supported page detection and field-fill failures are fast to debug.
 
-2. Extension scaffold
-
-Deliverable:
-
-Loadable Chrome MV3 extension with popup, service worker, and content script.
-Popup can connect to the local app and show payload readiness.
-
-3. First Vinted form fill
+2. Live smoke checklist
 
 Deliverable:
 
-On one supported Vinted create-listing page, extension fills title,
-description, price, core metadata, and ordered images. User submits manually.
+One repeatable manual test path exists for title, description, price, metadata, images, and result callback.
+
+3. Market expansion only if needed
+
+Deliverable:
+
+Additional market-specific selector overrides are added only after the first flow stays stable.
 
 ## Current Recommendation
 
 Do not start multi-account admin, orders, profit tracking, or CSV export next.
 
-Those matter later, but publishing friction is the current bottleneck. Build the
-payload endpoint first, then the extension scaffold, then the first form fill.
+Those matter later, but selector reliability is now the bottleneck. Harden the
+supported extension flow before widening scope.

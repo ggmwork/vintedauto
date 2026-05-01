@@ -32,6 +32,16 @@ export interface VintedListingImagePayload {
   apiUrl: string | null;
 }
 
+export type VintedFillResultStatus = "success" | "partial_success" | "failure";
+
+export interface VintedFillResultPayload {
+  status: VintedFillResultStatus;
+  filledFields: string[];
+  skippedFields: string[];
+  failedFields: string[];
+  message: string;
+}
+
 export interface VintedListingPayload {
   version: "2026-04-29";
   marketplace: "vinted";

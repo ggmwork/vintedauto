@@ -1,6 +1,14 @@
 import type { PriceSuggestion } from "@/types/pricing";
+import type { VintedFillResultPayload } from "@/types/vinted";
 
 export type DraftStatus = "draft" | "ready" | "listed" | "sold";
+
+export type DraftVintedHandoffStatus =
+  | "not_started"
+  | "handed_off"
+  | "filled_on_vinted"
+  | "needs_manual_fix"
+  | "fill_failed";
 
 export interface DraftMetadata {
   brand: string | null;
@@ -40,6 +48,13 @@ export interface DraftGenerationInfo {
   snapshot: DraftGenerationSnapshot;
 }
 
+export interface DraftVintedHandoffState {
+  status: DraftVintedHandoffStatus;
+  lastRequestedAt: string | null;
+  lastUpdatedAt: string | null;
+  lastResult: VintedFillResultPayload | null;
+}
+
 export interface Draft {
   id: string;
   status: DraftStatus;
@@ -50,6 +65,7 @@ export interface Draft {
   priceSuggestion: PriceSuggestion | null;
   generation: DraftGenerationInfo | null;
   generationHistory: DraftGenerationInfo[];
+  vintedHandoff: DraftVintedHandoffState;
   imageCount: number;
   createdAt: string;
   updatedAt: string;

@@ -13,6 +13,7 @@ import {
 import { createDraftAction } from "@/app/actions";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { DraftStatusBadge } from "@/components/app/draft-status-badge";
+import { DraftVintedHandoffBadge } from "@/components/app/draft-vinted-handoff-badge";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
@@ -341,6 +342,11 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
                         <Badge variant={readiness.ready ? "secondary" : "outline"}>
                           {readiness.ready ? "ready" : "incomplete"}
                         </Badge>
+                        {draft.vintedHandoff.status !== "not_started" ? (
+                          <DraftVintedHandoffBadge
+                            status={draft.vintedHandoff.status}
+                          />
+                        ) : null}
                         {draft.generationHistory.length > 0 ? (
                           <Badge variant="outline">
                             <SparklesIcon data-icon="inline-start" />

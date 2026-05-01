@@ -24,6 +24,8 @@
 .DS_Store
 *.pem
 .data/
+.corepack/
+.logs/
 watched-inbox/
 .tmp/
 

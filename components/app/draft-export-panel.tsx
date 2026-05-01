@@ -11,6 +11,7 @@ import {
   TagsIcon,
 } from "lucide-react";
 
+import { DraftVintedHandoffBadge } from "@/components/app/draft-vinted-handoff-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +34,36 @@ interface ExportItem {
   key: string;
   label: string;
   value: string;
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return "Not yet";
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function formatFieldSummary(fields: string[]) {
+  return fields.length > 0 ? fields.join(", ") : "None";
+}
+
+function getVintedHandoffCopy(draft: DraftDetail) {
+  switch (draft.vintedHandoff.status) {
+    case "not_started":
+      return "No extension handoff attempt yet.";
+    case "handed_off":
+      return "Launch sent to Vinted. The extension will fill the new listing tab.";
+    case "filled_on_vinted":
+      return "Extension filled the supported Vinted page. Review there and submit manually.";
+    case "needs_manual_fix":
+      return "Extension filled part of the Vinted page. Finish the failed fields manually.";
+    case "fill_failed":
+      return "Extension could not fill the Vinted page. Retry after fixing the page or selector mismatch.";
+  }
 }
 
 function formatMetadataSection(payload: VintedListingPayload) {
@@ -189,8 +220,9 @@ export function DraftExportPanel({
     }
   }
 
-  function handleFillOnVinted() {
+  function openFillOnVintedWindow() {
     setLaunchError(null);
+    setCopyError(null);
 
     const nextWindow = window.open(
       `/api/drafts/${draft.id}/fill-on-vinted`,
@@ -200,7 +232,28 @@ export function DraftExportPanel({
 
     if (!nextWindow) {
       setLaunchError("Browser blocked the Vinted launch window.");
+      return false;
     }
+
+    return true;
+  }
+
+  function handleFillOnVinted() {
+    if (!openFillOnVintedWindow()) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      router.refresh();
+    }, 400);
+  }
+
+  function handleFillOnVintedAndAdvance() {
+    if (!afterCopyHref || !openFillOnVintedWindow()) {
+      return;
+    }
+
+    router.push(afterCopyHref);
   }
 
   return (
@@ -219,7 +272,60 @@ export function DraftExportPanel({
           </Badge>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-lg border border-border bg-background px-4 py-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  Extension handoff state
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {getVintedHandoffCopy(draft)}
+                </p>
+              </div>
+              <DraftVintedHandoffBadge status={draft.vintedHandoff.status} />
+            </div>
+
+            <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Last launch</p>
+                <p>{formatDateTime(draft.vintedHandoff.lastRequestedAt)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Last extension update</p>
+                <p>{formatDateTime(draft.vintedHandoff.lastUpdatedAt)}</p>
+              </div>
+              {draft.vintedHandoff.lastResult ? (
+                <>
+                  <div className="space-y-1">
+                    <p className="font-medium text-foreground">Filled</p>
+                    <p>
+                      {formatFieldSummary(
+                        draft.vintedHandoff.lastResult.filledFields
+                      )}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-medium text-foreground">Failed</p>
+                    <p>
+                      {formatFieldSummary(
+                        draft.vintedHandoff.lastResult.failedFields
+                      )}
+                    </p>
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            {draft.vintedHandoff.lastResult ? (
+              <p className="text-sm text-muted-foreground">
+                {draft.vintedHandoff.lastResult.message}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <Button
             type="button"
             disabled={!readiness.ready}
@@ -228,6 +334,16 @@ export function DraftExportPanel({
             <ExternalLinkIcon data-icon="inline-start" />
             Fill on Vinted
           </Button>
+          {afterCopyHref ? (
+            <Button
+              type="button"
+              disabled={!readiness.ready}
+              onClick={handleFillOnVintedAndAdvance}
+            >
+              <ExternalLinkIcon data-icon="inline-start" />
+              Fill and next
+            </Button>
+          ) : null}
           {afterCopyHref ? (
             <Button
               type="button"
