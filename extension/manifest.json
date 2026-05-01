@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Vinted Auto",
+  "version": "0.1.0",
+  "description": "Fetch a reviewed Vinted Auto draft and fill the supported Vinted create-listing page.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "http://127.0.0.1:3000/*",
+    "http://localhost:3000/*",
+    "https://www.vinted.pt/*",
+    "https://www.vinted.es/*",
+    "https://www.vinted.fr/*",
+    "https://www.vinted.de/*",
+    "https://www.vinted.it/*",
+    "https://www.vinted.nl/*",
+    "https://www.vinted.be/*"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "Vinted Auto",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.vinted.pt/*",
+        "https://www.vinted.es/*",
+        "https://www.vinted.fr/*",
+        "https://www.vinted.de/*",
+        "https://www.vinted.it/*",
+        "https://www.vinted.nl/*",
+        "https://www.vinted.be/*"
+      ],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

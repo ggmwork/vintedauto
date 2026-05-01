@@ -6,6 +6,18 @@ function buildDraftImageApiPath(draftId: string, imageId: string) {
   return `/api/drafts/${draftId}/images/${imageId}`;
 }
 
+function buildDraftImageApiUrl(apiPath: string, origin?: string | null) {
+  if (!origin) {
+    return null;
+  }
+
+  try {
+    return new URL(apiPath, origin).toString();
+  } catch {
+    return null;
+  }
+}
+
 function formatPriceLabel(payload: VintedListingPayload) {
   if (!payload.listing.price) {
     return "Not set";
@@ -32,7 +44,10 @@ export function createVintedHandoffPayload(
     | "id"
     | "createdAt"
     | "updatedAt"
-  >
+  >,
+  options?: {
+    origin?: string | null;
+  }
 ): VintedListingPayload {
   const readiness = getDraftReadiness({
     imageCount: draft.images.length,
@@ -92,16 +107,21 @@ export function createVintedHandoffPayload(
     },
     images: [...draft.images]
       .sort((left, right) => left.sortOrder - right.sortOrder)
-      .map((image) => ({
-        id: image.id,
-        filename: image.originalFilename,
-        sortOrder: image.sortOrder,
-        contentType: image.contentType,
-        sizeBytes: image.sizeBytes,
-        width: image.width,
-        height: image.height,
-        apiPath: buildDraftImageApiPath(draft.id, image.id),
-      })),
+      .map((image) => {
+        const apiPath = buildDraftImageApiPath(draft.id, image.id);
+
+        return {
+          id: image.id,
+          filename: image.originalFilename,
+          sortOrder: image.sortOrder,
+          contentType: image.contentType,
+          sizeBytes: image.sizeBytes,
+          width: image.width,
+          height: image.height,
+          apiPath,
+          apiUrl: buildDraftImageApiUrl(apiPath, options?.origin),
+        };
+      }),
   };
 }
 

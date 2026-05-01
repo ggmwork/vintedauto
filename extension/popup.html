@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vinted Auto</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="section">
+        <p class="eyebrow">Vinted Auto</p>
+        <h1>Extension MVP</h1>
+        <p class="muted">
+          Connect to the local app, check page support, then fill the current
+          Vinted create-listing page.
+        </p>
+      </header>
+
+      <section class="section">
+        <div class="status-card">
+          <p class="label">Current page</p>
+          <p id="page-status" class="value">Checking...</p>
+          <p id="page-detail" class="muted"></p>
+        </div>
+
+        <div class="status-card">
+          <p class="label">Last draft</p>
+          <p id="draft-status" class="value">No handoff loaded yet.</p>
+          <p id="fill-status" class="muted"></p>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="button-row">
+          <button id="fill-current-page" type="button">Fill current page</button>
+          <button id="open-vinted-and-fill" type="button" class="secondary">
+            Open Vinted and fill
+          </button>
+        </div>
+        <p id="action-status" class="muted"></p>
+      </section>
+
+      <section class="section">
+        <form id="config-form" class="config-form">
+          <label>
+            <span>Local app origin</span>
+            <input
+              id="app-origin"
+              name="appOrigin"
+              type="url"
+              placeholder="http://127.0.0.1:3000"
+              required
+            />
+          </label>
+
+          <label>
+            <span>Vinted create-listing URL</span>
+            <input
+              id="create-listing-url"
+              name="createListingUrl"
+              type="url"
+              placeholder="https://www.vinted.pt/items/new"
+              required
+            />
+          </label>
+
+          <button type="submit">Save settings</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

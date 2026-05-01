@@ -29,6 +29,7 @@ export interface VintedListingImagePayload {
   width: number | null;
   height: number | null;
   apiPath: string;
+  apiUrl: string | null;
 }
 
 export interface VintedListingPayload {

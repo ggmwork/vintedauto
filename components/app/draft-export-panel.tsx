@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ChevronDownIcon,
   ClipboardCopyIcon,
+  ExternalLinkIcon,
   FileJsonIcon,
   FileTextIcon,
   TagsIcon,
@@ -101,6 +102,7 @@ export function DraftExportPanel({
 }) {
   const [lastCopied, setLastCopied] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
+  const [launchError, setLaunchError] = useState<string | null>(null);
   const router = useRouter();
   const handoffPayload = useMemo(() => createVintedHandoffPayload(draft), [draft]);
   const handoffText = useMemo(
@@ -161,6 +163,7 @@ export function DraftExportPanel({
 
   async function handleCopy(item: ExportItem) {
     setCopyError(null);
+    setLaunchError(null);
 
     try {
       await copyText(item.value);
@@ -186,6 +189,20 @@ export function DraftExportPanel({
     }
   }
 
+  function handleFillOnVinted() {
+    setLaunchError(null);
+
+    const nextWindow = window.open(
+      `/api/drafts/${draft.id}/fill-on-vinted`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+    if (!nextWindow) {
+      setLaunchError("Browser blocked the Vinted launch window.");
+    }
+  }
+
   return (
     <Card>
       <CardHeader className="gap-4">
@@ -203,6 +220,14 @@ export function DraftExportPanel({
         </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <Button
+            type="button"
+            disabled={!readiness.ready}
+            onClick={handleFillOnVinted}
+          >
+            <ExternalLinkIcon data-icon="inline-start" />
+            Fill on Vinted
+          </Button>
           {afterCopyHref ? (
             <Button
               type="button"
@@ -248,6 +273,8 @@ export function DraftExportPanel({
 
         {copyError ? (
           <p className="text-sm text-destructive">{copyError}</p>
+        ) : launchError ? (
+          <p className="text-sm text-destructive">{launchError}</p>
         ) : lastCopied ? (
           <p className="text-sm text-muted-foreground">
             Copied{" "}
@@ -260,7 +287,7 @@ export function DraftExportPanel({
         ) : (
           <p className="text-sm text-muted-foreground">
             {readiness.ready
-              ? "Listing has the minimum fields needed for Vinted handoff."
+              ? "Listing is ready. Fill on Vinted opens the supported create-listing page for the extension."
               : `Still missing ${readiness.missing.join(", ")}.`}
           </p>
         )}
