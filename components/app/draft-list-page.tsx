@@ -1,6 +1,3 @@
-"use client";
-
-import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowDownAZIcon,
@@ -15,7 +12,7 @@ import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { DraftStatusBadge } from "@/components/app/draft-status-badge";
 import { DraftVintedHandoffBadge } from "@/components/app/draft-vinted-handoff-badge";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -112,25 +109,32 @@ function getNextActionLabel(draft: Draft) {
   return "Ready to export";
 }
 
-export function DraftListPage({ drafts }: { drafts: Draft[] }) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<
-    "all" | "draft" | "ready" | "listed" | "sold"
-  >("all");
-  const [sortBy, setSortBy] = useState<
-    | "updated-desc"
-    | "updated-asc"
-    | "created-desc"
-    | "created-asc"
-    | "title-asc"
-    | "generation-desc"
-  >("updated-desc");
+export type DraftListStatusFilter = "all" | "draft" | "ready" | "listed" | "sold";
+export type DraftListSort =
+  | "updated-desc"
+  | "updated-asc"
+  | "created-desc"
+  | "created-asc"
+  | "title-asc"
+  | "generation-desc";
 
-  const filteredDrafts = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+export interface DraftListFilters {
+  searchTerm: string;
+  statusFilter: DraftListStatusFilter;
+  sortBy: DraftListSort;
+}
 
-    const visibleDrafts = drafts.filter((draft) => {
-      if (statusFilter !== "all" && draft.status !== statusFilter) {
+export function DraftListPage({
+  drafts,
+  filters,
+}: {
+  drafts: Draft[];
+  filters: DraftListFilters;
+}) {
+  const normalizedSearch = filters.searchTerm.trim().toLowerCase();
+  const filteredDrafts = sortDrafts(
+    drafts.filter((draft) => {
+      if (filters.statusFilter !== "all" && draft.status !== filters.statusFilter) {
         return false;
       }
 
@@ -139,40 +143,37 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
       }
 
       return buildSearchHaystack(draft).includes(normalizedSearch);
-    });
+    }),
+    filters.sortBy
+  );
 
-    return sortDrafts(visibleDrafts, sortBy);
-  }, [drafts, searchTerm, sortBy, statusFilter]);
+  const stats = drafts.reduce(
+    (accumulator, draft) => {
+      accumulator.total += 1;
+      accumulator.byStatus[draft.status] += 1;
 
-  const stats = useMemo(() => {
-    return drafts.reduce(
-      (accumulator, draft) => {
-        accumulator.total += 1;
-        accumulator.byStatus[draft.status] += 1;
-
-        if (getDraftReadiness(draft).ready) {
-          accumulator.readyForHandoff += 1;
-        }
-
-        if (draft.generationHistory.length > 0) {
-          accumulator.generated += 1;
-        }
-
-        return accumulator;
-      },
-      {
-        total: 0,
-        generated: 0,
-        readyForHandoff: 0,
-        byStatus: {
-          draft: 0,
-          ready: 0,
-          listed: 0,
-          sold: 0,
-        },
+      if (getDraftReadiness(draft).ready) {
+        accumulator.readyForHandoff += 1;
       }
-    );
-  }, [drafts]);
+
+      if (draft.generationHistory.length > 0) {
+        accumulator.generated += 1;
+      }
+
+      return accumulator;
+    },
+    {
+      total: 0,
+      generated: 0,
+      readyForHandoff: 0,
+      byStatus: {
+        draft: 0,
+        ready: 0,
+        listed: 0,
+        sold: 0,
+      },
+    }
+  );
 
   return (
     <main className="flex-1 bg-muted/20">
@@ -223,61 +224,71 @@ export function DraftListPage({ drafts }: { drafts: Draft[] }) {
             <CardHeader>
               <CardTitle>Browse drafts</CardTitle>
               <CardDescription>
-                Search, filter, and open the next draft that needs work.
+                Search, filter, apply, then open the next draft that needs work.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-[1.4fr_0.8fr_0.8fr]">
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-foreground">Search</span>
-                <div className="relative">
-                  <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="search"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    placeholder="Title, brand, category, keywords, draft id"
-                    className={`${inputClassName} pl-9`}
-                  />
-                </div>
-              </label>
+            <CardContent>
+              <form action="/drafts" method="get" className="grid gap-4 md:grid-cols-[1.4fr_0.8fr_0.8fr_auto]">
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-foreground">Search</span>
+                  <div className="relative">
+                    <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="search"
+                      name="search"
+                      defaultValue={filters.searchTerm}
+                      placeholder="Title, brand, category, keywords, draft id"
+                      className={`${inputClassName} pl-9`}
+                    />
+                  </div>
+                </label>
 
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-foreground">Status</span>
-                <select
-                  value={statusFilter}
-                  onChange={(event) =>
-                    setStatusFilter(event.target.value as typeof statusFilter)
-                  }
-                  className={inputClassName}
-                >
-                  <option value="all">all statuses</option>
-                  <option value="draft">draft</option>
-                  <option value="ready">ready</option>
-                  <option value="listed">listed</option>
-                  <option value="sold">sold</option>
-                </select>
-              </label>
-
-              <label className="grid gap-2">
-                <span className="text-sm font-medium text-foreground">Sort</span>
-                <div className="relative">
-                  <ArrowDownAZIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-foreground">Status</span>
                   <select
-                    value={sortBy}
-                    onChange={(event) =>
-                      setSortBy(event.target.value as typeof sortBy)
-                    }
-                    className={`${inputClassName} pl-9`}
+                    name="status"
+                    defaultValue={filters.statusFilter}
+                    className={inputClassName}
                   >
-                    <option value="updated-desc">recently updated</option>
-                    <option value="updated-asc">least recently updated</option>
-                    <option value="created-desc">newest first</option>
-                    <option value="created-asc">oldest first</option>
-                    <option value="title-asc">title A-Z</option>
-                    <option value="generation-desc">most generations</option>
+                    <option value="all">all statuses</option>
+                    <option value="draft">draft</option>
+                    <option value="ready">ready</option>
+                    <option value="listed">listed</option>
+                    <option value="sold">sold</option>
                   </select>
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium text-foreground">Sort</span>
+                  <div className="relative">
+                    <ArrowDownAZIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <select
+                      name="sort"
+                      defaultValue={filters.sortBy}
+                      className={`${inputClassName} pl-9`}
+                    >
+                      <option value="updated-desc">recently updated</option>
+                      <option value="updated-asc">least recently updated</option>
+                      <option value="created-desc">newest first</option>
+                      <option value="created-asc">oldest first</option>
+                      <option value="title-asc">title A-Z</option>
+                      <option value="generation-desc">most generations</option>
+                    </select>
+                  </div>
+                </label>
+
+                <div className="flex flex-wrap items-end gap-3">
+                  <Button type="submit" variant="outline">
+                    Apply
+                  </Button>
+                  <Link
+                    href="/drafts"
+                    className={buttonVariants({ variant: "outline" })}
+                  >
+                    Clear
+                  </Link>
                 </div>
-              </label>
+              </form>
             </CardContent>
           </Card>
 

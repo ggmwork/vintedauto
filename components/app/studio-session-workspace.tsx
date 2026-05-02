@@ -1,6 +1,3 @@
-"use client";
-
-import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -32,7 +29,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import type { PhotoAsset, StudioSessionDetail } from "@/types/intake";
 
 const inputClassName =
@@ -72,21 +68,6 @@ function findPhotoAsset(
   return session.photoAssets.find((photoAsset) => photoAsset.id === photoAssetId) ?? null;
 }
 
-function HiddenPhotoAssetInputs({ photoAssetIds }: { photoAssetIds: string[] }) {
-  return (
-    <>
-      {photoAssetIds.map((photoAssetId) => (
-        <input
-          key={photoAssetId}
-          type="hidden"
-          name="photoAssetIds"
-          value={photoAssetId}
-        />
-      ))}
-    </>
-  );
-}
-
 export function StudioSessionWorkspace({
   session,
   feedback,
@@ -97,35 +78,19 @@ export function StudioSessionWorkspace({
     error: string | null;
   };
 }) {
-  const [selectedPhotoAssetIds, setSelectedPhotoAssetIds] = useState<string[]>([]);
-
-  const unassignedPhotoAssets = useMemo(
-    () =>
-      session.photoAssets.filter(
-        (photoAsset) =>
-          photoAsset.stockItemId === null && photoAsset.candidateClusterId === null
-      ),
-    [session.photoAssets]
+  const unassignedPhotoAssets = session.photoAssets.filter(
+    (photoAsset) =>
+      photoAsset.stockItemId === null && photoAsset.candidateClusterId === null
   );
-  const readyStockItems = useMemo(
-    () =>
-      session.stockItems.filter(
-        (stockItem) => stockItem.photoAssetIds.length > 0 && stockItem.draftId === null
-      ),
-    [session.stockItems]
+  const readyStockItems = session.stockItems.filter(
+    (stockItem) => stockItem.photoAssetIds.length > 0 && stockItem.draftId === null
   );
-
-  function toggleSelection(photoAssetId: string) {
-    setSelectedPhotoAssetIds((current) =>
-      current.includes(photoAssetId)
-        ? current.filter((entry) => entry !== photoAssetId)
-        : [...current, photoAssetId]
-    );
-  }
-
-  function clearSelection() {
-    setSelectedPhotoAssetIds([]);
-  }
+  const sessionSelectionFormId = "session-selection-form";
+  const createSessionStockItemAction = createStockItemFromSelectionAction.bind(
+    null,
+    session.id,
+    "session"
+  );
 
   return (
     <main className="flex-1 bg-muted/20">
@@ -196,121 +161,113 @@ export function StudioSessionWorkspace({
             <CardHeader>
               <CardTitle>Unassigned photos</CardTitle>
               <CardDescription>
-                Select photos, then create a new stock item or add them to an
-                existing one.
+                Check photos, then submit one stock action. No client selection
+                state required.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/70 bg-background px-4 py-4">
-                <Badge variant="secondary">{selectedPhotoAssetIds.length} selected</Badge>
-                <span className="text-sm text-muted-foreground">
-                  {session.intakeConfig.folderLabel ?? "Local import"}
-                </span>
-                {selectedPhotoAssetIds.length > 0 ? (
+              <form
+                id={sessionSelectionFormId}
+                action={createSessionStockItemAction}
+                className="grid gap-5"
+              >
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/70 bg-background px-4 py-4">
+                  <Badge variant="secondary">
+                    {unassignedPhotoAssets.length} unassigned photo
+                    {unassignedPhotoAssets.length === 1 ? "" : "s"}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    {session.intakeConfig.folderLabel ?? "Local import"}
+                  </span>
                   <button
-                    type="button"
-                    onClick={clearSelection}
+                    type="reset"
                     className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
                   >
-                    Clear selection
+                    Clear checkboxes
                   </button>
-                ) : null}
-              </div>
-
-              <form
-                action={createStockItemFromSelectionAction.bind(
-                  null,
-                  session.id,
-                  "session"
-                )}
-                className="grid gap-4 rounded-lg border border-border/70 bg-background px-4 py-4"
-              >
-                <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium text-foreground">
-                    New stock item name
-                  </label>
-                  <input
-                    type="text"
-                    name="stockItemName"
-                    placeholder="Blue Nike hoodie"
-                    className={inputClassName}
-                  />
                 </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+                <div className="grid gap-4 rounded-lg border border-border/70 bg-background px-4 py-4">
+                  <div className="grid gap-2">
+                    <label className="text-sm font-medium text-foreground">
+                      New stock item name
+                    </label>
+                    <input
+                      type="text"
+                      name="stockItemName"
+                      placeholder="Blue Nike hoodie"
+                      className={inputClassName}
+                    />
+                  </div>
                   <p className="text-sm text-muted-foreground">
-                    Start with one grouped item per product. Rename later if needed.
+                    Start with one grouped item per product. Checked photos are the
+                    ones that move into the new or existing stock item.
                   </p>
-                  <PendingSubmitButton
-                    type="submit"
-                    disabled={selectedPhotoAssetIds.length === 0}
-                    pendingLabel="Creating stock item"
-                  >
-                    <BoxIcon data-icon="inline-start" />
-                    Create stock item
-                  </PendingSubmitButton>
+                  <div className="flex flex-wrap gap-3">
+                    <PendingSubmitButton
+                      type="submit"
+                      pendingLabel="Creating stock item"
+                    >
+                      <BoxIcon data-icon="inline-start" />
+                      Create stock item
+                    </PendingSubmitButton>
+                  </div>
                 </div>
-              </form>
 
-              {unassignedPhotoAssets.length === 0 ? (
-                <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
-                  <FolderInputIcon className="size-4" />
-                  All imported photos are already assigned to stock items.
-                </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {unassignedPhotoAssets.map((photoAsset) => {
-                    const selected = selectedPhotoAssetIds.includes(photoAsset.id);
-
-                    return (
-                      <button
+                {unassignedPhotoAssets.length === 0 ? (
+                  <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
+                    <FolderInputIcon className="size-4" />
+                    All imported photos are already assigned to stock items.
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {unassignedPhotoAssets.map((photoAsset) => (
+                      <label
                         key={photoAsset.id}
-                        type="button"
-                        onClick={() => toggleSelection(photoAsset.id)}
-                        className={cn(
-                          "overflow-hidden rounded-xl border bg-card text-left transition",
-                          selected
-                            ? "border-primary ring-2 ring-primary/20"
-                            : "border-border hover:border-primary/40"
-                        )}
+                        className="relative block cursor-pointer"
                       >
-                        <div className="relative aspect-square bg-muted">
-                          <Image
-                            src={`/api/sessions/${session.id}/photos/${photoAsset.id}`}
-                            alt={photoAsset.originalFilename}
-                            fill
-                            sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
-                            className="object-cover"
-                            unoptimized
-                          />
-                          <div className="absolute top-3 right-3 rounded-full bg-background/90 px-2 py-1 text-xs font-medium text-foreground">
-                            {selected ? "selected" : "pick"}
+                        <input
+                          type="checkbox"
+                          name="photoAssetIds"
+                          value={photoAsset.id}
+                          className="peer absolute top-3 right-3 z-10 size-4 rounded border-border text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                        />
+                        <span className="block overflow-hidden rounded-xl border border-border bg-card text-left transition hover:border-primary/40 peer-checked:border-primary peer-checked:ring-2 peer-checked:ring-primary/20">
+                          <div className="relative aspect-square bg-muted">
+                            <Image
+                              src={`/api/sessions/${session.id}/photos/${photoAsset.id}`}
+                              alt={photoAsset.originalFilename}
+                              fill
+                              sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                              className="object-cover"
+                              unoptimized
+                            />
                           </div>
-                        </div>
-                        <div className="space-y-3 px-4 py-4">
-                          <div className="space-y-1">
-                            <p className="truncate font-medium">
-                              {photoAsset.originalFilename}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {photoAsset.relativePath ?? "Relative folder path unavailable"}
-                            </p>
+                          <div className="space-y-3 px-4 py-4">
+                            <div className="space-y-1">
+                              <p className="truncate font-medium">
+                                {photoAsset.originalFilename}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {photoAsset.relativePath ?? "Relative folder path unavailable"}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge variant="outline">
+                                <ImagesIcon data-icon="inline-start" />
+                                photo {photoAsset.sortOrder + 1}
+                              </Badge>
+                              <Badge variant="outline">
+                                {formatFileSize(photoAsset.sizeBytes)}
+                              </Badge>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            <Badge variant="outline">
-                              <ImagesIcon data-icon="inline-start" />
-                              photo {photoAsset.sortOrder + 1}
-                            </Badge>
-                            <Badge variant="outline">
-                              {formatFileSize(photoAsset.sizeBytes)}
-                            </Badge>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </form>
             </CardContent>
           </Card>
 
@@ -335,8 +292,6 @@ export function StudioSessionWorkspace({
                     stockItem.coverPhotoAssetId
                   );
                   const stockPhotoAssets = getStockPhotoAssets(session, stockItem.id);
-                  const canAssignSelection =
-                    selectedPhotoAssetIds.length > 0 && stockItem.draftId === null;
 
                   return (
                     <Card key={stockItem.id} className="overflow-hidden">
@@ -426,27 +381,22 @@ export function StudioSessionWorkspace({
 
                       <CardFooter className="flex flex-wrap justify-between gap-3">
                         <div className="flex flex-wrap gap-2">
-                          <form
-                            action={assignSelectedPhotoAssetsToStockItemAction.bind(
+                          <PendingSubmitButton
+                            type="submit"
+                            form={sessionSelectionFormId}
+                            formAction={assignSelectedPhotoAssetsToStockItemAction.bind(
                               null,
                               session.id,
                               stockItem.id,
                               "session"
                             )}
+                            variant="outline"
+                            disabled={stockItem.draftId !== null || unassignedPhotoAssets.length === 0}
+                            pendingLabel="Assigning photos"
                           >
-                            <HiddenPhotoAssetInputs
-                              photoAssetIds={selectedPhotoAssetIds}
-                            />
-                            <PendingSubmitButton
-                              type="submit"
-                              variant="outline"
-                              disabled={!canAssignSelection}
-                              pendingLabel="Assigning photos"
-                            >
-                              <ImagePlusIcon data-icon="inline-start" />
-                              Assign selected
-                            </PendingSubmitButton>
-                          </form>
+                            <ImagePlusIcon data-icon="inline-start" />
+                            Assign selected
+                          </PendingSubmitButton>
 
                           {stockItem.draftId ? (
                             <Link
