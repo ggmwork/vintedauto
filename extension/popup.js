@@ -7,6 +7,9 @@ const elements = {
   draftStatus: document.getElementById("draft-status"),
   fillStatus: document.getElementById("fill-status"),
   fillDebug: document.getElementById("fill-debug"),
+  appStockStatus: document.getElementById("app-stock-status"),
+  appStockList: document.getElementById("app-stock-list"),
+  refreshAppStockButton: document.getElementById("refresh-app-stock"),
   actionStatus: document.getElementById("action-status"),
   configForm: document.getElementById("config-form"),
   appOrigin: document.getElementById("app-origin"),
@@ -14,6 +17,8 @@ const elements = {
   fillCurrentPageButton: document.getElementById("fill-current-page"),
   openVintedAndFillButton: document.getElementById("open-vinted-and-fill"),
 };
+
+let currentPopupState = null;
 
 function setActionStatus(message, isError = false) {
   if (!elements.actionStatus) {
@@ -93,7 +98,167 @@ function describeFillDiagnostics(result) {
   return sections.join("\n");
 }
 
+function formatDateTime(value) {
+  if (!value) {
+    return "unknown time";
+  }
+
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
+}
+
+function getStockRowTitle(item) {
+  return item.draftTitle?.trim() || item.stockItemName || `Draft ${item.draftId}`;
+}
+
+function describeStockRowState(item, isLoaded) {
+  if (item.ready) {
+    return isLoaded
+      ? `Ready for Vinted. Loaded in extension. Last updated ${formatDateTime(item.updatedAt)}.`
+      : `Ready for Vinted. Last updated ${formatDateTime(item.updatedAt)}.`;
+  }
+
+  return `Not ready yet. Missing: ${item.missingFields.join(", ")}.`;
+}
+
+async function handleLoadAppStockItem(item) {
+  setActionStatus("Loading app item into the extension...");
+
+  const response = await chrome.runtime.sendMessage({
+    type: "vinted-auto:load-app-stock-item",
+    context: {
+      draftId: item.draftId,
+      appOrigin:
+        currentPopupState?.config?.appOrigin ??
+        elements.appOrigin?.value ??
+        "http://127.0.0.1:3000",
+    },
+  });
+
+  if (!response?.ok) {
+    setActionStatus(response?.message ?? "Failed to load the app item.", true);
+    return;
+  }
+
+  setActionStatus("App item loaded into the extension.");
+  await refreshPopupState();
+}
+
+async function handleOpenSpecificAppStockItem(item) {
+  setActionStatus("Opening Vinted for the selected app item...");
+
+  const response = await chrome.runtime.sendMessage({
+    type: "vinted-auto:open-vinted-and-fill",
+    context: {
+      draftId: item.draftId,
+      appOrigin:
+        currentPopupState?.config?.appOrigin ??
+        elements.appOrigin?.value ??
+        "http://127.0.0.1:3000",
+    },
+  });
+
+  if (!response?.ok) {
+    setActionStatus(response?.message ?? "Failed to open Vinted.", true);
+    return;
+  }
+
+  setActionStatus("Opened Vinted for the selected app item.");
+  await refreshPopupState();
+}
+
+function renderAppStockItems(state) {
+  if (!elements.appStockStatus || !elements.appStockList) {
+    return;
+  }
+
+  const items = Array.isArray(state.appStockItems) ? state.appStockItems : [];
+  const lastContext = state.lastContext ?? null;
+
+  if (state.appStockError) {
+    elements.appStockStatus.textContent = state.appStockError;
+    elements.appStockList.replaceChildren();
+    return;
+  }
+
+  if (items.length === 0) {
+    elements.appStockStatus.textContent =
+      "No drafted stock items found in the app yet.";
+    elements.appStockList.replaceChildren();
+    return;
+  }
+
+  elements.appStockStatus.textContent = `${items.length} app item${items.length === 1 ? "" : "s"} available.`;
+
+  const rows = items.map((item) => {
+    const row = document.createElement("article");
+    row.className = "stock-row";
+
+    const title = document.createElement("p");
+    title.className = "stock-title";
+    title.textContent = getStockRowTitle(item);
+
+    const meta = document.createElement("p");
+    meta.className = "stock-meta";
+    meta.textContent = `${item.stockItemName} · ${item.imageCount} image${item.imageCount === 1 ? "" : "s"} · ${item.sourceLabel}`;
+
+    const stateCopy = document.createElement("p");
+    stateCopy.className = "stock-state";
+    stateCopy.textContent = describeStockRowState(
+      item,
+      lastContext?.draftId === item.draftId
+    );
+
+    const actions = document.createElement("div");
+    actions.className = "stock-actions";
+
+    const loadButton = document.createElement("button");
+    loadButton.type = "button";
+    loadButton.className =
+      lastContext?.draftId === item.draftId ? "secondary" : "ghost-button";
+    loadButton.textContent =
+      lastContext?.draftId === item.draftId ? "Loaded" : "Load";
+    loadButton.disabled = !item.ready;
+    loadButton.addEventListener("click", () => {
+      handleLoadAppStockItem(item).catch((error) => {
+        setActionStatus(
+          error instanceof Error ? error.message : "Failed to load the app item.",
+          true
+        );
+      });
+    });
+
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.textContent = "Open on Vinted";
+    openButton.disabled = !item.ready;
+    openButton.addEventListener("click", () => {
+      handleOpenSpecificAppStockItem(item).catch((error) => {
+        setActionStatus(
+          error instanceof Error ? error.message : "Failed to open Vinted.",
+          true
+        );
+      });
+    });
+
+    actions.append(loadButton, openButton);
+    row.append(title, meta, stateCopy, actions);
+
+    return row;
+  });
+
+  elements.appStockList.replaceChildren(...rows);
+}
+
 function renderPopupState(state) {
+  currentPopupState = state;
+
   const config = state.config ?? {};
   const pageState = state.pageState ?? null;
   const lastContext = state.lastContext ?? null;
@@ -134,6 +299,8 @@ function renderPopupState(state) {
   if (elements.fillDebug) {
     elements.fillDebug.textContent = describeFillDiagnostics(lastFillResult);
   }
+
+  renderAppStockItems(state);
 
   const canUseStoredContext = Boolean(lastContext?.draftId && lastContext?.appOrigin);
   const pageSupported = Boolean(pageState?.supported);
@@ -224,6 +391,11 @@ async function handleOpenVintedAndFill() {
 elements.configForm?.addEventListener("submit", handleSaveConfig);
 elements.fillCurrentPageButton?.addEventListener("click", handleFillCurrentPage);
 elements.openVintedAndFillButton?.addEventListener("click", handleOpenVintedAndFill);
+elements.refreshAppStockButton?.addEventListener("click", () => {
+  refreshPopupState().catch((error) => {
+    setActionStatus(error instanceof Error ? error.message : "Refresh failed.", true);
+  });
+});
 
 refreshPopupState().catch((error) => {
   setActionStatus(error instanceof Error ? error.message : "Popup init failed.", true);

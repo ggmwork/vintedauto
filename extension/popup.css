@@ -55,6 +55,13 @@ h1 {
   margin-top: 10px;
 }
 
+.list-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .diagnostic-block {
   margin-top: 10px;
 }
@@ -118,9 +125,60 @@ button.secondary {
   color: #3d3228;
 }
 
+button.ghost-button {
+  padding: 8px 10px;
+  background: rgba(233, 223, 209, 0.76);
+  color: #3d3228;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.stock-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.stock-row {
+  border: 1px solid #e1d6c7;
+  border-radius: 12px;
+  background: rgba(251, 248, 242, 0.78);
+  padding: 10px;
+}
+
+.stock-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #2f271f;
+}
+
+.stock-meta,
+.stock-state {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #62574b;
+}
+
+.stock-state {
+  color: #7c5d45;
+}
+
+.stock-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.stock-actions button {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 12px;
 }
 
 .config-form {

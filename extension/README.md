@@ -31,7 +31,8 @@ Optional app-side bridge setting:
 
 - the app now defaults to the stable repo extension ID
 - keep `NEXT_PUBLIC_VINTED_EXTENSION_ID` only if you want to override that ID
-- keep the older `/api/drafts/:draftId/fill-on-vinted` launch route as the fallback
+- the app button now keeps the simple `/api/drafts/:draftId/fill-on-vinted` launch route
+- the popup can also browse drafted stock items from the app and open one directly
 
 Default values assume:
 
@@ -44,12 +45,12 @@ From a ready draft in the app:
 
 - click `Fill on Vinted`
 - or click `Fill and next` from the review queue
-- preferred path:
-  the app page sends `vinted-auto:launch-handoff` to the extension with the
-  configured extension ID, and the extension opens a clean Vinted create page
-- fallback path:
+- app path:
   the app opens `/api/drafts/:draftId/fill-on-vinted`, which redirects to Vinted
   with query params for content-script priming
+- popup path:
+  the extension popup lists drafted stock items from the app, lets you load one,
+  and can open a clean Vinted tab for that chosen item
 - the extension service worker fetches `/api/drafts/:draftId/vinted-handoff`
 - the extension service worker also fetches the draft images from the app and
   relays them to the content script as prepared upload files
@@ -58,8 +59,9 @@ From a ready draft in the app:
 
 Important:
 
-- the extension does not browse or load the Stock list by itself
-- it only works with the last ready draft handoff sent from the app
+- the extension now reads drafted stock items from the local app
+- items still need a linked draft before the extension can fill them
+- incomplete drafted items stay visible with their missing fields
 
 ## Current scope
 

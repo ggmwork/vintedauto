@@ -12,6 +12,7 @@
       saveConfig: "vinted-auto:save-config",
       fillCurrentPage: "vinted-auto:fill-current-page",
       openVintedAndFill: "vinted-auto:open-vinted-and-fill",
+      loadAppStockItem: "vinted-auto:load-app-stock-item",
       primeFromPage: "vinted-auto:prime-from-page",
       ping: "vinted-auto:ping",
       launchHandoff: "vinted-auto:launch-handoff",

@@ -12,13 +12,14 @@ Make the Vinted handoff:
 
 ```mermaid
 flowchart LR
-  A["Next.js app page"] -->|"runtime.sendMessage(extensionId, launchHandoff)"| B["MV3 service worker"]
-  B -->|"tabs.create(clean Vinted URL)"| C["Vinted create-listing tab"]
+  A["Next.js app page"] -->|"open /api/drafts/:draftId/fill-on-vinted"| G["fallback launch route"]
+  G -->|"redirect + query params"| C["Vinted create-listing tab"]
+  H["Extension popup"] -->|"load drafted stock item"| B["MV3 service worker"]
+  H -->|"open clean Vinted tab for chosen item"| B
+  B -->|"tabs.create(clean Vinted URL)"| C
   B -->|"fetch handoff payload"| D["App /api/drafts/:draftId/vinted-handoff"]
   C -->|"content script + adapter"| E["Vinted DOM"]
   B -->|"POST fill result"| F["App /api/drafts/:draftId/vinted-fill-result"]
-  A -. "fallback" .-> G["/api/drafts/:draftId/fill-on-vinted"]
-  G -. "redirect + query params" .-> C
 ```
 
 ## Rules
@@ -110,25 +111,25 @@ Reason:
 
 ## Launch sequence
 
-### Preferred path
+### App path
 
 1. user clicks `Fill on Vinted`
-2. app page calls extension with `draftId` and `appOrigin`
-3. service worker stores pending launch in `storage.session`
-4. service worker opens clean `createListingUrl`
-5. content script loads on Vinted
-6. service worker waits for the tab to be ready
-7. service worker fetches `/api/drafts/:draftId/vinted-handoff`
-8. service worker sends payload to content script
-9. content script fills page and returns diagnostics
-10. service worker posts `/api/drafts/:draftId/vinted-fill-result`
+2. app opens `/api/drafts/:draftId/fill-on-vinted`
+3. route redirects to Vinted with query params
+4. content script primes the worker from URL params
+5. service worker fetches `/api/drafts/:draftId/vinted-handoff`
+6. service worker sends payload to content script
+7. content script fills page and returns diagnostics
+8. service worker posts `/api/drafts/:draftId/vinted-fill-result`
 
-### Fallback path
+### Popup path
 
-1. app opens `/api/drafts/:draftId/fill-on-vinted`
-2. route redirects to Vinted with query params
-3. content script primes the worker from URL params
-4. worker continues with the same payload/fill/report loop
+1. user opens the extension popup
+2. popup loads drafted stock items from the app
+3. user clicks `Load` or `Open on Vinted`
+4. worker stores the chosen draft context
+5. worker opens clean `createListingUrl` when requested
+6. worker continues with the same payload/fill/report loop
 
 ## Image transport recommendation
 
@@ -169,7 +170,7 @@ This architecture pass adds:
 - `lib/vinted/extension-bridge.ts`
 - `externally_connectable` manifest config
 - service-worker pending launch state in `storage.session`
-- app-side direct bridge attempt with fallback to the older route
+- popup-side drafted-stock picker plus the older route-based app launch
 
 ## Next technical step after this
 

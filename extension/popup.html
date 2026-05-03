@@ -32,13 +32,29 @@
           <p class="label">Last handoff</p>
           <p id="draft-status" class="value">No handoff loaded yet.</p>
           <p class="muted">
-            The extension does not browse Stock. Start from a ready draft in the app.
+            Load from the app list below, or land here from the app button.
           </p>
           <p id="fill-status" class="muted"></p>
           <details class="diagnostic-block">
             <summary>Last fill diagnostics</summary>
             <pre id="fill-debug" class="debug-output">No fill attempt yet.</pre>
           </details>
+        </div>
+
+        <div class="status-card">
+          <div class="list-header">
+            <div>
+              <p class="label">App stock</p>
+              <p class="muted">
+                Draft-backed stock items from the local app. Load one, then fill.
+              </p>
+            </div>
+            <button id="refresh-app-stock" type="button" class="ghost-button">
+              Refresh
+            </button>
+          </div>
+          <p id="app-stock-status" class="muted">Loading app stock...</p>
+          <div id="app-stock-list" class="stock-list"></div>
         </div>
       </section>
 

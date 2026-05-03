@@ -117,6 +117,8 @@ Returns:
 - pending launch
 - active tab
 - page state
+- app stock list
+- app stock error, if the local app is unavailable
 
 ### `vinted-auto:save-config`
 
@@ -144,6 +146,15 @@ Purpose:
 - open a clean Vinted create page
 - save pending launch
 - let the worker auto-fill when the tab becomes ready
+
+### `vinted-auto:load-app-stock-item`
+
+Popup -> service worker
+
+Purpose:
+
+- save one drafted stock item as the active extension context
+- clear the last fill result when switching to a different item
 
 ### `vinted-auto:prime-from-page`
 

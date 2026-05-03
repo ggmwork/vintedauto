@@ -22,7 +22,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { DraftReadiness } from "@/lib/drafts/draft-readiness";
-import { launchVintedHandoffViaExtension } from "@/lib/vinted/extension-bridge";
 import {
   createVintedHandoffPayload,
   formatVintedHandoffJson,
@@ -242,18 +241,8 @@ export function DraftExportPanel({
     }
   }
 
-  function openPendingLaunchWindow() {
-    return window.open("", "_blank");
-  }
-
-  function navigateFallbackWindow(targetWindow: Window | null) {
+  function openFillOnVintedWindow() {
     const fallbackHref = buildFillOnVintedHref(draft.id);
-
-    if (targetWindow && !targetWindow.closed) {
-      targetWindow.location.href = fallbackHref;
-      return true;
-    }
-
     const nextWindow = window.open(fallbackHref, "_blank", "noopener,noreferrer");
 
     if (!nextWindow) {
@@ -263,41 +252,11 @@ export function DraftExportPanel({
 
     return true;
   }
-
-  async function launchPreferredVintedFlow(targetWindow: Window | null) {
+  function handleFillOnVinted() {
     setLaunchError(null);
     setCopyError(null);
 
-    const bridgeLaunch = await launchVintedHandoffViaExtension({
-      draftId: draft.id,
-      appOrigin: window.location.origin,
-    });
-
-    if (bridgeLaunch.status === "launched") {
-      targetWindow?.close();
-      return true;
-    }
-
-    if (!navigateFallbackWindow(targetWindow)) {
-      if (bridgeLaunch.status === "error") {
-        setLaunchError(bridgeLaunch.message);
-      }
-
-      return false;
-    }
-
-    return true;
-  }
-
-  async function handleFillOnVinted() {
-    const pendingWindow = openPendingLaunchWindow();
-
-    if (!pendingWindow) {
-      setLaunchError("Browser blocked the Vinted launch window.");
-      return;
-    }
-
-    if (!(await launchPreferredVintedFlow(pendingWindow))) {
+    if (!openFillOnVintedWindow()) {
       return;
     }
 
@@ -306,19 +265,15 @@ export function DraftExportPanel({
     }, 400);
   }
 
-  async function handleFillOnVintedAndAdvance() {
+  function handleFillOnVintedAndAdvance() {
     if (!afterCopyHref) {
       return;
     }
 
-    const pendingWindow = openPendingLaunchWindow();
+    setLaunchError(null);
+    setCopyError(null);
 
-    if (!pendingWindow) {
-      setLaunchError("Browser blocked the Vinted launch window.");
-      return;
-    }
-
-    if (!(await launchPreferredVintedFlow(pendingWindow))) {
+    if (!openFillOnVintedWindow()) {
       return;
     }
 

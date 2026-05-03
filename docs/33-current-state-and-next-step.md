@@ -52,7 +52,7 @@ Implemented app surface:
 - review-queue `Fill on Vinted` and `Fill and next` actions
 - persisted queue state for `handed_off`, `filled_on_vinted`, `needs_manual_fix`, and `fill_failed`
 - unpacked Chrome MV3 extension with popup, service worker, and content script
-- direct app-page to extension bridge with fallback route launch
+- direct route launch from the app plus popup-side drafted-stock picker in the extension
 - service-worker-owned image transport relay instead of content-script fetches
 - multi-provider AI routing for Ollama, OpenAI, and Anthropic
 - AI settings page with task-specific provider/model config

@@ -15,6 +15,7 @@ const PROTOCOL = globalThis.VintedAutoProtocol ?? {
     saveConfig: "vinted-auto:save-config",
     fillCurrentPage: "vinted-auto:fill-current-page",
     openVintedAndFill: "vinted-auto:open-vinted-and-fill",
+    loadAppStockItem: "vinted-auto:load-app-stock-item",
     primeFromPage: "vinted-auto:prime-from-page",
     ping: "vinted-auto:ping",
     launchHandoff: "vinted-auto:launch-handoff",
@@ -129,6 +130,10 @@ function buildFillResultUrl(context) {
   )}/vinted-fill-result`;
 }
 
+function buildExtensionStockUrl(appOrigin) {
+  return `${normalizeAppOrigin(appOrigin)}/api/vinted/extension-stock`;
+}
+
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   const chunkSize = 0x8000;
@@ -239,6 +244,10 @@ async function getLastFillResult() {
   return stored[STORAGE_KEYS.lastFillResult] ?? null;
 }
 
+async function clearLastFillResult() {
+  await chrome.storage.local.remove(STORAGE_KEYS.lastFillResult);
+}
+
 async function setLastFillResult(result) {
   await chrome.storage.local.set({
     [STORAGE_KEYS.lastFillResult]: {
@@ -267,6 +276,56 @@ async function fetchHandoffPayload(context) {
   }
 
   return payload;
+}
+
+function normalizeExtensionStockItem(value) {
+  return {
+    stockItemId: String(value?.stockItemId ?? ""),
+    stockItemName:
+      typeof value?.stockItemName === "string" ? value.stockItemName : "Untitled item",
+    draftId: String(value?.draftId ?? ""),
+    draftTitle: typeof value?.draftTitle === "string" ? value.draftTitle : null,
+    draftStatus: typeof value?.draftStatus === "string" ? value.draftStatus : "draft",
+    ready: value?.ready === true,
+    missingFields: Array.isArray(value?.missingFields)
+      ? value.missingFields.filter((entry) => typeof entry === "string")
+      : [],
+    imageCount:
+      typeof value?.imageCount === "number" && Number.isFinite(value.imageCount)
+        ? value.imageCount
+        : 0,
+    sourceLabel:
+      typeof value?.sourceLabel === "string" ? value.sourceLabel : "App source",
+    updatedAt:
+      typeof value?.updatedAt === "string"
+        ? value.updatedAt
+        : new Date().toISOString(),
+    handoffStatus:
+      typeof value?.handoffStatus === "string"
+        ? value.handoffStatus
+        : "not_started",
+  };
+}
+
+async function fetchExtensionStockItems(appOrigin) {
+  const response = await fetch(buildExtensionStockUrl(appOrigin), {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    throw new Error(
+      responseText || `App returned ${response.status} for the extension stock list.`
+    );
+  }
+
+  const payload = await response.json();
+
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.items)) {
+    throw new Error("App returned an invalid extension stock response.");
+  }
+
+  return payload.items.map(normalizeExtensionStockItem);
 }
 
 async function prepareImageFiles(payload, context) {
@@ -493,6 +552,17 @@ async function getPopupState() {
 
   const pageState =
     activeTab?.id !== undefined ? await requestPageState(activeTab.id) : null;
+  let appStockItems = [];
+  let appStockError = null;
+
+  try {
+    appStockItems = await fetchExtensionStockItems(config.appOrigin);
+  } catch (error) {
+    appStockError = toMessage(
+      error,
+      "Extension could not load the drafted stock list from the app."
+    );
+  }
 
   return {
     config,
@@ -507,6 +577,8 @@ async function getPopupState() {
         }
       : null,
     pageState,
+    appStockItems,
+    appStockError,
   };
 }
 
@@ -576,6 +648,10 @@ async function handleOpenVintedAndFill(message) {
   }
 
   try {
+    if (message.context?.draftId) {
+      await clearLastFillResult();
+    }
+
     const launch = await openListingTabForContext(
       context,
       PROTOCOL.launchSources.popup
@@ -592,6 +668,30 @@ async function handleOpenVintedAndFill(message) {
       message: toMessage(error, "Failed to open the Vinted listing page."),
     };
   }
+}
+
+async function handleLoadAppStockItem(message) {
+  const config = await loadConfig();
+  const draftId = message.context?.draftId;
+
+  if (!draftId) {
+    return {
+      ok: false,
+      message: "Missing draft ID for the extension load request.",
+    };
+  }
+
+  const context = await setLastContext({
+    draftId,
+    appOrigin: message.context?.appOrigin ?? config.appOrigin,
+  });
+
+  await clearLastFillResult();
+
+  return {
+    ok: true,
+    lastContext: context,
+  };
 }
 
 async function handlePrimeFromPage(message, sender) {
@@ -738,6 +838,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return handleFillCurrentPage(message);
       case MESSAGE_TYPES.openVintedAndFill:
         return handleOpenVintedAndFill(message);
+      case MESSAGE_TYPES.loadAppStockItem:
+        return handleLoadAppStockItem(message);
       case MESSAGE_TYPES.primeFromPage:
         return handlePrimeFromPage(message, sender);
       default:
