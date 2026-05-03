@@ -120,33 +120,30 @@ function validatePayload(payload) {
   return missing;
 }
 
-async function fetchImageFiles(payload, appOrigin, result) {
-  const files = [];
+function decodeBase64(base64) {
+  const binary = window.atob(base64);
+  const bytes = new Uint8Array(binary.length);
 
-  for (const image of payload.images) {
-    const imageUrl = image.apiUrl || new URL(image.apiPath, appOrigin).toString();
-    logDebug(result, `Fetching image ${image.filename} from ${imageUrl}.`);
-
-    const response = await fetch(imageUrl, {
-      cache: "no-store",
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image ${image.filename} (${response.status}).`);
-    }
-
-    const blob = await response.blob();
-    files.push(
-      new File([blob], image.filename || `image-${image.id}.jpg`, {
-        type: image.contentType || blob.type || "application/octet-stream",
-      })
-    );
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
   }
 
-  return files;
+  return bytes;
 }
 
-async function uploadImages(payload, appOrigin, result) {
+function buildImageFiles(preparedImages, result) {
+  return preparedImages.map((image) => {
+    logDebug(result, `Received prepared image ${image.filename} from the extension worker.`);
+
+    const bytes = decodeBase64(image.base64);
+
+    return new File([bytes], image.filename || `image-${image.id}.jpg`, {
+      type: image.contentType || "application/octet-stream",
+    });
+  });
+}
+
+async function uploadImages(preparedImages, imagePreparationError, result) {
   const adapter = getAdapter();
   const imageResolution = adapter.resolveImageInput();
   setFieldDiagnostic(result, "images", imageResolution);
@@ -155,7 +152,15 @@ async function uploadImages(payload, appOrigin, result) {
     throw new Error(imageResolution.detail);
   }
 
-  const files = await fetchImageFiles(payload, appOrigin, result);
+  if (imagePreparationError) {
+    throw new Error(imagePreparationError);
+  }
+
+  if (!Array.isArray(preparedImages) || preparedImages.length === 0) {
+    throw new Error("Extension worker did not provide any prepared images.");
+  }
+
+  const files = buildImageFiles(preparedImages, result);
   const dataTransfer = new DataTransfer();
 
   files.forEach((file) => {
@@ -246,7 +251,7 @@ async function fillChoiceField(result, field, resolution, value) {
   logDebug(result, `Failed ${field}: ${selection.detail}`, "warn");
 }
 
-async function fillPageFromPayload(payload, context) {
+async function fillPageFromPayload(payload, preparedImages, imagePreparationError) {
   const result = createResult();
   const adapter = getAdapter();
   const payloadMissingFields = validatePayload(payload);
@@ -325,7 +330,7 @@ async function fillPageFromPayload(payload, context) {
   );
 
   try {
-    await uploadImages(payload, context.appOrigin, result);
+    await uploadImages(preparedImages, imagePreparationError, result);
     recordField(result, "filledFields", "images");
   } catch (error) {
     recordField(result, "failedFields", "images");
@@ -411,7 +416,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case "vinted-auto:get-page-state":
         return getAdapter().getPageState();
       case "vinted-auto:fill-page":
-        return fillPageFromPayload(message.payload, message.context);
+        return fillPageFromPayload(
+          message.payload,
+          message.preparedImages,
+          message.imagePreparationError
+        );
       default:
         return {
           supported: false,

@@ -140,14 +140,15 @@ Best long-term shape:
 
 Current repo shape:
 
-- content script fetches image URLs directly
+- service worker fetches image bytes from the app
+- service worker relays prepared image payloads to the content script
+- content script only reconstructs `File` objects and writes the input
 
-Why that is weaker:
+Remaining tradeoff:
 
-- Chrome docs say content scripts are still subject to the page origin for
-  cross-origin requests
-- this is the most likely part of the stack to become flaky across markets or
-  browsers
+- Chrome message passing is JSON-based, so image relay currently uses base64
+- very large image sets may still justify a more advanced extension-owned
+  transport later
 
 ## Security boundaries
 
@@ -174,4 +175,4 @@ This architecture pass adds:
 
 Highest-value follow-up:
 
-`move image fetch out of the content script`
+`stabilize extension install/ID workflow and run live Vinted smoke checks`

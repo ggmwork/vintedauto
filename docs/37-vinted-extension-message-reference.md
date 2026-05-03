@@ -168,6 +168,34 @@ Service worker -> content script
 Purpose:
 
 - deliver bounded payload and request a real DOM fill
+- include prepared image relay data owned by the extension worker
+
+Request shape:
+
+```json
+{
+  "type": "vinted-auto:fill-page",
+  "payload": {
+    "source": {
+      "draftId": "draft_123"
+    }
+  },
+  "context": {
+    "draftId": "draft_123",
+    "appOrigin": "http://127.0.0.1:3000"
+  },
+  "preparedImages": [
+    {
+      "id": "img_1",
+      "filename": "front.jpg",
+      "contentType": "image/jpeg",
+      "sortOrder": 0,
+      "base64": "..."
+    }
+  ],
+  "imagePreparationError": null
+}
+```
 
 ## Pending launch shape
 

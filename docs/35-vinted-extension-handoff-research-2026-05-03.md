@@ -86,11 +86,14 @@ Implication:
 Current repo status:
 
 - payload fetch already happens in the service worker
-- image fetch still happens in the content script
+- image transport now happens through the service worker bridge using prepared
+  image payloads relayed to the content script
 
-So the current best next hardening item after this bridge work is:
+Tradeoff:
 
-`move image transport out of the content script`
+- Chrome message passing is JSON-based, so binary image bytes need encoding
+- current implementation uses prepared base64 payloads for the extension-owned
+  relay
 
 ### 4. Stable extension ID matters
 
@@ -160,7 +163,8 @@ Meaning:
 2. service worker owns pending launch state in `storage.session`
 3. service worker opens clean Vinted tab
 4. content script fills when the target tab becomes ready
-5. old redirect/query-param route stays as fallback
+5. service worker prepares payload and image transport
+6. old redirect/query-param route stays as fallback
 
 ## Sources
 

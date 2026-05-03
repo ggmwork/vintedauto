@@ -129,6 +129,19 @@ function buildFillResultUrl(context) {
   )}/vinted-fill-result`;
 }
 
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
+
 function buildExtensionFailureResult(message) {
   return {
     status: "failure",
@@ -256,6 +269,35 @@ async function fetchHandoffPayload(context) {
   return payload;
 }
 
+async function prepareImageFiles(payload, context) {
+  const preparedImages = [];
+
+  for (const image of payload.images) {
+    const imageUrl = image.apiUrl || new URL(image.apiPath, context.appOrigin).toString();
+    const response = await fetch(imageUrl, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch image ${image.filename} (${response.status}).`);
+    }
+
+    const blob = await response.blob();
+    const bytes = await blob.arrayBuffer();
+
+    preparedImages.push({
+      id: image.id,
+      filename: image.filename || `image-${image.id}.jpg`,
+      contentType: image.contentType || blob.type || "application/octet-stream",
+      sizeBytes: image.sizeBytes,
+      sortOrder: image.sortOrder,
+      base64: arrayBufferToBase64(bytes),
+    });
+  }
+
+  return preparedImages;
+}
+
 async function reportFillResult(context, result) {
   const response = await fetch(buildFillResultUrl(context), {
     method: "POST",
@@ -344,10 +386,24 @@ async function waitForSupportedPage(tabId, timeoutMs = 8000) {
 async function fillTabFromContext(tabId, context) {
   const normalizedContext = await setLastContext(context);
   const payload = await fetchHandoffPayload(normalizedContext);
+  let preparedImages = [];
+  let imagePreparationError = null;
+
+  try {
+    preparedImages = await prepareImageFiles(payload, normalizedContext);
+  } catch (error) {
+    imagePreparationError = toMessage(
+      error,
+      "Extension failed to prepare images for upload."
+    );
+  }
+
   const result = await chrome.tabs.sendMessage(tabId, {
     type: CONTENT_SCRIPT_MESSAGE_TYPES.fillPage,
     payload,
     context: normalizedContext,
+    preparedImages,
+    imagePreparationError,
   });
 
   await setLastFillResult(result);

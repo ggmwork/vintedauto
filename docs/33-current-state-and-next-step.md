@@ -52,6 +52,8 @@ Implemented app surface:
 - review-queue `Fill on Vinted` and `Fill and next` actions
 - persisted queue state for `handed_off`, `filled_on_vinted`, `needs_manual_fix`, and `fill_failed`
 - unpacked Chrome MV3 extension with popup, service worker, and content script
+- direct app-page to extension bridge with fallback route launch
+- service-worker-owned image transport relay instead of content-script fetches
 - multi-provider AI routing for Ollama, OpenAI, and Anthropic
 - AI settings page with task-specific provider/model config
 
@@ -71,6 +73,7 @@ The extension MVP exists now. The remaining gap is hardening, not first build.
 Missing or still narrow pieces:
 
 - selector hardening and maintenance workflow when Vinted changes
+- stable extension ID and install workflow for the direct bridge
 - broader diagnostics for field mismatches across markets
 - edit-listing support
 - market-generalization beyond the first supported create-listing flow
