@@ -140,6 +140,10 @@ async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
 }
 
+function buildFillOnVintedHref(draftId: string) {
+  return `/api/drafts/${draftId}/fill-on-vinted`;
+}
+
 export function DraftExportPanel({
   draft,
   readiness,
@@ -238,15 +242,19 @@ export function DraftExportPanel({
     }
   }
 
-  function openFillOnVintedWindow() {
-    setLaunchError(null);
-    setCopyError(null);
+  function openPendingLaunchWindow() {
+    return window.open("", "_blank");
+  }
 
-    const nextWindow = window.open(
-      `/api/drafts/${draft.id}/fill-on-vinted`,
-      "_blank",
-      "noopener,noreferrer"
-    );
+  function navigateFallbackWindow(targetWindow: Window | null) {
+    const fallbackHref = buildFillOnVintedHref(draft.id);
+
+    if (targetWindow && !targetWindow.closed) {
+      targetWindow.location.href = fallbackHref;
+      return true;
+    }
+
+    const nextWindow = window.open(fallbackHref, "_blank", "noopener,noreferrer");
 
     if (!nextWindow) {
       setLaunchError("Browser blocked the Vinted launch window.");
@@ -256,7 +264,7 @@ export function DraftExportPanel({
     return true;
   }
 
-  async function launchPreferredVintedFlow() {
+  async function launchPreferredVintedFlow(targetWindow: Window | null) {
     setLaunchError(null);
     setCopyError(null);
 
@@ -266,19 +274,30 @@ export function DraftExportPanel({
     });
 
     if (bridgeLaunch.status === "launched") {
+      targetWindow?.close();
       return true;
     }
 
-    if (bridgeLaunch.status === "error") {
-      setLaunchError(bridgeLaunch.message);
+    if (!navigateFallbackWindow(targetWindow)) {
+      if (bridgeLaunch.status === "error") {
+        setLaunchError(bridgeLaunch.message);
+      }
+
       return false;
     }
 
-    return openFillOnVintedWindow();
+    return true;
   }
 
   async function handleFillOnVinted() {
-    if (!(await launchPreferredVintedFlow())) {
+    const pendingWindow = openPendingLaunchWindow();
+
+    if (!pendingWindow) {
+      setLaunchError("Browser blocked the Vinted launch window.");
+      return;
+    }
+
+    if (!(await launchPreferredVintedFlow(pendingWindow))) {
       return;
     }
 
@@ -288,7 +307,18 @@ export function DraftExportPanel({
   }
 
   async function handleFillOnVintedAndAdvance() {
-    if (!afterCopyHref || !(await launchPreferredVintedFlow())) {
+    if (!afterCopyHref) {
+      return;
+    }
+
+    const pendingWindow = openPendingLaunchWindow();
+
+    if (!pendingWindow) {
+      setLaunchError("Browser blocked the Vinted launch window.");
+      return;
+    }
+
+    if (!(await launchPreferredVintedFlow(pendingWindow))) {
       return;
     }
 
