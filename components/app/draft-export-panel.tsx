@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { DraftReadiness } from "@/lib/drafts/draft-readiness";
+import { launchVintedHandoffViaExtension } from "@/lib/vinted/extension-bridge";
 import {
   createVintedHandoffPayload,
   formatVintedHandoffJson,
@@ -255,8 +256,29 @@ export function DraftExportPanel({
     return true;
   }
 
-  function handleFillOnVinted() {
-    if (!openFillOnVintedWindow()) {
+  async function launchPreferredVintedFlow() {
+    setLaunchError(null);
+    setCopyError(null);
+
+    const bridgeLaunch = await launchVintedHandoffViaExtension({
+      draftId: draft.id,
+      appOrigin: window.location.origin,
+    });
+
+    if (bridgeLaunch.status === "launched") {
+      return true;
+    }
+
+    if (bridgeLaunch.status === "error") {
+      setLaunchError(bridgeLaunch.message);
+      return false;
+    }
+
+    return openFillOnVintedWindow();
+  }
+
+  async function handleFillOnVinted() {
+    if (!(await launchPreferredVintedFlow())) {
       return;
     }
 
@@ -265,8 +287,8 @@ export function DraftExportPanel({
     }, 400);
   }
 
-  function handleFillOnVintedAndAdvance() {
-    if (!afterCopyHref || !openFillOnVintedWindow()) {
+  async function handleFillOnVintedAndAdvance() {
+    if (!afterCopyHref || !(await launchPreferredVintedFlow())) {
       return;
     }
 

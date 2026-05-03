@@ -18,6 +18,9 @@
   "background": {
     "service_worker": "service-worker.js"
   },
+  "externally_connectable": {
+    "matches": ["http://127.0.0.1/*", "http://localhost/*"]
+  },
   "action": {
     "default_title": "Vinted Auto",
     "default_popup": "popup.html"

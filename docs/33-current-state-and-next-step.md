@@ -87,6 +87,9 @@ These markdown files already cover the missing extension and API work:
 - [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md) defines fields, required payload data, fill rules, image rules, status result, and future queue events.
 - [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) is the build plan for payload endpoint, MV3 scaffold, app connection, page detection, field fill, image upload, app trigger, queue polish, and hardening.
 - [34-vinted-extension-dom-smoke-test.md](./34-vinted-extension-dom-smoke-test.md) is the repeatable selector-repair and smoke-test checklist for the supported Vinted page.
+- [35-vinted-extension-handoff-research-2026-05-03.md](./35-vinted-extension-handoff-research-2026-05-03.md) captures the current Chrome extension research and compares launch/handoff options.
+- [36-vinted-extension-recommended-bridge-architecture.md](./36-vinted-extension-recommended-bridge-architecture.md) defines the recommended direct app-to-extension bridge plus the fallback route.
+- [37-vinted-extension-message-reference.md](./37-vinted-extension-message-reference.md) records the protocol, storage keys, and launch/fill state machine.
 - This file records the current repo-state gap and recommends the exact first endpoint: `GET /api/drafts/[draftId]/vinted-handoff`.
 
 ## Main Gap

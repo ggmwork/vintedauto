@@ -1,15 +1,48 @@
-/* global chrome */
+/* global chrome, importScripts */
 
-const STORAGE_KEYS = {
-  config: "config",
-  lastContext: "lastContext",
-  lastFillResult: "lastFillResult",
+importScripts("handoff-protocol.js");
+
+const PROTOCOL = globalThis.VintedAutoProtocol ?? {
+  version: "2026-05-03",
+  storageKeys: {
+    config: "config",
+    lastContext: "lastContext",
+    lastFillResult: "lastFillResult",
+    pendingLaunch: "pendingLaunch",
+  },
+  messageTypes: {
+    getPopupState: "vinted-auto:get-popup-state",
+    saveConfig: "vinted-auto:save-config",
+    fillCurrentPage: "vinted-auto:fill-current-page",
+    openVintedAndFill: "vinted-auto:open-vinted-and-fill",
+    primeFromPage: "vinted-auto:prime-from-page",
+    ping: "vinted-auto:ping",
+    launchHandoff: "vinted-auto:launch-handoff",
+  },
+  launchSources: {
+    popup: "popup",
+    external: "external_message",
+    fallbackUrl: "fallback_url",
+  },
+};
+
+const STORAGE_KEYS = PROTOCOL.storageKeys;
+const MESSAGE_TYPES = PROTOCOL.messageTypes;
+const CONTENT_SCRIPT_MESSAGE_TYPES = {
+  getPageState: "vinted-auto:get-page-state",
+  fillPage: "vinted-auto:fill-page",
 };
 
 const DEFAULT_CONFIG = {
   appOrigin: "http://127.0.0.1:3000",
   createListingUrl: "https://www.vinted.pt/items/new",
 };
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 function toMessage(error, fallbackMessage) {
   if (error instanceof Error && error.message) {
@@ -34,6 +67,81 @@ function normalizeCreateListingUrl(value) {
   } catch {
     return DEFAULT_CONFIG.createListingUrl;
   }
+}
+
+function normalizePendingLaunch(value) {
+  return {
+    draftId: String(value?.draftId),
+    appOrigin: normalizeAppOrigin(value?.appOrigin),
+    tabId: typeof value?.tabId === "number" ? value.tabId : null,
+    source:
+      value?.source === PROTOCOL.launchSources.popup ||
+      value?.source === PROTOCOL.launchSources.external ||
+      value?.source === PROTOCOL.launchSources.fallbackUrl
+        ? value.source
+        : PROTOCOL.launchSources.popup,
+    requestedAt:
+      typeof value?.requestedAt === "string"
+        ? value.requestedAt
+        : new Date().toISOString(),
+    processing: value?.processing === true,
+  };
+}
+
+function isAllowedExternalSender(senderUrl, appOrigin) {
+  if (!senderUrl) {
+    return false;
+  }
+
+  try {
+    const sender = new URL(senderUrl);
+    const requestedOrigin = new URL(normalizeAppOrigin(appOrigin));
+
+    return (
+      sender.origin === requestedOrigin.origin &&
+      (sender.hostname === "localhost" || sender.hostname === "127.0.0.1")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isValidPayload(payload) {
+  return Boolean(
+    payload &&
+      typeof payload === "object" &&
+      payload.source?.draftId &&
+      payload.handoff &&
+      payload.listing &&
+      Array.isArray(payload.images)
+  );
+}
+
+function buildHandoffUrl(context) {
+  return `${normalizeAppOrigin(context.appOrigin)}/api/drafts/${encodeURIComponent(
+    context.draftId
+  )}/vinted-handoff`;
+}
+
+function buildFillResultUrl(context) {
+  return `${normalizeAppOrigin(context.appOrigin)}/api/drafts/${encodeURIComponent(
+    context.draftId
+  )}/vinted-fill-result`;
+}
+
+function buildExtensionFailureResult(message) {
+  return {
+    status: "failure",
+    filledFields: [],
+    skippedFields: [],
+    failedFields: [],
+    message,
+    debug: {
+      pageReason: message,
+      debugLog: [message],
+      fieldDiagnostics: {},
+    },
+  };
 }
 
 async function ensureDefaultConfig() {
@@ -94,6 +202,25 @@ async function setLastContext(context) {
   return normalizedContext;
 }
 
+async function getPendingLaunch() {
+  const stored = await chrome.storage.session.get(STORAGE_KEYS.pendingLaunch);
+  return stored[STORAGE_KEYS.pendingLaunch] ?? null;
+}
+
+async function setPendingLaunch(pendingLaunch) {
+  const normalizedPendingLaunch = normalizePendingLaunch(pendingLaunch);
+
+  await chrome.storage.session.set({
+    [STORAGE_KEYS.pendingLaunch]: normalizedPendingLaunch,
+  });
+
+  return normalizedPendingLaunch;
+}
+
+async function clearPendingLaunch() {
+  await chrome.storage.session.remove(STORAGE_KEYS.pendingLaunch);
+}
+
 async function getLastFillResult() {
   const stored = await chrome.storage.local.get(STORAGE_KEYS.lastFillResult);
   return stored[STORAGE_KEYS.lastFillResult] ?? null;
@@ -106,41 +233,6 @@ async function setLastFillResult(result) {
       recordedAt: new Date().toISOString(),
     },
   });
-}
-
-function buildLaunchUrl(createListingUrl, context) {
-  const nextUrl = new URL(createListingUrl);
-  nextUrl.searchParams.set("vinted_auto_fill", "1");
-  nextUrl.searchParams.set("vinted_auto_draft_id", context.draftId);
-  nextUrl.searchParams.set(
-    "vinted_auto_app_origin",
-    normalizeAppOrigin(context.appOrigin)
-  );
-
-  return nextUrl.toString();
-}
-
-function buildHandoffUrl(context) {
-  return `${normalizeAppOrigin(context.appOrigin)}/api/drafts/${encodeURIComponent(
-    context.draftId
-  )}/vinted-handoff`;
-}
-
-function buildFillResultUrl(context) {
-  return `${normalizeAppOrigin(context.appOrigin)}/api/drafts/${encodeURIComponent(
-    context.draftId
-  )}/vinted-fill-result`;
-}
-
-function isValidPayload(payload) {
-  return Boolean(
-    payload &&
-      typeof payload === "object" &&
-      payload.source?.draftId &&
-      payload.handoff &&
-      payload.listing &&
-      Array.isArray(payload.images)
-  );
 }
 
 async function fetchHandoffPayload(context) {
@@ -177,9 +269,23 @@ async function reportFillResult(context, result) {
   if (!response.ok) {
     const responseText = await response.text();
     throw new Error(
-      responseText || `App returned ${response.status} for the fill result request.`
+      responseText ||
+        `App returned ${response.status} for the fill result request.`
     );
   }
+}
+
+async function recordExtensionFailure(context, message) {
+  const failureResult = buildExtensionFailureResult(message);
+  await setLastFillResult(failureResult);
+
+  try {
+    await reportFillResult(context, failureResult);
+  } catch {
+    // Ignore app sync failures when recording extension-side launch failures.
+  }
+
+  return failureResult;
 }
 
 async function getActiveTab() {
@@ -202,7 +308,7 @@ async function getTargetTab(tabId) {
 async function requestPageState(tabId) {
   try {
     return await chrome.tabs.sendMessage(tabId, {
-      type: "vinted-auto:get-page-state",
+      type: CONTENT_SCRIPT_MESSAGE_TYPES.getPageState,
     });
   } catch {
     return {
@@ -212,11 +318,34 @@ async function requestPageState(tabId) {
   }
 }
 
+async function waitForSupportedPage(tabId, timeoutMs = 8000) {
+  const startedAt = Date.now();
+  let lastState = {
+    supported: false,
+    reason: "Waiting for the supported Vinted create-listing page.",
+  };
+
+  while (Date.now() - startedAt < timeoutMs) {
+    lastState = await requestPageState(tabId);
+
+    if (lastState?.supported) {
+      return lastState;
+    }
+
+    await wait(250);
+  }
+
+  throw new Error(
+    lastState?.reason ||
+      "Timed out while waiting for the supported Vinted create-listing page."
+  );
+}
+
 async function fillTabFromContext(tabId, context) {
   const normalizedContext = await setLastContext(context);
   const payload = await fetchHandoffPayload(normalizedContext);
   const result = await chrome.tabs.sendMessage(tabId, {
-    type: "vinted-auto:fill-page",
+    type: CONTENT_SCRIPT_MESSAGE_TYPES.fillPage,
     payload,
     context: normalizedContext,
   });
@@ -241,13 +370,70 @@ async function fillTabFromContext(tabId, context) {
   }
 }
 
-async function getPopupState() {
-  const [config, lastContext, lastFillResult, activeTab] = await Promise.all([
+async function openListingTabForContext(context, source) {
+  const [config, normalizedContext] = await Promise.all([
     loadConfig(),
-    getLastContext(),
-    getLastFillResult(),
-    getActiveTab(),
+    setLastContext(context),
   ]);
+
+  const tab = await chrome.tabs.create({
+    url: config.createListingUrl,
+  });
+
+  if (typeof tab.id !== "number") {
+    throw new Error("Extension could not create the Vinted listing tab.");
+  }
+
+  await setPendingLaunch({
+    draftId: normalizedContext.draftId,
+    appOrigin: normalizedContext.appOrigin,
+    tabId: tab.id,
+    source,
+    requestedAt: new Date().toISOString(),
+    processing: false,
+  });
+
+  return {
+    url: config.createListingUrl,
+    tabId: tab.id,
+    context: normalizedContext,
+  };
+}
+
+async function processPendingLaunchForTab(tabId) {
+  const pendingLaunch = await getPendingLaunch();
+
+  if (!pendingLaunch || pendingLaunch.tabId !== tabId || pendingLaunch.processing) {
+    return;
+  }
+
+  const lockedPendingLaunch = await setPendingLaunch({
+    ...pendingLaunch,
+    processing: true,
+  });
+
+  try {
+    await waitForSupportedPage(tabId);
+    await fillTabFromContext(tabId, lockedPendingLaunch);
+  } catch (error) {
+    await recordExtensionFailure(
+      lockedPendingLaunch,
+      toMessage(error, "Failed to fill the launched Vinted tab.")
+    );
+  } finally {
+    await clearPendingLaunch();
+  }
+}
+
+async function getPopupState() {
+  const [config, lastContext, lastFillResult, pendingLaunch, activeTab] =
+    await Promise.all([
+      loadConfig(),
+      getLastContext(),
+      getLastFillResult(),
+      getPendingLaunch(),
+      getActiveTab(),
+    ]);
 
   const pageState =
     activeTab?.id !== undefined ? await requestPageState(activeTab.id) : null;
@@ -256,6 +442,7 @@ async function getPopupState() {
     config,
     lastContext,
     lastFillResult,
+    pendingLaunch,
     activeTab: activeTab
       ? {
           id: activeTab.id,
@@ -332,14 +519,23 @@ async function handleOpenVintedAndFill(message) {
     };
   }
 
-  await setLastContext(context);
-  const url = buildLaunchUrl(config.createListingUrl, context);
-  await chrome.tabs.create({ url });
+  try {
+    const launch = await openListingTabForContext(
+      context,
+      PROTOCOL.launchSources.popup
+    );
 
-  return {
-    ok: true,
-    url,
-  };
+    return {
+      ok: true,
+      url: launch.url,
+      tabId: launch.tabId,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: toMessage(error, "Failed to open the Vinted listing page."),
+    };
+  }
 }
 
 async function handlePrimeFromPage(message, sender) {
@@ -372,10 +568,87 @@ async function handlePrimeFromPage(message, sender) {
   } catch (error) {
     return {
       ok: false,
-      message: toMessage(error, "Failed to load the handoff payload from the app."),
+      message: toMessage(
+        error,
+        "Failed to load the handoff payload from the app."
+      ),
     };
   }
 }
+
+async function handleExternalPing() {
+  return {
+    ok: true,
+    protocolVersion: PROTOCOL.version,
+    extensionId: chrome.runtime.id,
+    capabilities: {
+      externalLaunch: true,
+      cleanLaunch: true,
+      fallbackRoute: true,
+    },
+  };
+}
+
+async function handleExternalLaunch(message, sender) {
+  if (!message?.draftId || !message?.appOrigin) {
+    return {
+      ok: false,
+      message: "Missing draft handoff context for the extension launch.",
+    };
+  }
+
+  if (!isAllowedExternalSender(sender.url, message.appOrigin)) {
+    return {
+      ok: false,
+      message: "The web app origin is not allowed to control this extension.",
+    };
+  }
+
+  try {
+    const launch = await openListingTabForContext(
+      {
+        draftId: message.draftId,
+        appOrigin: message.appOrigin,
+      },
+      PROTOCOL.launchSources.external
+    );
+
+    return {
+      ok: true,
+      protocolVersion: PROTOCOL.version,
+      launch: {
+        tabId: launch.tabId,
+        url: launch.url,
+        flow: "external_message",
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: toMessage(error, "Extension could not open the Vinted listing tab."),
+    };
+  }
+}
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status !== "complete" || !tab.url?.includes("vinted.")) {
+    return;
+  }
+
+  processPendingLaunchForTab(tabId).catch(() => {});
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  getPendingLaunch()
+    .then((pendingLaunch) => {
+      if (pendingLaunch?.tabId === tabId) {
+        return clearPendingLaunch();
+      }
+
+      return null;
+    })
+    .catch(() => {});
+});
 
 chrome.runtime.onInstalled.addListener(() => {
   ensureDefaultConfig().catch(() => {});
@@ -388,12 +661,12 @@ chrome.runtime.onStartup.addListener(() => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
     switch (message?.type) {
-      case "vinted-auto:get-popup-state":
+      case MESSAGE_TYPES.getPopupState:
         return {
           ok: true,
           state: await getPopupState(),
         };
-      case "vinted-auto:save-config": {
+      case MESSAGE_TYPES.saveConfig: {
         const config = await saveConfig(message.config);
         const state = await getPopupState();
 
@@ -405,11 +678,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           pageState: state.pageState,
         };
       }
-      case "vinted-auto:fill-current-page":
+      case MESSAGE_TYPES.fillCurrentPage:
         return handleFillCurrentPage(message);
-      case "vinted-auto:open-vinted-and-fill":
+      case MESSAGE_TYPES.openVintedAndFill:
         return handleOpenVintedAndFill(message);
-      case "vinted-auto:prime-from-page":
+      case MESSAGE_TYPES.primeFromPage:
         return handlePrimeFromPage(message, sender);
       default:
         return {
@@ -423,6 +696,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({
         ok: false,
         message: toMessage(error, "Extension worker failed."),
+      });
+    });
+
+  return true;
+});
+
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  (async () => {
+    switch (message?.type) {
+      case MESSAGE_TYPES.ping:
+        return handleExternalPing();
+      case MESSAGE_TYPES.launchHandoff:
+        return handleExternalLaunch(message, sender);
+      default:
+        return {
+          ok: false,
+          message: "Unknown external extension message.",
+        };
+    }
+  })()
+    .then(sendResponse)
+    .catch((error) => {
+      sendResponse({
+        ok: false,
+        message: toMessage(error, "External extension message failed."),
       });
     });
 

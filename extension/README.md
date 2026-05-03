@@ -23,6 +23,12 @@ Open the extension popup and confirm:
 - `Local app origin`
 - `Vinted create-listing URL`
 
+Optional app-side bridge setting:
+
+- set `NEXT_PUBLIC_VINTED_EXTENSION_ID` in the app when you want the app page to
+  message the extension directly
+- keep the older `/api/drafts/:draftId/fill-on-vinted` launch route as the fallback
+
 Default values assume:
 
 - app: `http://127.0.0.1:3000`
@@ -34,8 +40,12 @@ From a ready draft in the app:
 
 - click `Fill on Vinted`
 - or click `Fill and next` from the review queue
-- the app redirects to the configured Vinted create-listing page
-- query params carry `draftId` and `appOrigin`
+- preferred path:
+  the app page sends `vinted-auto:launch-handoff` to the extension with the
+  configured extension ID, and the extension opens a clean Vinted create page
+- fallback path:
+  the app opens `/api/drafts/:draftId/fill-on-vinted`, which redirects to Vinted
+  with query params for content-script priming
 - the extension fetches `/api/drafts/:draftId/vinted-handoff`
 - the content script fills the page
 - the service worker posts the fill result back to `/api/drafts/:draftId/vinted-fill-result`
@@ -54,6 +64,10 @@ From a ready draft in the app:
 - use the popup `Last fill diagnostics` block when a field fill partially fails
 - use the app draft `Selector diagnostics` block to compare the latest persisted callback result
 - use [docs/34-vinted-extension-dom-smoke-test.md](../docs/34-vinted-extension-dom-smoke-test.md) as the repeatable repair checklist
+- use [docs/35-vinted-extension-handoff-research-2026-05-03.md](../docs/35-vinted-extension-handoff-research-2026-05-03.md),
+  [docs/36-vinted-extension-recommended-bridge-architecture.md](../docs/36-vinted-extension-recommended-bridge-architecture.md),
+  and [docs/37-vinted-extension-message-reference.md](../docs/37-vinted-extension-message-reference.md)
+  for the direct-bridge protocol and state model
 
 ## Out of scope for this MVP
 
