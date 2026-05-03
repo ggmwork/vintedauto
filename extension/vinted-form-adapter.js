@@ -86,8 +86,8 @@
   const PT_CHOICE_CANDIDATES = {
     category: {
       exact: {
-        "men's shirts": ["Camisas"],
-        "mens shirts": ["Camisas"],
+        "men's shirts": ["Camisas", "Camisa"],
+        "mens shirts": ["Camisas", "Camisa"],
         "coats & jackets": ["Casacos", "Casacos e blusoes"],
       },
       keywordRules: [
@@ -112,6 +112,27 @@
         new: ["Novo"],
       },
       keywordRules: [],
+    },
+  };
+
+  const PT_CATEGORY_SELECTION_PLANS = {
+    "men's shirts": {
+      queryCandidates: ["Camisas", "Camisa"],
+      requiredBreadcrumbTerms: ["Homem", "Roupa"],
+      preferredBreadcrumbTerms: ["Tops e t-shirts"],
+      preferredLeafTerms: ["Camisas", "Camisa"],
+    },
+    "mens shirts": {
+      queryCandidates: ["Camisas", "Camisa"],
+      requiredBreadcrumbTerms: ["Homem", "Roupa"],
+      preferredBreadcrumbTerms: ["Tops e t-shirts"],
+      preferredLeafTerms: ["Camisas", "Camisa"],
+    },
+    "coats & jackets": {
+      queryCandidates: ["Casacos", "Casaco", "Blazer"],
+      requiredBreadcrumbTerms: [],
+      preferredBreadcrumbTerms: [],
+      preferredLeafTerms: ["Casacos", "Casaco", "Blazer"],
     },
   };
 
@@ -522,6 +543,90 @@
     control.blur();
   }
 
+  function dispatchKeyboardSequence(control, key) {
+    control.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
+    control.dispatchEvent(new KeyboardEvent("keypress", { key, bubbles: true }));
+    control.dispatchEvent(new KeyboardEvent("keyup", { key, bubbles: true }));
+  }
+
+  function dispatchInputSequence(control, data, inputType) {
+    try {
+      control.dispatchEvent(
+        new InputEvent("beforeinput", {
+          data,
+          inputType,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    } catch {
+      // Older environments may not support constructing InputEvent fully.
+    }
+
+    try {
+      control.dispatchEvent(
+        new InputEvent("input", {
+          data,
+          inputType,
+          bubbles: true,
+        })
+      );
+    } catch {
+      control.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
+  function clearControlLikeUser(control) {
+    control.focus();
+
+    if (
+      control instanceof HTMLInputElement ||
+      control instanceof HTMLTextAreaElement
+    ) {
+      const currentValue = readControlValue(control);
+
+      if (typeof control.select === "function") {
+        control.select();
+      }
+
+      control.setRangeText("", 0, currentValue.length, "end");
+      dispatchInputSequence(control, null, "deleteContentBackward");
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+
+  async function typeControlLikeUser(control, value, options) {
+    const nextValue = String(value ?? "");
+
+    clearControlLikeUser(control);
+    await wait(40);
+    control.focus();
+
+    for (const character of nextValue) {
+      dispatchKeyboardSequence(control, character);
+
+      if (
+        control instanceof HTMLInputElement ||
+        control instanceof HTMLTextAreaElement
+      ) {
+        const start = control.selectionStart ?? readControlValue(control).length;
+        const end = control.selectionEnd ?? start;
+        control.setRangeText(character, start, end, "end");
+      } else {
+        setControlValue(control, `${readControlValue(control)}${character}`);
+      }
+
+      dispatchInputSequence(control, character, "insertText");
+      await wait(30);
+    }
+
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+
+    if (options?.keepFocus !== true) {
+      control.blur();
+    }
+  }
+
   function readControlValue(control) {
     if (
       control instanceof HTMLInputElement ||
@@ -556,6 +661,7 @@
       Number.isInteger(numericValue) ? numericValue.toFixed(0) : String(numericValue),
       numericValue.toFixed(2),
       numericValue.toFixed(2).replace(".", ","),
+      String(Math.round(numericValue * 100)),
     ])];
   }
 
@@ -577,10 +683,8 @@
     let lastVisibleValue = "";
 
     for (const candidate of candidates) {
-      setControlValue(control, "");
-      await wait(60);
-      setControlValue(control, candidate);
-      await wait(180);
+      await typeControlLikeUser(control, candidate);
+      await wait(260);
 
       lastVisibleValue = readControlValue(control);
       const normalizedVisibleValue = normalizeText(lastVisibleValue);
@@ -608,6 +712,198 @@
     return {
       ok: false,
       detail: `Price control rejected ${candidates.join(", ")}. Last visible value was "${lastVisibleValue || "empty"}".`,
+    };
+  }
+
+  function buildCategorySelectionPlan(value) {
+    const normalizedValue = normalizeText(value);
+    const exactPlan = PT_CATEGORY_SELECTION_PLANS[normalizedValue];
+
+    if (exactPlan) {
+      return exactPlan;
+    }
+
+    const queryCandidates = buildChoiceCandidates("category", value);
+
+    return {
+      queryCandidates,
+      requiredBreadcrumbTerms: [],
+      preferredBreadcrumbTerms: [],
+      preferredLeafTerms: queryCandidates,
+    };
+  }
+
+  function normalizeCategoryLines(value) {
+    return String(value ?? "")
+      .split(/\r?\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  function summarizeCategoryOption(option) {
+    return option.breadcrumb
+      ? `${option.leaf} -> ${option.breadcrumb}`
+      : option.leaf;
+  }
+
+  function parseCategoryOption(element) {
+    const lines = normalizeCategoryLines(element.innerText || element.textContent || "");
+
+    if (lines.length === 0) {
+      return null;
+    }
+
+    return {
+      element,
+      leaf: lines[0],
+      breadcrumb: lines.slice(1).join(" > "),
+    };
+  }
+
+  function findVisibleCategoryOptions() {
+    const roleCandidates = [
+      ...document.querySelectorAll("[role='option'], [role='radio'], li"),
+    ]
+      .filter((candidate) => candidate instanceof HTMLElement && isVisible(candidate))
+      .map((candidate) => parseCategoryOption(candidate))
+      .filter((candidate) => candidate !== null);
+
+    if (roleCandidates.length > 0) {
+      return roleCandidates;
+    }
+
+    return [...document.querySelectorAll("button, div")]
+      .filter((candidate) => candidate instanceof HTMLElement && isVisible(candidate))
+      .map((candidate) => parseCategoryOption(candidate))
+      .filter(
+        (candidate) =>
+          candidate !== null &&
+          (candidate.breadcrumb.includes(" > ") || candidate.breadcrumb.length > 0)
+      );
+  }
+
+  function scoreCategoryOption(option, plan, queryCandidate) {
+    const normalizedLeaf = normalizeText(option.leaf);
+    const normalizedBreadcrumb = normalizeText(option.breadcrumb);
+    const normalizedQuery = normalizeText(queryCandidate);
+    const requiredTerms = plan.requiredBreadcrumbTerms.map((term) => normalizeText(term));
+
+    if (
+      requiredTerms.length > 0 &&
+      requiredTerms.some((term) => !normalizedBreadcrumb.includes(term))
+    ) {
+      return Number.NEGATIVE_INFINITY;
+    }
+
+    let score = 0;
+
+    if (normalizedLeaf === normalizedQuery) {
+      score += 12;
+    } else if (normalizedLeaf.includes(normalizedQuery)) {
+      score += 8;
+    }
+
+    for (const preferredLeafTerm of plan.preferredLeafTerms) {
+      const normalizedPreferredLeafTerm = normalizeText(preferredLeafTerm);
+
+      if (normalizedLeaf === normalizedPreferredLeafTerm) {
+        score += 10;
+      } else if (normalizedLeaf.includes(normalizedPreferredLeafTerm)) {
+        score += 5;
+      }
+    }
+
+    for (const preferredBreadcrumbTerm of plan.preferredBreadcrumbTerms) {
+      if (normalizedBreadcrumb.includes(normalizeText(preferredBreadcrumbTerm))) {
+        score += 4;
+      }
+    }
+
+    return score;
+  }
+
+  function chooseBestCategoryOption(options, plan, queryCandidate) {
+    return options
+      .map((option) => ({
+        option,
+        score: scoreCategoryOption(option, plan, queryCandidate),
+      }))
+      .filter((entry) => Number.isFinite(entry.score) && entry.score > 0)
+      .sort((left, right) => right.score - left.score)[0]?.option ?? null;
+  }
+
+  function findCategorySearchInput(control) {
+    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
+      return control;
+    }
+
+    const visibleInputs = [
+      ...document.querySelectorAll(
+        "input:not([type='hidden']):not([type='file']), textarea"
+      ),
+    ].filter((candidate) => candidate instanceof HTMLElement && isVisible(candidate));
+
+    return (
+      visibleInputs.find((candidate) => {
+        const attributes = [
+          candidate.getAttribute("placeholder"),
+          candidate.getAttribute("aria-label"),
+          candidate.getAttribute("name"),
+          candidate.getAttribute("id"),
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        return textMatches(attributes, FIELD_DEFINITIONS.category.matchers);
+      }) ?? null
+    );
+  }
+
+  async function selectCategoryValue(control, value) {
+    const plan = buildCategorySelectionPlan(value);
+    const searchControl = findCategorySearchInput(control);
+
+    if (!searchControl) {
+      return {
+        ok: false,
+        detail: "Could not find the category search input after opening the dropdown.",
+      };
+    }
+
+    control.click();
+    await wait(200);
+
+    let lastObservedOptions = [];
+
+    for (const queryCandidate of plan.queryCandidates) {
+      await typeControlLikeUser(searchControl, queryCandidate, {
+        keepFocus: true,
+      });
+      await wait(450);
+
+      const options = findVisibleCategoryOptions();
+      lastObservedOptions = options;
+      const bestOption = chooseBestCategoryOption(options, plan, queryCandidate);
+
+      if (!bestOption) {
+        continue;
+      }
+
+      bestOption.element.click();
+      await wait(220);
+
+      return {
+        ok: true,
+        detail: `Typed "${queryCandidate}" and selected "${bestOption.leaf}" with path "${bestOption.breadcrumb}".`,
+      };
+    }
+
+    return {
+      ok: false,
+      detail: `No PT category option matched ${plan.queryCandidates.join(", ")}. Visible options: ${lastObservedOptions
+        .slice(0, 5)
+        .map(summarizeCategoryOption)
+        .join(" | ") || "none"}.`,
     };
   }
 
@@ -666,6 +962,10 @@
   }
 
   async function selectChoiceValue(fieldKey, control, value) {
+    if (fieldKey === "category" && getMarketCode() === "pt") {
+      return selectCategoryValue(control, value);
+    }
+
     const candidates = buildChoiceCandidates(fieldKey, value);
 
     if (candidates.length === 0) {
@@ -701,7 +1001,7 @@
 
     if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
       for (const choiceCandidate of candidates) {
-        setControlValue(control, choiceCandidate);
+        await typeControlLikeUser(control, choiceCandidate);
         await wait(350);
 
         const option = findOptionCandidate(choiceCandidate);

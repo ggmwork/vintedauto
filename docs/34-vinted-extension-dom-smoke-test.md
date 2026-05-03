@@ -46,9 +46,9 @@ Confirm:
 6. Confirm `Current page` shows `Supported create-listing page`.
 7. Confirm title fills.
 8. Confirm description fills.
-9. Confirm price fills.
+9. Confirm price fills and does not show `NaN`.
 10. Confirm brand fills or types correctly.
-11. Confirm category fills or types correctly.
+11. Confirm category selects a real dropdown option, not only a typed search value.
 12. Confirm size fills or types correctly.
 13. Confirm condition fills or types correctly.
 14. Confirm color fills or types correctly.
@@ -71,6 +71,8 @@ If any field fails:
    - `matchedBy` value if present
    - diagnostic detail for the failed field
    - debug trace lines
+   - for category: visible option labels and breadcrumb paths
+   - for price: attempted numeric formats and last visible value
 5. Return to the draft in the app.
 6. Open `Selector diagnostics` in the export panel.
 7. Compare the app-side stored diagnostics with the popup diagnostics.

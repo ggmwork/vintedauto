@@ -69,6 +69,8 @@ Important:
 
 - supported flow: create-listing page
 - supported fields: title, description, price, brand, category, size, condition, color, material, images
+- PT price fill now uses masked-input typing with post-fill numeric verification
+- PT category fill now uses dropdown search plus visible breadcrumb-path matching
 - app tracks `handed off`, `filled on Vinted`, `needs manual fix`, and `fill failed`
 - popup exposes page diagnostics and last fill diagnostics for selector debugging
 - manual final submit remains required

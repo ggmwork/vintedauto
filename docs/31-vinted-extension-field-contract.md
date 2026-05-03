@@ -104,11 +104,19 @@ If one of these is missing, the extension should refuse to fill.
 
 - use numeric canonical value from payload
 - extension may normalize decimal separators for the market UI
+- if the market UI uses a masked currency input, simulate typing and verify the
+  visible numeric value after fill
 
 ### Structured attributes
 
 - fill only if payload value exists
 - if exact option match is unavailable, report field mismatch and continue
+- searchable dropdowns like category should prefer real visible option
+  selection over raw text typing
+- PT category selection may require:
+  - search query candidates
+  - breadcrumb path matching
+  - market-specific category mapping when generic app labels are too broad
 
 ### Images
 
