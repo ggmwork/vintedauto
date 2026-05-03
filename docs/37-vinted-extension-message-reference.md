@@ -172,20 +172,19 @@ Purpose:
 
 - inspect whether the page is supported and which fields were found
 
-### `vinted-auto:fill-page`
+### `vinted-auto:fill-page-fields`
 
 Service worker -> content script
 
 Purpose:
 
-- deliver bounded payload and request a real DOM fill
-- include prepared image relay data owned by the extension worker
+- deliver bounded listing payload and request a real non-image DOM fill
 
 Request shape:
 
 ```json
 {
-  "type": "vinted-auto:fill-page",
+  "type": "vinted-auto:fill-page-fields",
   "payload": {
     "source": {
       "draftId": "draft_123"
@@ -194,7 +193,24 @@ Request shape:
   "context": {
     "draftId": "draft_123",
     "appOrigin": "http://127.0.0.1:3000"
-  },
+  }
+}
+```
+
+### `vinted-auto:upload-images`
+
+Service worker -> content script
+
+Purpose:
+
+- stage prepared images in smaller messages
+- commit the real file-input write on the last image message
+
+Request shape:
+
+```json
+{
+  "type": "vinted-auto:upload-images",
   "preparedImages": [
     {
       "id": "img_1",
@@ -204,6 +220,8 @@ Request shape:
       "base64": "..."
     }
   ],
+  "reset": true,
+  "commit": false,
   "imagePreparationError": null
 }
 ```

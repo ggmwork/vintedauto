@@ -23,6 +23,8 @@ function createResult() {
   };
 }
 
+let pendingPreparedImages = [];
+
 function logDebug(result, message, level = "info") {
   result.debug.debugLog.push(message);
 
@@ -79,7 +81,37 @@ function buildFailureSummary(result) {
     .join(" | ");
 }
 
-function validatePayload(payload) {
+function finalizeResult(result) {
+  if (!result.message) {
+    if (result.failedFields.length === 0) {
+      result.status = "success";
+      result.message = "Filled the supported Vinted listing page.";
+    } else if (result.filledFields.length > 0) {
+      result.status = "partial_success";
+      result.message = `Filled some fields, but ${result.failedFields.join(", ")} still need manual work.`;
+    } else {
+      result.status = "failure";
+      result.message = "No fields were filled.";
+    }
+  } else if (result.filledFields.length > 0) {
+    result.status = "partial_success";
+  }
+
+  if (result.failedFields.length > 0) {
+    const failureSummary = buildFailureSummary(result);
+
+    if (failureSummary) {
+      result.message = `${result.message} Diagnostics: ${failureSummary}`;
+    }
+  }
+
+  logDebug(result, `Fill flow finished with status ${result.status}.`);
+
+  return result;
+}
+
+function validatePayload(payload, options) {
+  const requireImages = options?.requireImages !== false;
   const missing = [];
 
   if (!payload?.version) {
@@ -105,7 +137,7 @@ function validatePayload(payload) {
     missing.push("price");
   }
 
-  if (!Array.isArray(payload?.images) || payload.images.length === 0) {
+  if (requireImages && (!Array.isArray(payload?.images) || payload.images.length === 0)) {
     missing.push("images");
   }
 
@@ -251,27 +283,29 @@ async function fillChoiceField(result, field, resolution, value) {
   logDebug(result, `Failed ${field}: ${selection.detail}`, "warn");
 }
 
-async function fillPageFromPayload(payload, preparedImages, imagePreparationError) {
+async function fillPageFieldsFromPayload(payload) {
   const result = createResult();
   const adapter = getAdapter();
-  const payloadMissingFields = validatePayload(payload);
+  const payloadMissingFields = validatePayload(payload, {
+    requireImages: false,
+  });
 
   if (payloadMissingFields.length > 0) {
     result.failedFields.push(...payloadMissingFields);
     result.debug.pageReason = "Payload validation failed.";
     result.message = `Payload is not ready: ${payloadMissingFields.join(", ")}.`;
     logDebug(result, result.message, "warn");
-    return result;
+    return finalizeResult(result);
   }
 
-  logDebug(result, `Starting fill flow for draft ${payload.source.draftId}.`);
+  logDebug(result, `Starting field fill flow for draft ${payload.source.draftId}.`);
 
   const pageState = await adapter.waitForSupportedPage();
   copyPageDiagnosticsIntoResult(result, pageState);
 
   if (!pageState.supported) {
     result.message = pageState.reason;
-    return result;
+    return finalizeResult(result);
   }
 
   await fillTextField(
@@ -329,8 +363,23 @@ async function fillPageFromPayload(payload, preparedImages, imagePreparationErro
     payload.listing.metadata.material
   );
 
+  return finalizeResult(result);
+}
+
+async function uploadPreparedImagesFromSession(imagePreparationError) {
+  const result = createResult();
+  const adapter = getAdapter();
+  const pageState = await adapter.waitForSupportedPage();
+  copyPageDiagnosticsIntoResult(result, pageState);
+
+  if (!pageState.supported) {
+    result.message = pageState.reason;
+    pendingPreparedImages = [];
+    return finalizeResult(result);
+  }
+
   try {
-    await uploadImages(preparedImages, imagePreparationError, result);
+    await uploadImages(pendingPreparedImages, imagePreparationError, result);
     recordField(result, "filledFields", "images");
   } catch (error) {
     recordField(result, "failedFields", "images");
@@ -344,32 +393,27 @@ async function fillPageFromPayload(payload, preparedImages, imagePreparationErro
     logDebug(result, `Failed images: ${message}`, "warn");
   }
 
-  if (!result.message) {
-    if (result.failedFields.length === 0) {
-      result.status = "success";
-      result.message = "Filled the supported Vinted listing page.";
-    } else if (result.filledFields.length > 0) {
-      result.status = "partial_success";
-      result.message = `Filled some fields, but ${result.failedFields.join(", ")} still need manual work.`;
-    } else {
-      result.status = "failure";
-      result.message = "No fields were filled.";
-    }
-  } else if (result.filledFields.length > 0) {
-    result.status = "partial_success";
+  pendingPreparedImages = [];
+  return finalizeResult(result);
+}
+
+async function stageOrUploadPreparedImages(message) {
+  if (message?.reset) {
+    pendingPreparedImages = [];
   }
 
-  if (result.failedFields.length > 0) {
-    const failureSummary = buildFailureSummary(result);
-
-    if (failureSummary) {
-      result.message = `${result.message} Diagnostics: ${failureSummary}`;
-    }
+  if (Array.isArray(message?.preparedImages) && message.preparedImages.length > 0) {
+    pendingPreparedImages.push(...message.preparedImages);
   }
 
-  logDebug(result, `Fill flow finished with status ${result.status}.`);
+  if (!message?.commit) {
+    return {
+      ok: true,
+      stagedImageCount: pendingPreparedImages.length,
+    };
+  }
 
-  return result;
+  return uploadPreparedImagesFromSession(message?.imagePreparationError ?? null);
 }
 
 function stripLaunchParamsFromUrl() {
@@ -415,12 +459,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     switch (message?.type) {
       case "vinted-auto:get-page-state":
         return getAdapter().getPageState();
-      case "vinted-auto:fill-page":
-        return fillPageFromPayload(
-          message.payload,
-          message.preparedImages,
-          message.imagePreparationError
-        );
+      case "vinted-auto:fill-page-fields":
+        return fillPageFieldsFromPayload(message.payload);
+      case "vinted-auto:upload-images":
+        return stageOrUploadPreparedImages(message);
       default:
         return {
           supported: false,

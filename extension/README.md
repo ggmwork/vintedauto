@@ -54,6 +54,8 @@ From a ready draft in the app:
 - the extension service worker fetches `/api/drafts/:draftId/vinted-handoff`
 - the extension service worker also fetches the draft images from the app and
   relays them to the content script as prepared upload files
+- image relay uses smaller per-image messages so larger drafts do not hit
+  Chrome's extension message size cap
 - the content script fills the page
 - the service worker posts the fill result back to `/api/drafts/:draftId/vinted-fill-result`
 

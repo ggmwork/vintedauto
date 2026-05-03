@@ -142,12 +142,15 @@ Best long-term shape:
 Current repo shape:
 
 - service worker fetches image bytes from the app
-- service worker relays prepared image payloads to the content script
+- service worker relays prepared image payloads to the content script in
+  smaller per-image messages
 - content script only reconstructs `File` objects and writes the input
 
 Remaining tradeoff:
 
 - Chrome message passing is JSON-based, so image relay currently uses base64
+- larger drafts need chunked relay because one giant message can exceed
+  Chrome's `tabs.sendMessage` size cap
 - very large image sets may still justify a more advanced extension-owned
   transport later
 

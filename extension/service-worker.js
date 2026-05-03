@@ -31,8 +31,11 @@ const STORAGE_KEYS = PROTOCOL.storageKeys;
 const MESSAGE_TYPES = PROTOCOL.messageTypes;
 const CONTENT_SCRIPT_MESSAGE_TYPES = {
   getPageState: "vinted-auto:get-page-state",
-  fillPage: "vinted-auto:fill-page",
+  fillPageFields: "vinted-auto:fill-page-fields",
+  uploadImages: "vinted-auto:upload-images",
 };
+
+const MAX_MESSAGE_BASE64_BYTES = 48 * 1024 * 1024;
 
 const DEFAULT_CONFIG = {
   appOrigin: "http://127.0.0.1:3000",
@@ -160,6 +163,112 @@ function buildExtensionFailureResult(message) {
       fieldDiagnostics: {},
     },
   };
+}
+
+function createEmptyFillResult() {
+  return {
+    status: "failure",
+    filledFields: [],
+    skippedFields: [],
+    failedFields: [],
+    message: "",
+    debug: {
+      pageReason: null,
+      debugLog: [],
+      fieldDiagnostics: {},
+    },
+  };
+}
+
+function mergeUniqueStrings(...arrays) {
+  return [...new Set(arrays.flat().filter((entry) => typeof entry === "string"))];
+}
+
+function buildFailureSummary(result) {
+  return result.failedFields
+    .map((field) => {
+      const diagnostic = result.debug?.fieldDiagnostics?.[field];
+      return diagnostic?.detail ? `${field}: ${diagnostic.detail}` : `${field}: no diagnostic detail.`;
+    })
+    .join(" | ");
+}
+
+function finalizeFillResult(result) {
+  if (!result.message) {
+    if (result.failedFields.length === 0) {
+      result.status = "success";
+      result.message = "Filled the supported Vinted listing page.";
+    } else if (result.filledFields.length > 0) {
+      result.status = "partial_success";
+      result.message = `Filled some fields, but ${result.failedFields.join(", ")} still need manual work.`;
+    } else {
+      result.status = "failure";
+      result.message = "No fields were filled.";
+    }
+  } else if (result.filledFields.length > 0) {
+    result.status = "partial_success";
+  }
+
+  if (result.failedFields.length > 0) {
+    const failureSummary = buildFailureSummary(result);
+
+    if (failureSummary) {
+      result.message = `${result.message} Diagnostics: ${failureSummary}`;
+    }
+  }
+
+  return result;
+}
+
+function mergeFillResults(...parts) {
+  const merged = createEmptyFillResult();
+
+  for (const part of parts) {
+    if (!part || typeof part !== "object") {
+      continue;
+    }
+
+    merged.filledFields = mergeUniqueStrings(merged.filledFields, part.filledFields ?? []);
+    merged.skippedFields = mergeUniqueStrings(
+      merged.skippedFields,
+      part.skippedFields ?? []
+    );
+    merged.failedFields = mergeUniqueStrings(merged.failedFields, part.failedFields ?? []);
+
+    if (part.debug && typeof part.debug === "object") {
+      merged.debug.pageReason =
+        part.debug.pageReason ?? merged.debug.pageReason ?? null;
+      merged.debug.debugLog.push(
+        ...((Array.isArray(part.debug.debugLog) ? part.debug.debugLog : []).filter(
+          (entry) => typeof entry === "string"
+        ))
+      );
+      merged.debug.fieldDiagnostics = {
+        ...merged.debug.fieldDiagnostics,
+        ...(part.debug.fieldDiagnostics ?? {}),
+      };
+    }
+  }
+
+  return finalizeFillResult(merged);
+}
+
+function buildImageStageFailureResult(message) {
+  return finalizeFillResult({
+    ...createEmptyFillResult(),
+    failedFields: ["images"],
+    message,
+    debug: {
+      pageReason: message,
+      debugLog: [message],
+      fieldDiagnostics: {
+        images: {
+          detail: message,
+          matchedBy: null,
+        },
+      },
+    },
+  });
 }
 
 async function ensureDefaultConfig() {
@@ -343,6 +452,13 @@ async function prepareImageFiles(payload, context) {
 
     const blob = await response.blob();
     const bytes = await blob.arrayBuffer();
+    const base64 = arrayBufferToBase64(bytes);
+
+    if (base64.length > MAX_MESSAGE_BASE64_BYTES) {
+      throw new Error(
+        `Image ${image.filename} is too large for one extension message chunk.`
+      );
+    }
 
     preparedImages.push({
       id: image.id,
@@ -350,7 +466,7 @@ async function prepareImageFiles(payload, context) {
       contentType: image.contentType || blob.type || "application/octet-stream",
       sizeBytes: image.sizeBytes,
       sortOrder: image.sortOrder,
-      base64: arrayBufferToBase64(bytes),
+      base64,
     });
   }
 
@@ -445,6 +561,12 @@ async function waitForSupportedPage(tabId, timeoutMs = 8000) {
 async function fillTabFromContext(tabId, context) {
   const normalizedContext = await setLastContext(context);
   const payload = await fetchHandoffPayload(normalizedContext);
+  const fieldResult = await chrome.tabs.sendMessage(tabId, {
+    type: CONTENT_SCRIPT_MESSAGE_TYPES.fillPageFields,
+    payload,
+    context: normalizedContext,
+  });
+  let imageResult = null;
   let preparedImages = [];
   let imagePreparationError = null;
 
@@ -457,13 +579,35 @@ async function fillTabFromContext(tabId, context) {
     );
   }
 
-  const result = await chrome.tabs.sendMessage(tabId, {
-    type: CONTENT_SCRIPT_MESSAGE_TYPES.fillPage,
-    payload,
-    context: normalizedContext,
-    preparedImages,
-    imagePreparationError,
-  });
+  if (imagePreparationError) {
+    imageResult = buildImageStageFailureResult(imagePreparationError);
+  } else if (preparedImages.length > 0) {
+    try {
+      for (let index = 0; index < preparedImages.length; index += 1) {
+        const response = await chrome.tabs.sendMessage(tabId, {
+          type: CONTENT_SCRIPT_MESSAGE_TYPES.uploadImages,
+          preparedImages: [preparedImages[index]],
+          reset: index === 0,
+          commit: index === preparedImages.length - 1,
+          imagePreparationError: null,
+        });
+
+        if (index === preparedImages.length - 1) {
+          imageResult = response;
+        }
+      }
+    } catch (error) {
+      imageResult = buildImageStageFailureResult(
+        toMessage(error, "Extension failed while relaying images to the page.")
+      );
+    }
+  } else {
+    imageResult = buildImageStageFailureResult(
+      "Extension worker did not provide any prepared images."
+    );
+  }
+
+  const result = mergeFillResults(fieldResult, imageResult);
 
   await setLastFillResult(result);
 

@@ -94,6 +94,8 @@ Tradeoff:
 - Chrome message passing is JSON-based, so binary image bytes need encoding
 - current implementation uses prepared base64 payloads for the extension-owned
   relay
+- larger drafts need smaller per-image relay messages because one huge
+  `tabs.sendMessage` payload can exceed Chrome's size cap
 
 ### 4. Stable extension ID matters
 
