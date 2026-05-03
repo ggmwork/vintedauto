@@ -1,4 +1,6 @@
 export const VINTED_EXTENSION_PROTOCOL_VERSION = "2026-05-03" as const;
+export const DEFAULT_VINTED_EXTENSION_ID =
+  "jjlanfbmjhiodmoamflpjclhfcjhcemb" as const;
 
 export const VINTED_EXTENSION_MESSAGE_TYPES = {
   ping: "vinted-auto:ping",
@@ -42,7 +44,10 @@ export interface VintedExtensionLaunchResponse {
 }
 
 export function getConfiguredVintedExtensionId() {
-  return process.env.NEXT_PUBLIC_VINTED_EXTENSION_ID?.trim() ?? "";
+  return (
+    process.env.NEXT_PUBLIC_VINTED_EXTENSION_ID?.trim() ||
+    DEFAULT_VINTED_EXTENSION_ID
+  );
 }
 
 export function isVintedExtensionLaunchResponse(

@@ -93,6 +93,7 @@ These markdown files already cover the missing extension and API work:
 - [35-vinted-extension-handoff-research-2026-05-03.md](./35-vinted-extension-handoff-research-2026-05-03.md) captures the current Chrome extension research and compares launch/handoff options.
 - [36-vinted-extension-recommended-bridge-architecture.md](./36-vinted-extension-recommended-bridge-architecture.md) defines the recommended direct app-to-extension bridge plus the fallback route.
 - [37-vinted-extension-message-reference.md](./37-vinted-extension-message-reference.md) records the protocol, storage keys, and launch/fill state machine.
+- [38-vinted-extension-stable-id-setup.md](./38-vinted-extension-stable-id-setup.md) records the stable unpacked extension ID setup and the next manual Chrome step.
 - This file records the current repo-state gap and recommends the exact first endpoint: `GET /api/drafts/[draftId]/vinted-handoff`.
 
 ## Main Gap

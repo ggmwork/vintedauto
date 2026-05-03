@@ -16,6 +16,10 @@ Unpacked Chrome Manifest V3 extension for the Vinted autofill MVP.
 3. Click `Load unpacked`
 4. Select the repo `extension/` folder
 
+Expected stable ID for this repo extension:
+
+- `jjlanfbmjhiodmoamflpjclhfcjhcemb`
+
 ## First-run settings
 
 Open the extension popup and confirm:
@@ -25,8 +29,8 @@ Open the extension popup and confirm:
 
 Optional app-side bridge setting:
 
-- set `NEXT_PUBLIC_VINTED_EXTENSION_ID` in the app when you want the app page to
-  message the extension directly
+- the app now defaults to the stable repo extension ID
+- keep `NEXT_PUBLIC_VINTED_EXTENSION_ID` only if you want to override that ID
 - keep the older `/api/drafts/:draftId/fill-on-vinted` launch route as the fallback
 
 Default values assume:

@@ -105,7 +105,8 @@ Implication:
 
 - production or team-dev direct bridge needs a stable extension ID
 - app should read it from `NEXT_PUBLIC_VINTED_EXTENSION_ID`
-- repo should not guess or hardcode a local unpacked random ID
+- repo should carry one stable manifest key for the personal extension flow
+- current repo stable ID: `jjlanfbmjhiodmoamflpjclhfcjhcemb`
 
 ## Options compared
 
