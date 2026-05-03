@@ -2,6 +2,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
+import {
+  createDefaultDraftVintedProfileState,
+  hydrateDraftVintedProfileState,
+  normalizeDraftVintedProfileState,
+} from "@/lib/vinted/listing-profile";
 import type {
   Draft,
   DraftDetail,
@@ -71,6 +76,7 @@ function toDraftSummary(draft: DraftDetail): Draft {
     priceSuggestion: draft.priceSuggestion,
     generation: draft.generation,
     generationHistory: draft.generationHistory,
+    vintedProfile: draft.vintedProfile,
     vintedHandoff: draft.vintedHandoff,
     imageCount: draft.imageCount,
     createdAt: draft.createdAt,
@@ -350,6 +356,10 @@ function normalizeDraftDetail(value: unknown): DraftDetail {
   const images = normalizeImages(Array.isArray(candidate.images) ? candidate.images : []);
   const priceSuggestion = normalizePriceSuggestion(candidate.priceSuggestion);
   const vintedHandoff = normalizeVintedHandoffState(candidate.vintedHandoff);
+  const vintedProfile = hydrateDraftVintedProfileState({
+    category: metadata.category,
+    state: normalizeDraftVintedProfileState(candidate.vintedProfile),
+  });
 
   const normalizedDraft: DraftDetail = {
     id: typeof candidate.id === "string" ? candidate.id : randomUUID(),
@@ -367,6 +377,7 @@ function normalizeDraftDetail(value: unknown): DraftDetail {
     priceSuggestion,
     generation: null,
     generationHistory: [],
+    vintedProfile,
     vintedHandoff,
     imageCount: images.length,
     createdAt:
@@ -515,6 +526,50 @@ function applyGenerationResult(
 ): DraftDetail {
   const previousSnapshot = draft.generation?.snapshot;
   const nextGenerationInfo = createGenerationInfo(generation);
+  const nextMetadata = {
+    brand: shouldReplaceMetadataField(
+      draft.metadata.brand,
+      previousSnapshot?.suggestedMetadata.brand
+    )
+      ? generation.content.suggestedMetadata.brand ?? draft.metadata.brand
+      : draft.metadata.brand,
+    category: shouldReplaceMetadataField(
+      draft.metadata.category,
+      previousSnapshot?.suggestedMetadata.category
+    )
+      ? generation.content.suggestedMetadata.category ?? draft.metadata.category
+      : draft.metadata.category,
+    size: shouldReplaceMetadataField(
+      draft.metadata.size,
+      previousSnapshot?.suggestedMetadata.size
+    )
+      ? generation.content.suggestedMetadata.size ?? draft.metadata.size
+      : draft.metadata.size,
+    condition: shouldReplaceMetadataField(
+      draft.metadata.condition,
+      previousSnapshot?.suggestedMetadata.condition
+    )
+      ? generation.content.suggestedMetadata.condition ?? draft.metadata.condition
+      : draft.metadata.condition,
+    color: shouldReplaceMetadataField(
+      draft.metadata.color,
+      previousSnapshot?.suggestedMetadata.color
+    )
+      ? generation.content.suggestedMetadata.color ?? draft.metadata.color
+      : draft.metadata.color,
+    material: shouldReplaceMetadataField(
+      draft.metadata.material,
+      previousSnapshot?.suggestedMetadata.material
+    )
+      ? generation.content.suggestedMetadata.material ?? draft.metadata.material
+      : draft.metadata.material,
+    notes: shouldReplaceMetadataField(
+      draft.metadata.notes,
+      previousSnapshot?.suggestedMetadata.notes
+    )
+      ? generation.content.suggestedMetadata.notes ?? draft.metadata.notes
+      : draft.metadata.notes,
+  };
 
   return {
     ...draft,
@@ -530,50 +585,7 @@ function applyGenerationResult(
     keywords: shouldReplaceKeywords(draft.keywords, previousSnapshot?.keywords)
       ? generation.content.keywords
       : draft.keywords,
-    metadata: {
-      brand: shouldReplaceMetadataField(
-        draft.metadata.brand,
-        previousSnapshot?.suggestedMetadata.brand
-      )
-        ? generation.content.suggestedMetadata.brand ?? draft.metadata.brand
-        : draft.metadata.brand,
-      category: shouldReplaceMetadataField(
-        draft.metadata.category,
-        previousSnapshot?.suggestedMetadata.category
-      )
-        ? generation.content.suggestedMetadata.category ?? draft.metadata.category
-        : draft.metadata.category,
-      size: shouldReplaceMetadataField(
-        draft.metadata.size,
-        previousSnapshot?.suggestedMetadata.size
-      )
-        ? generation.content.suggestedMetadata.size ?? draft.metadata.size
-        : draft.metadata.size,
-      condition: shouldReplaceMetadataField(
-        draft.metadata.condition,
-        previousSnapshot?.suggestedMetadata.condition
-      )
-        ? generation.content.suggestedMetadata.condition ?? draft.metadata.condition
-        : draft.metadata.condition,
-      color: shouldReplaceMetadataField(
-        draft.metadata.color,
-        previousSnapshot?.suggestedMetadata.color
-      )
-        ? generation.content.suggestedMetadata.color ?? draft.metadata.color
-        : draft.metadata.color,
-      material: shouldReplaceMetadataField(
-        draft.metadata.material,
-        previousSnapshot?.suggestedMetadata.material
-      )
-        ? generation.content.suggestedMetadata.material ?? draft.metadata.material
-        : draft.metadata.material,
-      notes: shouldReplaceMetadataField(
-        draft.metadata.notes,
-        previousSnapshot?.suggestedMetadata.notes
-      )
-        ? generation.content.suggestedMetadata.notes ?? draft.metadata.notes
-        : draft.metadata.notes,
-    },
+    metadata: nextMetadata,
     priceSuggestion: shouldReplacePriceSuggestion(
       draft.priceSuggestion,
       previousSnapshot?.priceSuggestion
@@ -587,6 +599,10 @@ function applyGenerationResult(
         (entry) => entry.generatedAt !== nextGenerationInfo.generatedAt
       ),
     ].slice(0, 12),
+    vintedProfile: hydrateDraftVintedProfileState({
+      category: nextMetadata.category,
+      state: draft.vintedProfile,
+    }),
   };
 }
 
@@ -594,6 +610,8 @@ function applyDraftUpdate(
   draft: DraftDetail,
   update: UpdateDraftInput
 ): DraftDetail {
+  const nextMetadata = mergeMetadata(draft.metadata, update.metadata);
+
   return {
     ...draft,
     status: update.status ?? draft.status,
@@ -601,7 +619,7 @@ function applyDraftUpdate(
     description:
       update.description === undefined ? draft.description : update.description,
     keywords: update.keywords ?? draft.keywords,
-    metadata: mergeMetadata(draft.metadata, update.metadata),
+    metadata: nextMetadata,
     priceSuggestion:
       update.priceSuggestion === undefined
         ? draft.priceSuggestion
@@ -609,6 +627,10 @@ function applyDraftUpdate(
     generation:
       update.generation === undefined ? draft.generation : update.generation,
     generationHistory: draft.generationHistory,
+    vintedProfile: hydrateDraftVintedProfileState({
+      category: nextMetadata.category,
+      state: update.vintedProfile ?? draft.vintedProfile,
+    }),
     vintedHandoff: update.vintedHandoff ?? draft.vintedHandoff,
   };
 }
@@ -653,6 +675,7 @@ class LocalDraftRepository implements DraftRepository {
       priceSuggestion: null,
       generation: null,
       generationHistory: [],
+      vintedProfile: createDefaultDraftVintedProfileState(),
       vintedHandoff: createDefaultVintedHandoffState(),
       imageCount: 0,
       createdAt: now,

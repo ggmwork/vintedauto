@@ -413,6 +413,19 @@ function normalizeExtensionStockItem(value) {
       typeof value?.handoffStatus === "string"
         ? value.handoffStatus
         : "not_started",
+    vintedProfileLabel:
+      typeof value?.vintedProfileLabel === "string"
+        ? value.vintedProfileLabel
+        : null,
+    vintedCategoryPath:
+      typeof value?.vintedCategoryPath === "string"
+        ? value.vintedCategoryPath
+        : null,
+    vintedMissingRequiredFieldKeys: Array.isArray(value?.vintedMissingRequiredFieldKeys)
+      ? value.vintedMissingRequiredFieldKeys.filter(
+          (entry) => typeof entry === "string"
+        )
+      : [],
   };
 }
 

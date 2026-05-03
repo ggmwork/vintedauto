@@ -152,6 +152,10 @@ function validatePayload(payload, options) {
   return missing;
 }
 
+function isPayloadValueEmpty(value) {
+  return value === null || value === undefined || value === "";
+}
+
 function decodeBase64(base64) {
   const binary = window.atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -216,7 +220,7 @@ async function fillTextField(result, field, resolution, value) {
   const adapter = getAdapter();
   setFieldDiagnostic(result, field, resolution);
 
-  if (!value) {
+  if (isPayloadValueEmpty(value)) {
     recordField(result, "skippedFields", field);
     setFieldDiagnostic(result, field, resolution, "Skipped because the payload value is empty.");
     logDebug(result, `Skipped ${field}: payload value is empty.`);
@@ -293,11 +297,11 @@ async function fillPriceField(result, resolution, amount) {
   logDebug(result, `Failed price: ${priceFill.detail}`, "warn");
 }
 
-async function fillChoiceField(result, field, resolution, value) {
+async function fillChoiceField(result, field, resolution, value, options) {
   const adapter = getAdapter();
   setFieldDiagnostic(result, field, resolution);
 
-  if (!value) {
+  if (isPayloadValueEmpty(value)) {
     recordField(result, "skippedFields", field);
     setFieldDiagnostic(result, field, resolution, "Skipped because the payload value is empty.");
     logDebug(result, `Skipped ${field}: payload value is empty.`);
@@ -316,7 +320,12 @@ async function fillChoiceField(result, field, resolution, value) {
     return;
   }
 
-  const selection = await adapter.selectChoiceValue(field, resolution.control, value);
+  const selection = await adapter.selectChoiceValue(
+    field,
+    resolution.control,
+    value,
+    options ?? null
+  );
 
   if (selection.ok) {
     recordField(result, "filledFields", field);
@@ -328,6 +337,94 @@ async function fillChoiceField(result, field, resolution, value) {
   recordField(result, "failedFields", field);
   setFieldDiagnostic(result, field, resolution, selection.detail);
   logDebug(result, `Failed ${field}: ${selection.detail}`, "warn");
+}
+
+async function fillBooleanField(result, field, resolution, value) {
+  const adapter = getAdapter();
+  setFieldDiagnostic(result, field, resolution);
+
+  if (value === null || value === undefined) {
+    recordField(result, "skippedFields", field);
+    setFieldDiagnostic(result, field, resolution, "Skipped because the payload value is empty.");
+    logDebug(result, `Skipped ${field}: payload value is empty.`);
+    return;
+  }
+
+  if (!resolution.control && value === false) {
+    recordField(result, "skippedFields", field);
+    setFieldDiagnostic(
+      result,
+      field,
+      resolution,
+      "Skipped because the page did not expose this optional checkbox."
+    );
+    logDebug(result, `Skipped ${field}: optional checkbox is not visible on this page.`);
+    return;
+  }
+
+  if (!(resolution.control instanceof HTMLInputElement)) {
+    recordField(result, "failedFields", field);
+    setFieldDiagnostic(
+      result,
+      field,
+      resolution,
+      "Failed because no checkbox control was available."
+    );
+    logDebug(result, `Failed ${field}: ${resolution.detail}`, "warn");
+    return;
+  }
+
+  const toggleResult = adapter.setCheckboxValue(resolution.control, value === true);
+
+  if (toggleResult.ok) {
+    recordField(result, "filledFields", field);
+    setFieldDiagnostic(result, field, resolution, toggleResult.detail);
+    logDebug(result, `Filled ${field}: ${toggleResult.detail}`);
+    return;
+  }
+
+  recordField(result, "failedFields", field);
+  setFieldDiagnostic(result, field, resolution, toggleResult.detail);
+  logDebug(result, `Failed ${field}: ${toggleResult.detail}`, "warn");
+}
+
+async function fillDynamicProfileFields(result, profile) {
+  const adapter = getAdapter();
+
+  if (!profile || !Array.isArray(profile.fields) || profile.fields.length === 0) {
+    return;
+  }
+
+  for (const fieldDefinition of profile.fields) {
+    const resolution = adapter.resolveDynamicField(fieldDefinition.key);
+
+    if (fieldDefinition.valueType === "boolean") {
+      await fillBooleanField(
+        result,
+        fieldDefinition.key,
+        resolution,
+        fieldDefinition.value
+      );
+      continue;
+    }
+
+    if (fieldDefinition.valueType === "single_select") {
+      await fillChoiceField(
+        result,
+        fieldDefinition.key,
+        resolution,
+        fieldDefinition.value
+      );
+      continue;
+    }
+
+    await fillTextField(
+      result,
+      fieldDefinition.key,
+      resolution,
+      fieldDefinition.value
+    );
+  }
 }
 
 async function fillPageFieldsFromPayload(payload) {
@@ -378,7 +475,10 @@ async function fillPageFieldsFromPayload(payload) {
     result,
     "category",
     adapter.resolveField("category"),
-    payload.listing.metadata.category
+    payload.listing.metadata.category,
+    {
+      categoryPlan: payload.listing.profile?.categoryPlan ?? null,
+    }
   );
   await fillChoiceField(
     result,
@@ -404,6 +504,7 @@ async function fillPageFieldsFromPayload(payload) {
     adapter.resolveField("material"),
     payload.listing.metadata.material
   );
+  await fillDynamicProfileFields(result, payload.listing.profile);
 
   return finalizeResult(result);
 }

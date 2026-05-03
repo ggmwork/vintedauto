@@ -30,7 +30,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import { cn } from "@/lib/utils";
+import {
+  formatVintedCategoryPathInput,
+  getVintedProfileMissingFieldKeys,
+  hydrateDraftVintedProfileState,
+  resolveVintedListingProfile,
+} from "@/lib/vinted/listing-profile";
+import type { Draft } from "@/types/draft";
 import type { PhotoAsset, StockItem, StudioSessionDetail } from "@/types/intake";
 
 const inputClassName =
@@ -44,6 +52,7 @@ interface StockEntry {
   pendingReviewCount: number;
   stockItem: StockItem;
   photoAssets: PhotoAsset[];
+  linkedDraft: Draft | null;
 }
 
 function HiddenPhotoAssetInputs({ photoAssetIds }: { photoAssetIds: string[] }) {
@@ -101,11 +110,28 @@ function getSourceMethodLabel(sourceMethod: StockItem["sourceMethod"]) {
   }
 }
 
+function formatMissingFieldLabel(value: string) {
+  switch (value) {
+    case "vinted:logistics.packageSize":
+      return "Vinted package size";
+    case "vinted:measurements.shoulderWidthCm":
+      return "Vinted shoulder width";
+    case "vinted:measurements.lengthCm":
+      return "Vinted length";
+    case "vinted:compliance.aiGeneratedPhotos":
+      return "Vinted AI-photo flag";
+    default:
+      return value;
+  }
+}
+
 export function StockWorkspacePage({
   sessions,
+  draftsById,
   feedback,
 }: {
   sessions: StudioSessionDetail[];
+  draftsById: Record<string, Draft>;
   feedback: {
     flash: string | null;
     error: string | null;
@@ -126,6 +152,8 @@ export function StockWorkspacePage({
           pendingReviewCount: session.pendingClusterCount,
           stockItem,
           photoAssets: getPhotoAssetsForStockItem(session, stockItem.id),
+          linkedDraft:
+            stockItem.draftId !== null ? draftsById[stockItem.draftId] ?? null : null,
         }))
       )
       .sort(
@@ -133,7 +161,7 @@ export function StockWorkspacePage({
           new Date(right.stockItem.updatedAt).getTime() -
           new Date(left.stockItem.updatedAt).getTime()
       );
-  }, [sessions]);
+  }, [draftsById, sessions]);
 
   const readyEntries = useMemo(
     () => stockEntries.filter((entry) => entry.stockItem.draftId === null),
@@ -313,6 +341,42 @@ function StockEntryCard({
   selectedPhotoAssetIds: string[];
   onTogglePhotoSelection: (stockItemId: string, photoAssetId: string) => void;
 }) {
+  const linkedDraft = entry.linkedDraft;
+  const linkedDraftProfileState = linkedDraft
+    ? hydrateDraftVintedProfileState({
+        category: linkedDraft.metadata.category,
+        state: linkedDraft.vintedProfile,
+      })
+    : null;
+  const linkedDraftReadiness = linkedDraft
+    ? getDraftReadiness({
+        imageCount: linkedDraft.imageCount,
+        title: linkedDraft.title,
+        description: linkedDraft.description,
+        keywords: linkedDraft.keywords,
+        metadata: linkedDraft.metadata,
+        priceSuggestion: linkedDraft.priceSuggestion,
+        vintedProfile: linkedDraftProfileState ?? linkedDraft.vintedProfile,
+      })
+    : null;
+  const linkedDraftProfile = linkedDraft
+    ? resolveVintedListingProfile({
+        category: linkedDraft.metadata.category,
+        state: linkedDraftProfileState,
+      })
+    : null;
+  const linkedDraftCategoryPlan =
+    linkedDraftProfileState && linkedDraftProfile
+      ? linkedDraftProfileState.categoryPlan ?? linkedDraftProfile.categoryPlan
+      : null;
+  const linkedDraftMissingVintedFields =
+    linkedDraftProfileState && linkedDraftProfile
+      ? getVintedProfileMissingFieldKeys(
+          linkedDraftProfile,
+          linkedDraftProfileState
+        )
+      : [];
+
   return (
     <Card className="overflow-hidden">
       {entry.stockItem.coverPhotoAssetId ? (
@@ -389,6 +453,45 @@ function StockEntryCard({
             </Badge>
           ) : null}
         </div>
+
+        {linkedDraft && linkedDraftProfile ? (
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  Vinted profile
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {linkedDraftProfile.label}
+                </p>
+              </div>
+              <Badge variant={linkedDraftMissingVintedFields.length === 0 ? "default" : "outline"}>
+                {linkedDraftMissingVintedFields.length === 0
+                  ? "later fields complete"
+                  : `${linkedDraftMissingVintedFields.length} later field${linkedDraftMissingVintedFields.length === 1 ? "" : "s"} missing`}
+              </Badge>
+            </div>
+
+            <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Category path</p>
+                <p>
+                  {formatVintedCategoryPathInput(linkedDraftCategoryPlan) || "Not set"}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Draft readiness</p>
+                <p>
+                  {linkedDraftReadiness?.ready
+                    ? "Ready for extension fill"
+                    : linkedDraftReadiness?.missing
+                        .map(formatMissingFieldLabel)
+                        .join(", ") || "Not ready"}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="grid grid-cols-4 gap-3">
           {entry.photoAssets.map((photoAsset) => {

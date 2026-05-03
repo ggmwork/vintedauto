@@ -1,6 +1,6 @@
 # Vinted Extension Field Contract
 
-Last updated: 2026-04-29
+Last updated: 2026-05-03
 
 ## Purpose
 
@@ -26,6 +26,8 @@ The extension MVP should fill only these fields:
 Optional in MVP:
 
 - notes mapping if the Vinted form has an appropriate free-text field
+- category-path plan for searchable PT dropdowns
+- later Vinted-only fields through `listing.profile`
 
 Not required in MVP:
 
@@ -35,6 +37,13 @@ Not required in MVP:
 - bundle rules
 - promotions
 - advanced account settings
+
+Initial dynamic PT field scope:
+
+- `logistics.packageSize`
+- `compliance.aiGeneratedPhotos`
+- `measurements.shoulderWidthCm`
+- `measurements.lengthCm`
 
 ## Required payload fields
 
@@ -75,7 +84,23 @@ If one of these is missing, the extension should refuse to fill.
     "condition": "Very good",
     "color": "Beige",
     "material": "Polyester",
-    "notes": "Belt included."
+    "notes": "Belt included.",
+    "profile": {
+      "market": "vinted.pt",
+      "profileKey": "mens_shirts_pt",
+      "categoryPlan": {
+        "searchQuery": "Camisas",
+        "path": ["Homem", "Roupa", "Tops e t-shirts", "Camisas"]
+      },
+      "missingRequiredFieldKeys": [],
+      "fields": [
+        {
+          "key": "logistics.packageSize",
+          "valueType": "single_select",
+          "value": "medium"
+        }
+      ]
+    }
   },
   "images": [
     {
@@ -117,6 +142,15 @@ If one of these is missing, the extension should refuse to fill.
   - search query candidates
   - breadcrumb path matching
   - market-specific category mapping when generic app labels are too broad
+
+### Dynamic profile fields
+
+- extension should consume `listing.profile`
+- category dropdown should prefer `categoryPlan.searchQuery` and `categoryPlan.path`
+- package size should use explicit option labels, not raw text-field typing
+- optional measurement fields should fill only when a profile value exists
+- optional compliance checkbox should not fail the whole run when the page does
+  not expose that control
 
 ### Images
 

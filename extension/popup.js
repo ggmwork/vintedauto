@@ -117,6 +117,21 @@ function getStockRowTitle(item) {
   return item.draftTitle?.trim() || item.stockItemName || `Draft ${item.draftId}`;
 }
 
+function formatMissingFieldLabel(value) {
+  switch (value) {
+    case "vinted:logistics.packageSize":
+      return "Vinted package size";
+    case "vinted:measurements.shoulderWidthCm":
+      return "Vinted shoulder width";
+    case "vinted:measurements.lengthCm":
+      return "Vinted length";
+    case "vinted:compliance.aiGeneratedPhotos":
+      return "Vinted AI-photo flag";
+    default:
+      return value;
+  }
+}
+
 function describeStockRowState(item, isLoaded) {
   if (item.ready) {
     return isLoaded
@@ -124,7 +139,7 @@ function describeStockRowState(item, isLoaded) {
       : `Ready for Vinted. Last updated ${formatDateTime(item.updatedAt)}.`;
   }
 
-  return `Not ready yet. Missing: ${item.missingFields.join(", ")}.`;
+  return `Not ready yet. Missing: ${item.missingFields.map(formatMissingFieldLabel).join(", ")}.`;
 }
 
 async function handleLoadAppStockItem(item) {
@@ -206,7 +221,8 @@ function renderAppStockItems(state) {
 
     const meta = document.createElement("p");
     meta.className = "stock-meta";
-    meta.textContent = `${item.stockItemName} · ${item.imageCount} image${item.imageCount === 1 ? "" : "s"} · ${item.sourceLabel}`;
+    const profileLabel = item.vintedProfileLabel ? ` · ${item.vintedProfileLabel}` : "";
+    meta.textContent = `${item.stockItemName} · ${item.imageCount} image${item.imageCount === 1 ? "" : "s"} · ${item.sourceLabel}${profileLabel}`;
 
     const stateCopy = document.createElement("p");
     stateCopy.className = "stock-state";
@@ -214,6 +230,12 @@ function renderAppStockItems(state) {
       item,
       lastContext?.draftId === item.draftId
     );
+
+    const categoryPath = document.createElement("p");
+    categoryPath.className = "stock-state";
+    categoryPath.textContent = item.vintedCategoryPath
+      ? `Category path: ${item.vintedCategoryPath}`
+      : "Category path not set yet.";
 
     const actions = document.createElement("div");
     actions.className = "stock-actions";
@@ -248,7 +270,7 @@ function renderAppStockItems(state) {
     });
 
     actions.append(loadButton, openButton);
-    row.append(title, meta, stateCopy, actions);
+    row.append(title, meta, stateCopy, categoryPath, actions);
 
     return row;
   });

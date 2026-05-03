@@ -7,6 +7,7 @@ Unpacked Chrome Manifest V3 extension for the Vinted autofill MVP.
 - reads a reviewed draft handoff from the local app
 - detects the supported Vinted create-listing page
 - fills title, description, price, core metadata, and ordered images
+- fills the first PT later-field profile block from the app handoff
 - stops before publish
 
 ## Load in Chrome
@@ -69,8 +70,14 @@ Important:
 
 - supported flow: create-listing page
 - supported fields: title, description, price, brand, category, size, condition, color, material, images
+- supported PT later fields:
+  - category path plan
+  - package size
+  - AI-photo checkbox
+  - shirt measurements
 - PT price fill now uses masked-input typing with post-fill numeric verification
 - PT category fill now uses dropdown search plus visible breadcrumb-path matching
+- later fields now come from `listing.profile`, not only flat metadata
 - app tracks `handed off`, `filled on Vinted`, `needs manual fix`, and `fill failed`
 - popup exposes page diagnostics and last fill diagnostics for selector debugging
 - manual final submit remains required
@@ -81,6 +88,10 @@ Important:
 - use the popup `Last fill diagnostics` block when a field fill partially fails
 - use the app draft `Selector diagnostics` block to compare the latest persisted callback result
 - use [docs/34-vinted-extension-dom-smoke-test.md](../docs/34-vinted-extension-dom-smoke-test.md) as the repeatable repair checklist
+- use [docs/39-vinted-dynamic-fields-research.md](../docs/39-vinted-dynamic-fields-research.md),
+  [docs/40-vinted-dynamic-field-reference-pt.md](../docs/40-vinted-dynamic-field-reference-pt.md),
+  and [docs/41-vinted-dynamic-fields-rollout.md](../docs/41-vinted-dynamic-fields-rollout.md)
+  for the schema-driven later-field model
 - use [docs/35-vinted-extension-handoff-research-2026-05-03.md](../docs/35-vinted-extension-handoff-research-2026-05-03.md),
   [docs/36-vinted-extension-recommended-bridge-architecture.md](../docs/36-vinted-extension-recommended-bridge-architecture.md),
   and [docs/37-vinted-extension-message-reference.md](../docs/37-vinted-extension-message-reference.md)

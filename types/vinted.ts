@@ -1,5 +1,10 @@
 import type { DraftStatus } from "@/types/draft";
 import type { PriceConfidence } from "@/types/pricing";
+import type {
+  DraftVintedCategoryPlan,
+  DraftVintedFieldValue,
+  VintedDynamicFieldDefinition,
+} from "@/types/vinted-profile";
 
 export interface VintedListingPricePayload {
   amount: number | null;
@@ -18,6 +23,21 @@ export interface VintedListingMetadataPayload {
   color: string | null;
   material: string | null;
   notes: string | null;
+}
+
+export interface VintedListingProfileFieldPayload
+  extends VintedDynamicFieldDefinition {
+  value: DraftVintedFieldValue;
+}
+
+export interface VintedListingProfilePayload {
+  market: "vinted.pt";
+  profileKey: string;
+  label: string;
+  description: string;
+  categoryPlan: DraftVintedCategoryPlan;
+  missingRequiredFieldKeys: string[];
+  fields: VintedListingProfileFieldPayload[];
 }
 
 export interface VintedListingImagePayload {
@@ -55,7 +75,7 @@ export interface VintedFillResultPayload {
 }
 
 export interface VintedListingPayload {
-  version: "2026-04-29";
+  version: "2026-05-03";
   marketplace: "vinted";
   source: {
     draftId: string;
@@ -83,6 +103,7 @@ export interface VintedListingPayload {
     keywords: string[];
     price: VintedListingPricePayload | null;
     metadata: VintedListingMetadataPayload;
+    profile: VintedListingProfilePayload | null;
   };
   images: VintedListingImagePayload[];
 }

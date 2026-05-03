@@ -136,6 +136,44 @@
     },
   };
 
+  const DYNAMIC_FIELD_DEFINITIONS = {
+    "measurements.shoulderWidthCm": {
+      matchers: ["largura do ombro", "ombro"],
+      directSelectors: ["input[name*='shoulder' i]", "input[id*='shoulder' i]"],
+    },
+    "measurements.lengthCm": {
+      matchers: ["comprimento", "length"],
+      directSelectors: ["input[name*='length' i]", "input[id*='length' i]"],
+    },
+    "logistics.packageSize": {
+      matchers: [
+        "seleciona o tamanho da encomenda",
+        "tamanho da encomenda",
+        "tamanho recomendando",
+        "tamanho recomendado",
+      ],
+      directSelectors: [],
+    },
+    "compliance.aiGeneratedPhotos": {
+      matchers: [
+        "marcar fotos como geradas por ia",
+        "fotos como geradas por ia",
+        "geradas por ia",
+      ],
+      directSelectors: ["input[type='checkbox']"],
+    },
+  };
+
+  const DYNAMIC_CHOICE_CANDIDATES = {
+    "logistics.packageSize": {
+      exact: {
+        small: ["Pequeno"],
+        medium: ["Medio", "Médio"],
+        large: ["Grande"],
+      },
+    },
+  };
+
   const CONTROL_SELECTOR = [
     "input:not([type='hidden']):not([type='file'])",
     "textarea",
@@ -384,6 +422,89 @@
     return resolveControl(fieldKey, definition);
   }
 
+  function findCheckboxByMatchers(fieldKey, definition) {
+    const checkboxes = [...document.querySelectorAll("input[type='checkbox']")].filter(
+      (candidate) => candidate instanceof HTMLInputElement
+    );
+
+    for (const checkbox of checkboxes) {
+      const container = checkbox.closest("label, div, section, fieldset, li");
+      const combinedText = [
+        checkbox.getAttribute("aria-label"),
+        checkbox.getAttribute("name"),
+        checkbox.getAttribute("id"),
+        container instanceof HTMLElement ? container.innerText : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      if (!textMatches(combinedText, definition.matchers)) {
+        continue;
+      }
+
+      return {
+        control: checkbox,
+        matchedBy: "checkbox container text",
+        detail: `Found ${fieldKey} via checkbox container text: ${describeControl(checkbox)}.`,
+      };
+    }
+
+    return buildMissingResolution(fieldKey, definition.directSelectors);
+  }
+
+  function findSectionContainerByMatchers(fieldKey, definition) {
+    const candidates = [...document.querySelectorAll("label, legend, p, span, div, h3, h4")]
+      .filter((candidate) => candidate instanceof HTMLElement && isVisible(candidate));
+
+    for (const candidate of candidates) {
+      const text = candidate.innerText || candidate.textContent || "";
+
+      if (!textMatches(text, definition.matchers)) {
+        continue;
+      }
+
+      const container = candidate.closest("section, fieldset, form, div");
+
+      if (container instanceof HTMLElement) {
+        return {
+          control: container,
+          matchedBy: "matching section text",
+          detail: `Found ${fieldKey} section via visible text: ${normalizeText(text)}.`,
+        };
+      }
+
+      return {
+        control: candidate,
+        matchedBy: "matching visible text",
+        detail: `Found ${fieldKey} via visible text: ${normalizeText(text)}.`,
+      };
+    }
+
+    return buildMissingResolution(fieldKey, definition.directSelectors);
+  }
+
+  function resolveDynamicField(fieldKey) {
+    const definition = DYNAMIC_FIELD_DEFINITIONS[fieldKey];
+
+    if (!definition) {
+      return {
+        control: null,
+        matchedBy: null,
+        detail: `Unknown dynamic field definition: ${fieldKey}.`,
+      };
+    }
+
+    if (fieldKey === "compliance.aiGeneratedPhotos") {
+      return findCheckboxByMatchers(fieldKey, definition);
+    }
+
+    if (fieldKey === "logistics.packageSize") {
+      return findSectionContainerByMatchers(fieldKey, definition);
+    }
+
+    return resolveControl(fieldKey, definition);
+  }
+
   function resolveImageInput() {
     const selector = "input[type='file'][multiple], input[type='file']";
     const control = queryVisible(selector);
@@ -541,6 +662,34 @@
     control.dispatchEvent(new Event("input", { bubbles: true }));
     control.dispatchEvent(new Event("change", { bubbles: true }));
     control.blur();
+  }
+
+  function setCheckboxValue(control, checked) {
+    if (!(control instanceof HTMLInputElement) || control.type !== "checkbox") {
+      return {
+        ok: false,
+        detail: "Target control is not a checkbox.",
+      };
+    }
+
+    control.focus();
+
+    if (control.checked !== checked) {
+      control.click();
+    } else {
+      control.dispatchEvent(new Event("input", { bubbles: true }));
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    control.blur();
+
+    return {
+      ok: control.checked === checked,
+      detail:
+        control.checked === checked
+          ? `Checkbox set to ${checked ? "checked" : "unchecked"}.`
+          : `Checkbox stayed ${control.checked ? "checked" : "unchecked"} when ${checked ? "checked" : "unchecked"} was requested.`,
+    };
   }
 
   function dispatchKeyboardSequence(control, key) {
@@ -715,7 +864,31 @@
     };
   }
 
-  function buildCategorySelectionPlan(value) {
+  function buildCategorySelectionPlan(value, categoryPlan) {
+    if (categoryPlan && (categoryPlan.searchQuery || categoryPlan.path?.length > 0)) {
+      const explicitPath = Array.isArray(categoryPlan.path)
+        ? categoryPlan.path.filter((entry) => typeof entry === "string" && entry.trim().length > 0)
+        : [];
+      const explicitLeaf = explicitPath[explicitPath.length - 1] ?? null;
+      const queryCandidates = [
+        categoryPlan.searchQuery,
+        explicitLeaf,
+        ...buildChoiceCandidates("category", value),
+      ]
+        .filter((candidate) => typeof candidate === "string" && candidate.trim().length > 0)
+        .map((candidate) => candidate.trim());
+
+      return {
+        queryCandidates: [...new Set(queryCandidates)],
+        requiredBreadcrumbTerms: explicitPath.slice(0, -1),
+        preferredBreadcrumbTerms: explicitPath.slice(0, -1),
+        preferredLeafTerms:
+          explicitLeaf !== null
+            ? [explicitLeaf]
+            : buildChoiceCandidates("category", value),
+      };
+    }
+
     const normalizedValue = normalizeText(value);
     const exactPlan = PT_CATEGORY_SELECTION_PLANS[normalizedValue];
 
@@ -859,8 +1032,8 @@
     );
   }
 
-  async function selectCategoryValue(control, value) {
-    const plan = buildCategorySelectionPlan(value);
+  async function selectCategoryValue(control, value, categoryPlan) {
+    const plan = buildCategorySelectionPlan(value, categoryPlan);
     const searchControl = findCategorySearchInput(control);
 
     if (!searchControl) {
@@ -932,6 +1105,15 @@
       }
     }
 
+    if (DYNAMIC_CHOICE_CANDIDATES[fieldKey]?.exact) {
+      const normalizedValue = normalizeText(rawValue);
+      const exactCandidates = DYNAMIC_CHOICE_CANDIDATES[fieldKey].exact[normalizedValue];
+
+      if (Array.isArray(exactCandidates)) {
+        candidates.push(...exactCandidates);
+      }
+    }
+
     return [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
   }
 
@@ -961,9 +1143,74 @@
     return partialMatch instanceof HTMLElement ? partialMatch : null;
   }
 
-  async function selectChoiceValue(fieldKey, control, value) {
+  function findScopedOptionCandidate(root, value) {
+    const normalizedValue = normalizeText(value);
+    const scope =
+      root instanceof HTMLElement ? root : document.body;
+    const candidates = [...scope.querySelectorAll("[role='option'], [role='radio'], li, button, label, div")]
+      .filter((candidate) => candidate instanceof HTMLElement && isVisible(candidate));
+
+    const exactMatch = candidates.find((candidate) => {
+      return normalizeText(candidate.innerText || candidate.textContent) === normalizedValue;
+    });
+
+    if (exactMatch instanceof HTMLElement) {
+      return exactMatch;
+    }
+
+    const partialMatch = candidates.find((candidate) => {
+      return normalizeText(candidate.innerText || candidate.textContent).includes(
+        normalizedValue
+      );
+    });
+
+    return partialMatch instanceof HTMLElement ? partialMatch : null;
+  }
+
+  async function selectPackageSizeValue(control, value) {
+    const candidates = buildChoiceCandidates("logistics.packageSize", value);
+
+    if (candidates.length === 0) {
+      return {
+        ok: false,
+        detail: "No package size candidate was available.",
+      };
+    }
+
+    const scope =
+      control instanceof HTMLElement
+        ? control.closest("section, fieldset, form, div") ?? control
+        : document.body;
+
+    for (const choiceCandidate of candidates) {
+      const option = findScopedOptionCandidate(scope, choiceCandidate);
+
+      if (!option) {
+        continue;
+      }
+
+      option.click();
+      await wait(180);
+
+      return {
+        ok: true,
+        detail: `Selected package size option "${option.innerText || option.textContent || choiceCandidate}".`,
+      };
+    }
+
+    return {
+      ok: false,
+      detail: `No visible package-size option matched any of: ${candidates.join(", ")}.`,
+    };
+  }
+
+  async function selectChoiceValue(fieldKey, control, value, options) {
     if (fieldKey === "category" && getMarketCode() === "pt") {
-      return selectCategoryValue(control, value);
+      return selectCategoryValue(control, value, options?.categoryPlan ?? null);
+    }
+
+    if (fieldKey === "logistics.packageSize") {
+      return selectPackageSizeValue(control, value);
     }
 
     const candidates = buildChoiceCandidates(fieldKey, value);
@@ -1064,10 +1311,12 @@
 
   globalThis.VintedAutoFormAdapter = {
     resolveField,
+    resolveDynamicField,
     resolveImageInput,
     getPageState,
     waitForSupportedPage,
     setControlValue,
+    setCheckboxValue,
     setPriceValue,
     formatPriceForUi,
     selectChoiceValue,

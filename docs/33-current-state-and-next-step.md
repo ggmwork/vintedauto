@@ -1,6 +1,6 @@
 # Current State And Next Step
 
-Last updated: 2026-04-30
+Last updated: 2026-05-03
 
 ## Purpose
 
@@ -45,6 +45,7 @@ Implemented app surface:
 - Review queue and draft detail workflow
 - AI listing generation from item photos
 - editable title, description, metadata, keywords, and price fields
+- schema-driven Vinted PT profile fields in Draft review and Stock
 - export/copy panel for Vinted handoff text and JSON
 - `GET /api/drafts/[draftId]/vinted-handoff` for a stable extension payload
 - `GET /api/drafts/[draftId]/fill-on-vinted` to launch the supported Vinted create page
@@ -54,6 +55,7 @@ Implemented app surface:
 - unpacked Chrome MV3 extension with popup, service worker, and content script
 - direct route launch from the app plus popup-side drafted-stock picker in the extension
 - service-worker-owned image transport relay instead of content-script fetches
+- category-path and later-field handoff through `listing.profile`
 - multi-provider AI routing for Ollama, OpenAI, and Anthropic
 - AI settings page with task-specific provider/model config
 
@@ -78,6 +80,7 @@ Missing or still narrow pieces:
 - edit-listing support
 - market-generalization beyond the first supported create-listing flow
 - shipping, discounts, promo, and other advanced Vinted controls
+- more PT profile coverage beyond the first apparel branches
 
 ## Existing Docs For This Feature
 
@@ -98,19 +101,19 @@ These markdown files already cover the missing extension and API work:
 
 ## Main Gap
 
-The MVP handoff loop is present:
+The MVP handoff loop is present, including the first later-field profile layer:
 
 `draft -> stable payload API -> extension fill -> result callback -> queue continues`
 
 The next gap is survivability:
 
-`selector changes -> fast diagnosis -> fast repair`
+`real PT later-field selectors -> fast diagnosis -> fast repair`
 
 ## Recommended Next Step
 
-Build Phase I of the extension MVP plan:
+Build the next hardening pass for the new dynamic fields:
 
-`hardening and selector maintenance`
+`live PT validation and selector maintenance`
 
 Scope:
 
@@ -118,6 +121,7 @@ Scope:
 - add a repeatable DOM smoke-test checklist for the supported page
 - add clearer debug logging for field-match failures
 - capture market-specific overrides only when one shared selector path fails
+- verify package size, AI-photo checkbox, and measurement controls on live PT listings
 
 First acceptance criteria:
 
@@ -131,6 +135,7 @@ First acceptance criteria:
 This is the best next step because:
 
 - the MVP already proves the payload and fill loop
+- the dynamic profile model now proves the app/data contract too
 - Vinted DOM churn is now the main operational risk
 - selector maintenance is cheaper while the scope is still narrow
 - the manual-submit safety boundary stays intact

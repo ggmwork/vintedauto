@@ -101,6 +101,40 @@ function formatMetadataSection(payload: VintedListingPayload) {
   return metadataEntries.map(([label, value]) => `${label}: ${value}`).join("\n");
 }
 
+function formatProfileSection(payload: VintedListingPayload) {
+  if (!payload.listing.profile) {
+    return "No Vinted profile set.";
+  }
+
+  const fieldLines = payload.listing.profile.fields.map((fieldDefinition) => {
+    const rawValue = fieldDefinition.value;
+    const matchedOption =
+      typeof rawValue === "string"
+        ? fieldDefinition.options?.find((option) => option.value === rawValue)
+        : null;
+    const valueLabel =
+      rawValue === null || rawValue === undefined || rawValue === ""
+        ? "Not set"
+        : typeof rawValue === "boolean"
+          ? rawValue
+            ? "Yes"
+            : "No"
+        : matchedOption
+          ? matchedOption.label
+        : Array.isArray(rawValue)
+          ? rawValue.join(", ")
+          : String(rawValue);
+
+    return `${fieldDefinition.label}: ${valueLabel}`;
+  });
+
+  return [
+    `Profile: ${payload.listing.profile.label}`,
+    `Category path: ${payload.listing.profile.categoryPlan.path.join(" > ") || "Not set"}`,
+    ...fieldLines,
+  ].join("\n");
+}
+
 function formatPrice(payload: VintedListingPayload) {
   const suggestion = payload.listing.price;
 
@@ -132,6 +166,9 @@ function formatFullPackage(payload: VintedListingPayload) {
     "",
     "Metadata:",
     formatMetadataSection(payload),
+    "",
+    "Vinted profile:",
+    formatProfileSection(payload),
   ].join("\n");
 }
 

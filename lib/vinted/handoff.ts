@@ -1,4 +1,11 @@
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
+import {
+  formatVintedCategoryPathInput,
+  formatVintedFieldValue,
+  getVintedProfileMissingFieldKeys,
+  hydrateDraftVintedProfileState,
+  resolveVintedListingProfile,
+} from "@/lib/vinted/listing-profile";
 import type { DraftDetail } from "@/types/draft";
 import type { VintedListingPayload } from "@/types/vinted";
 
@@ -38,6 +45,7 @@ export function createVintedHandoffPayload(
     | "keywords"
     | "priceSuggestion"
     | "metadata"
+    | "vintedProfile"
     | "status"
     | "images"
     | "generation"
@@ -49,6 +57,14 @@ export function createVintedHandoffPayload(
     origin?: string | null;
   }
 ): VintedListingPayload {
+  const vintedProfileState = hydrateDraftVintedProfileState({
+    category: draft.metadata.category,
+    state: draft.vintedProfile,
+  });
+  const resolvedVintedProfile = resolveVintedListingProfile({
+    category: draft.metadata.category,
+    state: vintedProfileState,
+  });
   const readiness = getDraftReadiness({
     imageCount: draft.images.length,
     title: draft.title,
@@ -56,10 +72,15 @@ export function createVintedHandoffPayload(
     keywords: draft.keywords,
     metadata: draft.metadata,
     priceSuggestion: draft.priceSuggestion,
+    vintedProfile: vintedProfileState,
   });
+  const missingVintedFieldKeys = getVintedProfileMissingFieldKeys(
+    resolvedVintedProfile,
+    vintedProfileState
+  );
 
   return {
-    version: "2026-04-29",
+    version: "2026-05-03",
     marketplace: "vinted",
     source: {
       draftId: draft.id,
@@ -104,6 +125,19 @@ export function createVintedHandoffPayload(
         material: draft.metadata.material,
         notes: draft.metadata.notes,
       },
+      profile: {
+        market: resolvedVintedProfile.market,
+        profileKey: resolvedVintedProfile.profileKey,
+        label: resolvedVintedProfile.label,
+        description: resolvedVintedProfile.description,
+        categoryPlan:
+          vintedProfileState.categoryPlan ?? resolvedVintedProfile.categoryPlan,
+        missingRequiredFieldKeys: missingVintedFieldKeys,
+        fields: resolvedVintedProfile.dynamicFields.map((fieldDefinition) => ({
+          ...fieldDefinition,
+          value: vintedProfileState.fieldValues[fieldDefinition.key] ?? null,
+        })),
+      },
     },
     images: [...draft.images]
       .sort((left, right) => left.sortOrder - right.sortOrder)
@@ -127,6 +161,16 @@ export function createVintedHandoffPayload(
 
 export function formatVintedHandoffText(payload: VintedListingPayload) {
   const priceLabel = formatPriceLabel(payload);
+  const profileLines = payload.listing.profile
+    ? [
+        `Vinted profile: ${payload.listing.profile.label}`,
+        `Category path: ${formatVintedCategoryPathInput(payload.listing.profile.categoryPlan) || "Not set"}`,
+        ...payload.listing.profile.fields.map(
+          (fieldDefinition) =>
+            `${fieldDefinition.label}: ${formatVintedFieldValue(fieldDefinition, fieldDefinition.value)}`
+        ),
+      ]
+    : ["Vinted profile: Not set"];
 
   return [
     `Title: ${payload.listing.title ?? "Not set"}`,
@@ -145,6 +189,8 @@ export function formatVintedHandoffText(payload: VintedListingPayload) {
     "",
     "Notes:",
     payload.listing.metadata.notes ?? "No notes set.",
+    "",
+    ...profileLines,
   ].join("\n");
 }
 

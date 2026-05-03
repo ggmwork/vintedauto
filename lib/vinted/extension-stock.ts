@@ -1,8 +1,15 @@
 import { draftRepository } from "@/lib/drafts";
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import { studioSessionRepository } from "@/lib/intake";
+import {
+  formatVintedCategoryPathInput,
+  getVintedProfileMissingFieldKeys,
+  hydrateDraftVintedProfileState,
+  resolveVintedListingProfile,
+} from "@/lib/vinted/listing-profile";
 import type { DraftStatus, DraftVintedHandoffStatus } from "@/types/draft";
 import type { StudioSessionDetail } from "@/types/intake";
+import type { VintedProfileFieldKey } from "@/types/vinted-profile";
 
 export interface VintedExtensionStockItem {
   stockItemId: string;
@@ -16,6 +23,9 @@ export interface VintedExtensionStockItem {
   sourceLabel: string;
   updatedAt: string;
   handoffStatus: DraftVintedHandoffStatus;
+  vintedProfileLabel: string;
+  vintedCategoryPath: string | null;
+  vintedMissingRequiredFieldKeys: VintedProfileFieldKey[];
 }
 
 function getSourceLabel(session: StudioSessionDetail) {
@@ -61,6 +71,15 @@ export async function listVintedExtensionStockItems() {
         keywords: draft.keywords,
         metadata: draft.metadata,
         priceSuggestion: draft.priceSuggestion,
+        vintedProfile: draft.vintedProfile,
+      });
+      const vintedProfileState = hydrateDraftVintedProfileState({
+        category: draft.metadata.category,
+        state: draft.vintedProfile,
+      });
+      const resolvedVintedProfile = resolveVintedListingProfile({
+        category: draft.metadata.category,
+        state: vintedProfileState,
       });
 
       return {
@@ -75,6 +94,15 @@ export async function listVintedExtensionStockItems() {
         sourceLabel: getSourceLabel(session),
         updatedAt: draft.updatedAt,
         handoffStatus: draft.vintedHandoff.status,
+        vintedProfileLabel: resolvedVintedProfile.label,
+        vintedCategoryPath:
+          formatVintedCategoryPathInput(
+            vintedProfileState.categoryPlan ?? resolvedVintedProfile.categoryPlan
+          ) || null,
+        vintedMissingRequiredFieldKeys: getVintedProfileMissingFieldKeys(
+          resolvedVintedProfile,
+          vintedProfileState
+        ),
       } satisfies VintedExtensionStockItem;
     })
     )

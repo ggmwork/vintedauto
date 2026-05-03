@@ -27,6 +27,7 @@ import {
   uploadDraftImagesAction,
 } from "@/app/actions";
 import { DraftExportPanel } from "@/components/app/draft-export-panel";
+import { DraftVintedProfileSection } from "@/components/app/draft-vinted-profile-section";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { DraftStatusBadge } from "@/components/app/draft-status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -117,6 +118,14 @@ function formatReadinessItem(value: string) {
       return "category";
     case "condition":
       return "condition";
+    case "vinted:logistics.packageSize":
+      return "Vinted package size";
+    case "vinted:measurements.shoulderWidthCm":
+      return "Vinted shoulder width";
+    case "vinted:measurements.lengthCm":
+      return "Vinted length";
+    case "vinted:compliance.aiGeneratedPhotos":
+      return "Vinted AI-photo flag";
     default:
       return value;
   }
@@ -789,6 +798,11 @@ export function DraftDetailPage({
                           />
                         </div>
                       </div>
+
+                      <DraftVintedProfileSection
+                        draft={draft}
+                        inputClassName={inputClassName}
+                      />
 
                       <div className="flex flex-wrap justify-end gap-3">
                         {saveReviewAndNextAction ? (

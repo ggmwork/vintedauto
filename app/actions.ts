@@ -23,6 +23,14 @@ import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
 import { updateStoredAiSettings } from "@/lib/settings/ai-settings";
 import { draftImageStorage } from "@/lib/storage";
 import {
+  buildVintedFieldFormName,
+  buildVintedFieldPresenceName,
+  coerceDraftVintedFieldValue,
+  hydrateDraftVintedProfileState,
+  parseVintedCategoryPathInput,
+  resolveVintedListingProfile,
+} from "@/lib/vinted/listing-profile";
+import {
   ensureInboxWatcherRunning,
   scanInboxWatcherNow,
   stopInboxWatcher,
@@ -123,6 +131,71 @@ function parseMetadataFromForm(formData: FormData) {
     material: parseStringOrNull(formData.get("material")),
     notes: parseStringOrNull(formData.get("notes")),
   };
+}
+
+function parseVintedProfileFromForm(
+  draft: Pick<DraftDetail, "metadata" | "vintedProfile">,
+  metadata: DraftDetail["metadata"],
+  formData: FormData
+) {
+  const currentState = hydrateDraftVintedProfileState({
+    category: draft.metadata.category,
+    state: draft.vintedProfile,
+  });
+  const resolvedProfile = resolveVintedListingProfile({
+    category: metadata.category,
+    state: currentState,
+  });
+  const submittedSearchQuery = parseStringOrNull(
+    formData.get("vintedCategorySearchQuery")
+  );
+  const submittedCategoryPath = parseVintedCategoryPathInput(
+    parseStringOrNull(formData.get("vintedCategoryPath"))
+  );
+  const nextFieldValues = {
+    ...currentState.fieldValues,
+  };
+
+  for (const fieldDefinition of resolvedProfile.dynamicFields) {
+    const presenceMarker = formData.get(
+      buildVintedFieldPresenceName(fieldDefinition.key)
+    );
+
+    if (presenceMarker !== "1") {
+      continue;
+    }
+
+    nextFieldValues[fieldDefinition.key] = coerceDraftVintedFieldValue(
+      fieldDefinition,
+      formData.get(buildVintedFieldFormName(fieldDefinition.key))
+    );
+  }
+
+  return hydrateDraftVintedProfileState({
+    category: metadata.category,
+    state: {
+      ...currentState,
+      profileKey: resolvedProfile.profileKey,
+      categoryPlan:
+        submittedSearchQuery || submittedCategoryPath.length > 0
+          ? {
+              searchQuery:
+                submittedSearchQuery ?? resolvedProfile.categoryPlan.searchQuery,
+              path:
+                submittedCategoryPath.length > 0
+                  ? submittedCategoryPath
+                  : resolvedProfile.categoryPlan.path,
+            }
+          : resolvedProfile.categoryPlan.path.length > 0 ||
+              resolvedProfile.categoryPlan.searchQuery
+            ? {
+                searchQuery: resolvedProfile.categoryPlan.searchQuery,
+                path: resolvedProfile.categoryPlan.path,
+              }
+            : null,
+      fieldValues: nextFieldValues,
+    },
+  });
 }
 
 function readOptionalRelativePath(file: File) {
@@ -1131,6 +1204,7 @@ function getFallbackDraftStatus(
     | "keywords"
     | "metadata"
     | "priceSuggestion"
+    | "vintedProfile"
   >
 ) {
   const readiness = getDraftReadiness(draft);
@@ -1156,6 +1230,7 @@ function canTransitionToStatus(
     | "keywords"
     | "metadata"
     | "priceSuggestion"
+    | "vintedProfile"
   >,
   nextStatus: DraftStatus
 ) {
@@ -1375,6 +1450,7 @@ async function saveDraftReviewInternal(draftId: string, formData: FormData) {
   const description = parseStringOrNull(formData.get("description"));
   const keywords = parseKeywords(formData.get("keywords"));
   const metadata = parseMetadataFromForm(formData);
+  const vintedProfile = parseVintedProfileFromForm(draft, metadata, formData);
   const nextStatus = getFallbackDraftStatus({
     ...draft,
     title,
@@ -1382,6 +1458,7 @@ async function saveDraftReviewInternal(draftId: string, formData: FormData) {
     keywords,
     metadata,
     priceSuggestion,
+    vintedProfile,
   });
 
   await draftRepository.update(draftId, {
@@ -1392,6 +1469,7 @@ async function saveDraftReviewInternal(draftId: string, formData: FormData) {
     metadata,
     priceSuggestion,
     generation: draft.generation,
+    vintedProfile,
   });
 
   return {
@@ -1449,16 +1527,22 @@ export async function saveDraftMetadataAction(
   }
 
   const metadata = parseMetadataFromForm(formData);
+  const vintedProfile = hydrateDraftVintedProfileState({
+    category: metadata.category,
+    state: draft.vintedProfile,
+  });
 
   const nextStatus = getFallbackDraftStatus({
     ...draft,
     metadata,
+    vintedProfile,
   });
 
   await draftRepository.update(draftId, {
     status: nextStatus,
     metadata,
     generation: draft.generation,
+    vintedProfile,
   });
 
   redirectToDraft(draftId, {
