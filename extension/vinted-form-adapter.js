@@ -335,10 +335,20 @@
       };
     }
 
+    const hiddenControl = document.querySelector(selector);
+
+    if (hiddenControl instanceof HTMLInputElement) {
+      return {
+        control: hiddenControl,
+        matchedBy: `hidden selector ${selector}`,
+        detail: `Found hidden image input via ${selector}: ${describeControl(hiddenControl)}.`,
+      };
+    }
+
     return {
       control: null,
       matchedBy: null,
-      detail: `No visible image upload control matched ${selector}.`,
+      detail: `No image upload control matched ${selector}.`,
     };
   }
 

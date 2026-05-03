@@ -124,7 +124,7 @@ function renderPopupState(state) {
   if (elements.draftStatus) {
     elements.draftStatus.textContent = lastContext?.draftId
       ? `Draft ${lastContext.draftId}`
-      : "Open a draft from the app first.";
+      : "Open a ready draft in the app and click Fill on Vinted first.";
   }
 
   if (elements.fillStatus) {

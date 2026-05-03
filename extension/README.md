@@ -56,6 +56,11 @@ From a ready draft in the app:
 - the content script fills the page
 - the service worker posts the fill result back to `/api/drafts/:draftId/vinted-fill-result`
 
+Important:
+
+- the extension does not browse or load the Stock list by itself
+- it only works with the last ready draft handoff sent from the app
+
 ## Current scope
 
 - supported flow: create-listing page
