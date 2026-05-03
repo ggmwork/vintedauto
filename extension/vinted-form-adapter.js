@@ -83,6 +83,38 @@
     },
   };
 
+  const PT_CHOICE_CANDIDATES = {
+    category: {
+      exact: {
+        "men's shirts": ["Camisas"],
+        "mens shirts": ["Camisas"],
+        "coats & jackets": ["Casacos", "Casacos e blusoes"],
+      },
+      keywordRules: [
+        {
+          keywords: ["shirt", "shirts", "camisa", "camisas"],
+          candidates: ["Camisas"],
+        },
+        {
+          keywords: ["coat", "coats", "jacket", "jackets", "blazer", "blazers"],
+          candidates: ["Casacos", "Casacos e blusoes"],
+        },
+      ],
+    },
+    condition: {
+      exact: {
+        good: ["Bom"],
+        "very good": ["Muito bom"],
+        satisfactory: ["Satisfatorio"],
+        fair: ["Satisfatorio"],
+        "new with tags": ["Novo com etiqueta"],
+        "new without tags": ["Novo sem etiqueta"],
+        new: ["Novo"],
+      },
+      keywordRules: [],
+    },
+  };
+
   const CONTROL_SELECTOR = [
     "input:not([type='hidden']):not([type='file'])",
     "textarea",
@@ -148,6 +180,14 @@
 
       return false;
     });
+  }
+
+  function getMarketCode() {
+    if (window.location.hostname.endsWith(".pt")) {
+      return "pt";
+    }
+
+    return "default";
   }
 
   function findControlInContainer(container) {
@@ -482,14 +522,125 @@
     control.blur();
   }
 
-  function formatPriceForUi(amount) {
+  function readControlValue(control) {
+    if (
+      control instanceof HTMLInputElement ||
+      control instanceof HTMLTextAreaElement ||
+      control instanceof HTMLSelectElement
+    ) {
+      return control.value ?? "";
+    }
+
+    if (control instanceof HTMLElement) {
+      return control.innerText || control.textContent || "";
+    }
+
+    return "";
+  }
+
+  function normalizeNumericText(value) {
+    return String(value ?? "")
+      .replace(/\u00a0/g, " ")
+      .replace(/[^\d,.-]/g, "")
+      .trim();
+  }
+
+  function buildPriceCandidates(amount) {
     const numericValue = Number(amount);
 
     if (Number.isNaN(numericValue)) {
-      return "";
+      return [];
     }
 
-    return numericValue.toFixed(2).replace(".", ",");
+    return [...new Set([
+      Number.isInteger(numericValue) ? numericValue.toFixed(0) : String(numericValue),
+      numericValue.toFixed(2),
+      numericValue.toFixed(2).replace(".", ","),
+    ])];
+  }
+
+  function formatPriceForUi(amount) {
+    return buildPriceCandidates(amount)[0] ?? "";
+  }
+
+  async function setPriceValue(control, amount) {
+    const numericValue = Number(amount);
+
+    if (Number.isNaN(numericValue)) {
+      return {
+        ok: false,
+        detail: `Price amount "${amount}" is not numeric.`,
+      };
+    }
+
+    const candidates = buildPriceCandidates(numericValue);
+    let lastVisibleValue = "";
+
+    for (const candidate of candidates) {
+      setControlValue(control, "");
+      await wait(60);
+      setControlValue(control, candidate);
+      await wait(180);
+
+      lastVisibleValue = readControlValue(control);
+      const normalizedVisibleValue = normalizeText(lastVisibleValue);
+
+      if (normalizedVisibleValue.includes("nan")) {
+        continue;
+      }
+
+      const normalizedNumericValue = normalizeNumericText(lastVisibleValue);
+
+      if (!normalizedNumericValue) {
+        continue;
+      }
+
+      const parsedValue = Number(normalizedNumericValue.replace(",", "."));
+
+      if (!Number.isNaN(parsedValue) && Math.abs(parsedValue - numericValue) < 0.01) {
+        return {
+          ok: true,
+          detail: `Filled price using "${candidate}". Visible value is "${lastVisibleValue}".`,
+        };
+      }
+    }
+
+    return {
+      ok: false,
+      detail: `Price control rejected ${candidates.join(", ")}. Last visible value was "${lastVisibleValue || "empty"}".`,
+    };
+  }
+
+  function buildChoiceCandidates(fieldKey, value) {
+    const rawValue = String(value ?? "").trim();
+
+    if (!rawValue) {
+      return [];
+    }
+
+    const candidates = [rawValue];
+    const marketCode = getMarketCode();
+
+    if (marketCode === "pt" && PT_CHOICE_CANDIDATES[fieldKey]) {
+      const normalizedValue = normalizeText(rawValue);
+      const mapping = PT_CHOICE_CANDIDATES[fieldKey];
+
+      if (mapping.exact[normalizedValue]) {
+        candidates.push(...mapping.exact[normalizedValue]);
+      }
+
+      for (const rule of mapping.keywordRules) {
+        if (rule.keywords.some((keyword) => normalizedValue.includes(normalizeText(keyword)))) {
+          candidates.push(...rule.candidates);
+        }
+      }
+    }
+
+    return [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
+  }
+
+  function requiresVisibleOptionMatch(fieldKey) {
+    return fieldKey === "category" || fieldKey === "condition";
   }
 
   function findOptionCandidate(value) {
@@ -514,16 +665,27 @@
     return partialMatch instanceof HTMLElement ? partialMatch : null;
   }
 
-  async function selectChoiceValue(control, value) {
+  async function selectChoiceValue(fieldKey, control, value) {
+    const candidates = buildChoiceCandidates(fieldKey, value);
+
+    if (candidates.length === 0) {
+      return {
+        ok: false,
+        detail: "No candidate value was available for this choice field.",
+      };
+    }
+
     if (control instanceof HTMLSelectElement) {
-      const option = [...control.options].find((candidate) =>
-        textMatches(candidate.textContent, [value])
-      );
+      const option = candidates.flatMap((choiceCandidate) =>
+        [...control.options].filter((candidate) =>
+          textMatches(candidate.textContent, [choiceCandidate])
+        )
+      )[0];
 
       if (!option) {
         return {
           ok: false,
-          detail: `No select option matched "${value}".`,
+          detail: `No select option matched any of: ${candidates.join(", ")}.`,
         };
       }
 
@@ -538,24 +700,33 @@
     }
 
     if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
-      setControlValue(control, value);
-      await wait(350);
+      for (const choiceCandidate of candidates) {
+        setControlValue(control, choiceCandidate);
+        await wait(350);
 
-      const option = findOptionCandidate(value);
+        const option = findOptionCandidate(choiceCandidate);
 
-      if (option) {
-        option.click();
-        await wait(150);
+        if (option) {
+          option.click();
+          await wait(150);
 
+          return {
+            ok: true,
+            detail: `Typed "${choiceCandidate}" and selected visible option "${option.innerText || option.textContent || choiceCandidate}".`,
+          };
+        }
+      }
+
+      if (requiresVisibleOptionMatch(fieldKey)) {
         return {
-          ok: true,
-          detail: `Typed value and selected visible option "${option.innerText || option.textContent || value}".`,
+          ok: false,
+          detail: `Typed ${candidates.join(", ")}, but no visible option matched on the ${getMarketCode().toUpperCase()} page.`,
         };
       }
 
       return {
         ok: true,
-        detail: `Typed value "${value}" into a free-text or combobox control with no visible option match.`,
+        detail: `Typed value "${candidates[0]}" into a free-text or combobox control with no visible option match.`,
       };
     }
 
@@ -563,21 +734,25 @@
       control.click();
       await wait(250);
 
-      const option = findOptionCandidate(value);
+      for (const choiceCandidate of candidates) {
+        const option = findOptionCandidate(choiceCandidate);
 
-      if (!option) {
+        if (!option) {
+          continue;
+        }
+
+        option.click();
+        await wait(150);
+
         return {
-          ok: false,
-          detail: `Opened chooser but no visible option matched "${value}".`,
+          ok: true,
+          detail: `Opened chooser and selected "${option.innerText || option.textContent || choiceCandidate}".`,
         };
       }
 
-      option.click();
-      await wait(150);
-
       return {
-        ok: true,
-        detail: `Opened chooser and selected "${option.innerText || option.textContent || value}".`,
+        ok: false,
+        detail: `Opened chooser but no visible option matched any of: ${candidates.join(", ")}.`,
       };
     }
 
@@ -593,6 +768,7 @@
     getPageState,
     waitForSupportedPage,
     setControlValue,
+    setPriceValue,
     formatPriceForUi,
     selectChoiceValue,
   };

@@ -246,6 +246,53 @@ async function fillTextField(result, field, resolution, value) {
   logDebug(result, `Filled ${field}.`);
 }
 
+async function fillPriceField(result, resolution, amount) {
+  const adapter = getAdapter();
+  setFieldDiagnostic(result, "price", resolution);
+
+  if (amount === null || amount === undefined || amount === "") {
+    recordField(result, "skippedFields", "price");
+    setFieldDiagnostic(
+      result,
+      "price",
+      resolution,
+      "Skipped because the payload price amount is empty."
+    );
+    logDebug(result, "Skipped price: payload amount is empty.");
+    return;
+  }
+
+  if (
+    !(
+      resolution.control instanceof HTMLInputElement ||
+      resolution.control instanceof HTMLTextAreaElement
+    )
+  ) {
+    recordField(result, "failedFields", "price");
+    setFieldDiagnostic(
+      result,
+      "price",
+      resolution,
+      "Failed because no text input control was available."
+    );
+    logDebug(result, `Failed price: ${resolution.detail}`, "warn");
+    return;
+  }
+
+  const priceFill = await adapter.setPriceValue(resolution.control, amount);
+
+  if (priceFill.ok) {
+    recordField(result, "filledFields", "price");
+    setFieldDiagnostic(result, "price", resolution, priceFill.detail);
+    logDebug(result, `Filled price: ${priceFill.detail}`);
+    return;
+  }
+
+  recordField(result, "failedFields", "price");
+  setFieldDiagnostic(result, "price", resolution, priceFill.detail);
+  logDebug(result, `Failed price: ${priceFill.detail}`, "warn");
+}
+
 async function fillChoiceField(result, field, resolution, value) {
   const adapter = getAdapter();
   setFieldDiagnostic(result, field, resolution);
@@ -269,7 +316,7 @@ async function fillChoiceField(result, field, resolution, value) {
     return;
   }
 
-  const selection = await adapter.selectChoiceValue(resolution.control, value);
+  const selection = await adapter.selectChoiceValue(field, resolution.control, value);
 
   if (selection.ok) {
     recordField(result, "filledFields", field);
@@ -320,12 +367,7 @@ async function fillPageFieldsFromPayload(payload) {
     adapter.resolveField("description"),
     payload.listing.description
   );
-  await fillTextField(
-    result,
-    "price",
-    adapter.resolveField("price"),
-    adapter.formatPriceForUi(payload.listing.price.amount)
-  );
+  await fillPriceField(result, adapter.resolveField("price"), payload.listing.price.amount);
   await fillChoiceField(
     result,
     "brand",
