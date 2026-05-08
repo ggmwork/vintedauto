@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node ./tests/clean-test-build.cjs && tsc -p tsconfig.tests.json && node --require ./tests/register-path-alias.cjs --test \".test-build/tests/**/*.test.js\"",
     "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {

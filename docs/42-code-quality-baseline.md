@@ -56,6 +56,7 @@ Important app boundaries:
 
 Passed on 2026-05-08:
 
+- `corepack pnpm test`
 - `corepack pnpm lint`
 - `corepack pnpm typecheck`
 - `corepack pnpm build`
@@ -68,24 +69,23 @@ Environment gaps seen during analysis:
 ## Quality Strengths
 
 - Strict TypeScript is enabled.
-- Lint, typecheck, and production build pass.
+- Unit tests, lint, typecheck, and production build pass.
 - Product boundaries are well documented in `docs/`.
 - Vinted handoff payload is versioned.
 - Manual final submit boundary is preserved.
 - AI provider code has a clean routing layer.
+- Vinted profile resolution and handoff payload generation now have focused tests.
 - Vinted extension reports field-level diagnostics instead of one generic failure.
 - Local prototype data is ignored by git.
 
 ## Main Quality Risks
 
-### No automated tests
+### Automated tests are still narrow
 
-There are no unit, integration, or extension tests in the repo. Current safety depends on TypeScript, lint, build, docs, and manual smoke tests.
+The repo now has focused unit tests for Vinted profile resolution and handoff payload generation. Current safety still depends too much on TypeScript, lint, build, docs, and manual smoke tests.
 
-Recommended first tests:
+Recommended next tests:
 
-- pure unit tests for `lib/vinted/listing-profile.ts`
-- pure unit tests for `lib/vinted/handoff.ts`
 - repository normalization tests for `.data` migrations
 - extension adapter tests with static Vinted DOM fixtures
 
@@ -141,8 +141,8 @@ Do not widen scope yet.
 
 Best quality-focused next step:
 
-1. Add tests around Vinted profile resolution and handoff payload generation.
-2. Add extension DOM fixture tests for the supported PT create-listing page.
-3. Centralize atomic JSON persistence after the first tests exist.
+1. Add extension DOM fixture tests for the supported PT create-listing page.
+2. Add repository normalization tests for `.data` migrations.
+3. Centralize atomic JSON persistence after those tests exist.
 
 That sequence protects the most fragile contract before refactoring the app around it.
