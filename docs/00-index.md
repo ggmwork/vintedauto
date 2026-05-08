@@ -1,6 +1,6 @@
 # Vinted Auto Documentation Index
 
-Last updated: 2026-04-30
+Last updated: 2026-05-08
 
 This folder captures current product context, market research, MVP scope, and technical direction for the desktop-first Vinted listing assistant.
 
@@ -54,6 +54,7 @@ Documents:
 - [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md) - MVP field contract between the app and the extension
 - [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) - step-by-step implementation plan for the extension MVP and first handoff API endpoint
 - [33-current-state-and-next-step.md](./33-current-state-and-next-step.md) - current repo-state checkpoint and recommended next implementation step
+- [42-code-quality-baseline.md](./42-code-quality-baseline.md) - project identity, current verification status, and code-quality risk baseline
 
 Current product decision:
 
