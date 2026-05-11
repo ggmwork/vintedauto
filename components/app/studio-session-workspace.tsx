@@ -188,28 +188,13 @@ export function StudioSessionWorkspace({
                 </div>
 
                 <div className="grid gap-4 rounded-lg border border-border/70 bg-background px-4 py-4">
-                  <div className="grid gap-2">
-                    <label className="text-sm font-medium text-foreground">
-                      New stock item name
-                    </label>
-                    <input
-                      type="text"
-                      name="stockItemName"
-                      placeholder="Blue Nike hoodie"
-                      className={inputClassName}
-                    />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Start with one grouped item per product. Checked photos are the
-                    ones that move into the new or existing stock item.
-                  </p>
                   <div className="flex flex-wrap gap-3">
                     <PendingSubmitButton
                       type="submit"
                       pendingLabel="Creating stock item"
                     >
                       <BoxIcon data-icon="inline-start" />
-                      Create stock item
+                      Create item
                     </PendingSubmitButton>
                   </div>
                 </div>

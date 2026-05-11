@@ -8,15 +8,18 @@ import {
   RefreshCwIcon,
   SparklesIcon,
   SplitSquareVerticalIcon,
+  Trash2Icon,
 } from "lucide-react";
 
 import {
   assignSelectedPhotoAssetsToStockItemAction,
+  clearInboxStockItemsAction,
   clearInboxSuggestionsAction,
   commitCandidateClusterAction,
   createStockItemFromSelectionAction,
   dissolveCandidateClusterAction,
   generateStockItemDraftAction,
+  removeStockItemAction,
   pauseInboxWatcherAction,
   resumeInboxWatcherAction,
   saveInboxWatcherSettingsAction,
@@ -120,7 +123,7 @@ function buildClusterLabel(clusterEntry: InboxReviewCluster) {
   const firstPhotoAsset = clusterEntry.photoAssets[0];
 
   if (!firstPhotoAsset) {
-    return "Suggested stock item";
+    return "Suggested item";
   }
 
   return buildPhotoDescriptorLabel(firstPhotoAsset);
@@ -346,17 +349,6 @@ export function InboxPage({
                   </div>
 
                   <div className="grid gap-4 rounded-lg border border-border/70 bg-background px-4 py-4">
-                    <div className="grid gap-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Item name
-                      </label>
-                      <input
-                        type="text"
-                        name="stockItemName"
-                        placeholder="Blue Nike hoodie"
-                        className={inputClassName}
-                      />
-                    </div>
                     <div className="flex flex-wrap gap-3">
                       <PendingSubmitButton
                         type="submit"
@@ -450,7 +442,20 @@ export function InboxPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Items</CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>Items</CardTitle>
+                {watchedSession && draftableStockItems.length > 0 ? (
+                  <form action={clearInboxStockItemsAction.bind(null, watchedSession.id)}>
+                    <PendingSubmitButton
+                      type="submit"
+                      variant="outline"
+                      pendingLabel="Clearing items"
+                    >
+                      Clear all
+                    </PendingSubmitButton>
+                  </form>
+                ) : null}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {draftableStockItems.length === 0 ? (
@@ -503,6 +508,23 @@ export function InboxPage({
                       >
                         Add selected here
                       </PendingSubmitButton>
+                      <form
+                        action={removeStockItemAction.bind(
+                          null,
+                          stockItem.sessionId,
+                          stockItem.id,
+                          "inbox"
+                        )}
+                      >
+                        <PendingSubmitButton
+                          type="submit"
+                          variant="outline"
+                          pendingLabel="Removing item"
+                        >
+                          <Trash2Icon data-icon="inline-start" />
+                          Remove
+                        </PendingSubmitButton>
+                      </form>
                     </div>
                   </div>
                 ))
@@ -611,24 +633,12 @@ function ReviewClusterCard({
           )}
           className="grid gap-3"
         >
-        <div className="grid gap-2">
-          <label className="text-sm font-medium text-foreground">
-            Item name
-          </label>
-          <input
-            type="text"
-            name="stockItemName"
-            defaultValue={clusterEntry.cluster.name ?? ""}
-            placeholder="Optional rename before commit"
-            className={inputClassName}
-          />
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <PendingSubmitButton type="submit" pendingLabel="Committing cluster">
-            <SparklesIcon data-icon="inline-start" />
-            Create item from suggestion
-          </PendingSubmitButton>
-        </div>
+          <div className="flex flex-wrap gap-3">
+            <PendingSubmitButton type="submit" pendingLabel="Committing cluster">
+              <SparklesIcon data-icon="inline-start" />
+              Create item from suggestion
+            </PendingSubmitButton>
+          </div>
         </form>
 
         <form

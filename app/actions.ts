@@ -20,6 +20,7 @@ import {
   runSessionAutoGrouping,
 } from "@/lib/grouping";
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
+import { isDefaultStockItemName } from "@/lib/intake/stock-item-names";
 import { updateStoredAiSettings } from "@/lib/settings/ai-settings";
 import { draftImageStorage } from "@/lib/storage";
 import {
@@ -89,6 +90,16 @@ function parseStringArray(values: FormDataEntryValue[]) {
     .filter((value): value is string => typeof value === "string")
     .map((value) => value.trim())
     .filter(Boolean);
+}
+
+function isNextRedirectError(error: unknown) {
+  if (!error || typeof error !== "object" || !("digest" in error)) {
+    return false;
+  }
+
+  const digest = (error as { digest?: unknown }).digest;
+
+  return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
 }
 
 function parseOptionalInteger(value: FormDataEntryValue | null) {
@@ -557,10 +568,20 @@ async function generateDraftFromStockItem(
       marketplace: "vinted",
     });
 
-    await draftRepository.saveGeneration({
+    const generatedDraft = await draftRepository.saveGeneration({
       draftId: draft.id,
       generation,
     });
+
+    const generatedTitle = generatedDraft.title?.trim();
+
+    if (generatedTitle && isDefaultStockItemName(stockItem.name)) {
+      await studioSessionRepository.renameStockItem({
+        sessionId: session.id,
+        stockItemId: stockItem.id,
+        name: generatedTitle,
+      });
+    }
 
     return {
       draftId: draft.id,
@@ -806,6 +827,39 @@ export async function clearInboxSuggestionsAction(sessionId: string) {
   });
 }
 
+export async function clearInboxStockItemsAction(sessionId: string) {
+  const session = await studioSessionRepository.getById(sessionId);
+
+  if (!session) {
+    redirectToHome({
+      error: "Inbox session not found.",
+    });
+  }
+
+  const stockItemsToClear = session.stockItems.filter(
+    (stockItem) => stockItem.draftId === null
+  );
+
+  if (stockItemsToClear.length === 0) {
+    redirectAfterSessionStockAction(session.id, "inbox", {
+      flash: "No items to clear.",
+      focus: "inbox",
+    });
+  }
+
+  for (const stockItem of stockItemsToClear) {
+    await studioSessionRepository.removeStockItem({
+      sessionId: session.id,
+      stockItemId: stockItem.id,
+    });
+  }
+
+  redirectAfterSessionStockAction(session.id, "inbox", {
+    flash: `Cleared ${stockItemsToClear.length} item${stockItemsToClear.length === 1 ? "" : "s"} back into Inbox.`,
+    focus: "inbox",
+  });
+}
+
 export async function commitCandidateClusterAction(
   sessionId: string,
   candidateClusterId: string,
@@ -818,10 +872,14 @@ export async function commitCandidateClusterAction(
     await commitCandidateCluster(sessionId, candidateClusterId, name);
 
     redirectAfterSessionStockAction(sessionId, returnTo, {
-      flash: "Committed candidate cluster to Stock.",
+      flash: "Created item from suggestion.",
       focus: getStockRedirectFocus(returnTo),
     });
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     redirectAfterSessionStockAction(sessionId, returnTo, {
       error:
         error instanceof Error
@@ -840,10 +898,14 @@ export async function dissolveCandidateClusterAction(
     await dissolveCandidateCluster(sessionId, candidateClusterId);
 
     redirectAfterSessionStockAction(sessionId, returnTo, {
-      flash: "Dissolved candidate cluster back into loose photos.",
+      flash: "Sent suggestion back to Inbox.",
       focus: getStockRedirectFocus(returnTo),
     });
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     redirectAfterSessionStockAction(sessionId, returnTo, {
       error:
         error instanceof Error
@@ -879,6 +941,10 @@ export async function createStockItemFromSelectionAction(
       focus: getStockRedirectFocus(returnTo),
     });
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     redirectAfterSessionStockAction(sessionId, returnTo, {
       error:
         error instanceof Error
@@ -915,6 +981,10 @@ export async function assignSelectedPhotoAssetsToStockItemAction(
       focus: getStockRedirectFocus(returnTo),
     });
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     redirectAfterSessionStockAction(sessionId, returnTo, {
       error:
         error instanceof Error
@@ -952,6 +1022,10 @@ export async function removeStockItemAction(
       focus: getStockRedirectFocus(returnTo),
     });
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     redirectAfterSessionStockAction(sessionId, returnTo, {
       error:
         error instanceof Error ? error.message : "Failed to remove the stock item.",
@@ -984,6 +1058,10 @@ export async function renameStockItemAction(
       flash: `Renamed stock item to ${name}.`,
     });
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     redirectAfterSessionStockAction(sessionId, returnTo, {
       error:
         error instanceof Error ? error.message : "Failed to rename the stock item.",
@@ -1017,6 +1095,10 @@ export async function releasePhotoAssetsFromStockItemAction(
       focus: getStockRedirectFocus(returnTo),
     });
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     redirectAfterSessionStockAction(sessionId, returnTo, {
       error:
         error instanceof Error
@@ -1043,6 +1125,10 @@ export async function setStockItemCoverPhotoAction(
       flash: "Cover image updated.",
     });
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     redirectAfterSessionStockAction(sessionId, returnTo, {
       error:
         error instanceof Error ? error.message : "Failed to update the cover image.",
@@ -1137,6 +1223,10 @@ export async function generateStockItemDraftAction(
       flash: "Created one linked draft from the stock item.",
     });
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     redirectAfterSessionStockAction(sessionId, returnTo, {
       error:
         error instanceof Error ? error.message : "Failed to generate the stock item draft.",

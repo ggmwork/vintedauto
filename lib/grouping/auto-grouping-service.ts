@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { getPhotoDescriptorService } from "@/lib/ai";
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
+import { createStockItemName } from "@/lib/intake/stock-item-names";
 import { buildFallbackDescriptor } from "@/lib/grouping/photo-descriptor-service";
 import type {
   CandidateCluster,
@@ -442,7 +443,10 @@ function commitClusterToStock(
   nameOverride?: string | null
 ) {
   const now = new Date().toISOString();
-  const clusterName = nameOverride?.trim() || clusterDraft.name || `Stock item ${session.stockItems.length + 1}`;
+  const clusterName = createStockItemName(
+    nameOverride,
+    session.stockItems.map((stockItem) => stockItem.name)
+  );
   const existingStockItem = findReusableStockItem(session, clusterName);
   const stockItemId = existingStockItem?.id ?? randomUUID();
   const linkedCandidateClusterId = clusterDraft.id;

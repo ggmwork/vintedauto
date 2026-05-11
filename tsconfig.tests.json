@@ -14,6 +14,7 @@
   },
   "include": [
     "tests/**/*.ts",
+    "lib/intake/stock-item-names.ts",
     "lib/vinted/listing-profile.ts",
     "lib/vinted/handoff.ts",
     "lib/drafts/draft-readiness.ts",

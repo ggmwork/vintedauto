@@ -334,6 +334,7 @@ function StockEntryCard({
           linkedDraftProfileState
         )
       : [];
+  const displayTitle = linkedDraft?.title?.trim() || entry.stockItem.name;
 
   return (
     <Card className="overflow-hidden">
@@ -341,7 +342,7 @@ function StockEntryCard({
         <div className="relative aspect-[4/3] bg-muted">
           <Image
             src={`/api/sessions/${entry.sessionId}/photos/${entry.stockItem.coverPhotoAssetId}`}
-            alt={entry.stockItem.name}
+            alt={displayTitle}
             fill
             sizes="(min-width: 1280px) 35vw, 100vw"
             className="object-cover"
@@ -353,7 +354,7 @@ function StockEntryCard({
       <CardHeader className="gap-3">
         <div className="flex items-center justify-between gap-3">
           <div className="space-y-1">
-            <CardTitle className="truncate">{entry.stockItem.name}</CardTitle>
+            <CardTitle className="truncate">{displayTitle}</CardTitle>
             <CardDescription>
               {entry.sourceType === "watched-folder" ? "Watched folder" : "Manual import"}:{" "}
               {entry.sourceLabel}

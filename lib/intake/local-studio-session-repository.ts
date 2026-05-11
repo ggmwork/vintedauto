@@ -28,6 +28,7 @@ import type {
   SetStockItemCoverPhotoInput,
   StudioSessionRepository,
 } from "./studio-session-repository";
+import { createStockItemName } from "./stock-item-names";
 
 interface StudioSessionStore {
   sessions: StudioSessionDetail[];
@@ -59,17 +60,6 @@ function createSessionName(value: string | null | undefined) {
   }).format(new Date());
 
   return `Studio session ${timestamp}`;
-}
-
-function createStockItemName(
-  value: string | null | undefined,
-  existingCount: number
-) {
-  if (value?.trim()) {
-    return value.trim();
-  }
-
-  return `Stock item ${existingCount + 1}`;
 }
 
 function normalizeConfidence(value: unknown): GroupingConfidence {
@@ -169,7 +159,7 @@ function normalizeStockItems(
     .map((stockItem): StockItem => ({
       id: typeof stockItem.id === "string" ? stockItem.id : randomUUID(),
       sessionId,
-      name: createStockItemName(stockItem.name, 0),
+      name: createStockItemName(stockItem.name, []),
       coverPhotoAssetId:
         typeof stockItem.coverPhotoAssetId === "string" &&
         stockItem.coverPhotoAssetId.length > 0
@@ -736,7 +726,10 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       const stockItem: StockItem = {
         id: randomUUID(),
         sessionId: session.id,
-        name: createStockItemName(input.name, session.stockItems.length),
+        name: createStockItemName(
+          input.name,
+          session.stockItems.map((stockItem) => stockItem.name)
+        ),
         coverPhotoAssetId: selectedIds[0] ?? null,
         photoAssetIds: selectedIds,
         draftId: null,
