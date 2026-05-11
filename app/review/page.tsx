@@ -50,12 +50,12 @@ export default async function ReviewQueueRoute({
       <main className="flex-1 bg-muted/20">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 py-8 lg:px-8">
           <section className="space-y-2">
-            <Badge variant="secondary">Review</Badge>
+            <Badge variant="secondary">Listings</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              No drafts in this queue.
+              No listings in this view.
             </h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Switch queue state or return to Stock until new items are ready.
+              Switch status or return to Workbench until new items are ready.
             </p>
           </section>
 
@@ -75,9 +75,9 @@ export default async function ReviewQueueRoute({
 
           <Card>
             <CardHeader>
-              <CardTitle>Queue empty</CardTitle>
+              <CardTitle>Nothing needs review here</CardTitle>
               <CardDescription>
-                The selected queue has no drafts right now.
+                The selected listing view is empty right now.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -87,8 +87,8 @@ export default async function ReviewQueueRoute({
               </div>
             </CardContent>
             <CardContent className="pt-0">
-              <Link href="/stock" className={buttonVariants({ variant: "outline" })}>
-                Open Stock
+              <Link href="/" className={buttonVariants({ variant: "outline" })}>
+                Open Workbench
               </Link>
             </CardContent>
           </Card>

@@ -180,12 +180,12 @@ export function DraftListPage({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 lg:px-8">
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-2">
-            <Badge variant="secondary">Drafts</Badge>
+            <Badge variant="secondary">Listings</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Secondary draft list.
+              Listing archive.
             </h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Most work should start in Inbox and Stock. Keep this page for manual checks and edge cases.
+              Most work starts in Workbench. Keep this page for manual checks and edge cases.
             </p>
           </div>
 
@@ -197,13 +197,13 @@ export function DraftListPage({
               variant="outline"
             >
               <PlusIcon data-icon="inline-start" />
-              Create manual draft
+              Create manual listing
             </PendingSubmitButton>
           </form>
         </section>
 
         <section className="flex flex-wrap gap-2">
-          <Badge variant="outline">{stats.total} drafts</Badge>
+          <Badge variant="outline">{stats.total} listings</Badge>
           <Badge variant="outline">{stats.generated} generated</Badge>
           <Badge variant="outline">{stats.readyForHandoff} ready</Badge>
           <Badge variant="outline">{stats.byStatus.listed} listed</Badge>
@@ -212,19 +212,19 @@ export function DraftListPage({
 
         <section className="space-y-4">
           <div className="flex flex-col gap-1">
-            <h2 className="font-heading text-2xl font-semibold">Drafts</h2>
+            <h2 className="font-heading text-2xl font-semibold">Listings</h2>
             <p className="text-sm text-muted-foreground">
               {filteredDrafts.length === drafts.length
-                ? `${drafts.length} draft${drafts.length === 1 ? "" : "s"} available.`
-                : `${filteredDrafts.length} of ${drafts.length} drafts shown.`}
+                ? `${drafts.length} listing${drafts.length === 1 ? "" : "s"} available.`
+                : `${filteredDrafts.length} of ${drafts.length} listings shown.`}
             </p>
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>Browse drafts</CardTitle>
+              <CardTitle>Browse listings</CardTitle>
               <CardDescription>
-                Search, filter, apply, then open the next draft that needs work.
+                Search, filter, apply, then open the next listing that needs work.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -304,14 +304,14 @@ export function DraftListPage({
               <CardContent>
                 <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-4 text-sm text-muted-foreground">
                   <FolderOpenDotIcon className="size-4" />
-                  Draft list is empty.
+                  Listing list is empty.
                 </div>
               </CardContent>
               <CardFooter>
                 <form action={createDraftAction}>
                   <PendingSubmitButton type="submit" pendingLabel="Creating draft">
                     <PlusIcon data-icon="inline-start" />
-                    Create first draft
+                    Create first listing
                   </PendingSubmitButton>
                 </form>
               </CardFooter>
@@ -321,7 +321,7 @@ export function DraftListPage({
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
                   <SearchIcon className="size-4" />
-                  No drafts match the current search and filter settings.
+                  No listings match the current search and filter settings.
                 </div>
               </CardContent>
             </Card>
@@ -336,7 +336,7 @@ export function DraftListPage({
                     <CardHeader className="gap-3">
                       <div className="flex items-center justify-between gap-3">
                         <CardTitle className="truncate">
-                          {draft.title ?? "Untitled draft"}
+                          {draft.title ?? "Untitled listing"}
                         </CardTitle>
                         <DraftStatusBadge status={draft.status} />
                       </div>
@@ -390,7 +390,7 @@ export function DraftListPage({
                         href={`/drafts/${draft.id}`}
                         className={buttonVariants({ variant: "outline" })}
                       >
-                        Open draft
+                        Open listing
                       </Link>
                     </CardContent>
                   </Card>

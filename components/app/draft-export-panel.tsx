@@ -324,8 +324,7 @@ export function DraftExportPanel({
           <div className="space-y-1">
             <CardTitle>Export for Vinted</CardTitle>
             <CardDescription>
-              Copy the full handoff first. Use the advanced copies only when
-              you need a single field.
+              Fill Vinted when the listing is ready. Copy fallback stays in advanced.
             </CardDescription>
           </div>
           <Badge variant={readiness.ready ? "default" : "outline"}>
@@ -416,7 +415,7 @@ export function DraftExportPanel({
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="flex flex-wrap gap-3">
           <Button
             type="button"
             disabled={!readiness.ready}
@@ -439,10 +438,11 @@ export function DraftExportPanel({
             <Button
               type="button"
               disabled={handoffText.trim().length === 0 || !readiness.ready}
+              variant="outline"
               onClick={handleCopyAndAdvance}
             >
               <ClipboardCopyIcon data-icon="inline-start" />
-              Copy and next
+              Copy fallback and next
             </Button>
           ) : null}
           <Button
@@ -454,27 +454,7 @@ export function DraftExportPanel({
             }
           >
             <ClipboardCopyIcon data-icon="inline-start" />
-            Copy Vinted handoff
-          </Button>
-          <Button
-            type="button"
-            disabled={primaryItems[1].value.trim().length === 0}
-            variant={lastCopied === "full-package" ? "default" : "outline"}
-            onClick={() => handleCopy(primaryItems[1])}
-          >
-            <FileTextIcon data-icon="inline-start" />
-            Copy full package
-          </Button>
-          <Button
-            type="button"
-            disabled={handoffJson.trim().length === 0}
-            variant={lastCopied === "vinted-json" ? "default" : "outline"}
-            onClick={() =>
-              handleCopy(primaryItems.find((item) => item.key === "vinted-json")!)
-            }
-          >
-            <FileJsonIcon data-icon="inline-start" />
-            Copy autofill JSON
+            Copy fallback
           </Button>
         </div>
 
@@ -494,43 +474,65 @@ export function DraftExportPanel({
         ) : (
           <p className="text-sm text-muted-foreground">
             {readiness.ready
-              ? "Listing is ready. Fill on Vinted opens the supported create-listing page for the extension."
+              ? "Listing is ready. Fill on Vinted opens the supported create-listing page."
               : `Still missing ${readiness.missing.join(", ")}.`}
           </p>
         )}
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <TagsIcon className="size-4" />
-            Vinted handoff preview
-          </div>
-          <textarea
-            readOnly
-            value={handoffText}
-            className="min-h-72 w-full resize-y rounded-lg border border-border bg-background px-3 py-3 text-sm leading-6 text-foreground outline-none"
-          />
-        </div>
-
         <details className="rounded-lg border border-border bg-background">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-foreground">
-            Advanced field copies
+            Advanced copy fallback
             <ChevronDownIcon className="size-4 text-muted-foreground" />
           </summary>
-          <div className="grid gap-3 border-t border-border px-4 py-4 sm:grid-cols-2 xl:grid-cols-4">
-            {advancedItems.map((item) => (
+          <div className="space-y-4 border-t border-border px-4 py-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <Button
-                key={item.key}
                 type="button"
-                variant={lastCopied === item.key ? "default" : "outline"}
-                disabled={item.value.trim().length === 0}
-                onClick={() => handleCopy(item)}
+                disabled={primaryItems[1].value.trim().length === 0}
+                variant={lastCopied === "full-package" ? "default" : "outline"}
+                onClick={() => handleCopy(primaryItems[1])}
               >
-                <ClipboardCopyIcon data-icon="inline-start" />
-                Copy {item.label}
+                <FileTextIcon data-icon="inline-start" />
+                Copy full package
               </Button>
-            ))}
+              <Button
+                type="button"
+                disabled={handoffJson.trim().length === 0}
+                variant={lastCopied === "vinted-json" ? "default" : "outline"}
+                onClick={() =>
+                  handleCopy(primaryItems.find((item) => item.key === "vinted-json")!)
+                }
+              >
+                <FileJsonIcon data-icon="inline-start" />
+                Copy autofill JSON
+              </Button>
+              {advancedItems.map((item) => (
+                <Button
+                  key={item.key}
+                  type="button"
+                  variant={lastCopied === item.key ? "default" : "outline"}
+                  disabled={item.value.trim().length === 0}
+                  onClick={() => handleCopy(item)}
+                >
+                  <ClipboardCopyIcon data-icon="inline-start" />
+                  Copy {item.label}
+                </Button>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <TagsIcon className="size-4" />
+                Vinted handoff preview
+              </div>
+              <textarea
+                readOnly
+                value={handoffText}
+                className="min-h-72 w-full resize-y rounded-lg border border-border bg-background px-3 py-3 text-sm leading-6 text-foreground outline-none"
+              />
+            </div>
           </div>
         </details>
       </CardContent>

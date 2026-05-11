@@ -277,14 +277,14 @@ export function DraftDetailPage({
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="secondary">
                           <ListChecksIcon data-icon="inline-start" />
-                          Review queue
+                          Listing queue
                         </Badge>
                         <Badge variant="outline">
                           {queueContext.position} of {queueContext.total}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Stay in one queue and move draft by draft without going back to the grid.
+                        Move listing by listing without going back to the grid.
                       </p>
                     </div>
 
@@ -293,7 +293,7 @@ export function DraftDetailPage({
                         href={queueContext.queueRootHref}
                         className={buttonVariants({ variant: "outline" })}
                       >
-                        Queue home
+                        Listings
                       </Link>
                       {queueContext.previousHref ? (
                         <Link
@@ -343,17 +343,17 @@ export function DraftDetailPage({
                     href="/drafts"
                     className={buttonVariants({ variant: "outline" })}
                   >
-                    Draft list
+                    Listing list
                   </Link>
                 ) : null}
               </div>
 
               <div className="space-y-2">
                 <h1 className="font-heading text-3xl font-semibold text-balance">
-                  {draft.title ?? "New draft"}
+                  {draft.title ?? "New listing"}
                 </h1>
                 <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Keep the next action obvious: upload, generate, review, then copy.
+                  Keep the next action obvious: photos, listing text, Vinted fill.
                 </p>
               </div>
             </section>
@@ -843,7 +843,7 @@ export function DraftDetailPage({
                 <div className="space-y-1">
                   <Badge variant="secondary">Step 4</Badge>
                   <h2 className="font-heading text-2xl font-semibold">
-                    Export to Vinted
+                    Fill Vinted
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     Copy the full handoff once the draft looks right.
@@ -987,7 +987,7 @@ export function DraftDetailPage({
           <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
             <Card>
               <CardHeader>
-                <CardTitle>Draft summary</CardTitle>
+                  <CardTitle>Listing summary</CardTitle>
                 <CardDescription>{getStepCopy(draft)}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -1083,7 +1083,7 @@ export function DraftDetailPage({
 
                 <details className="rounded-lg border border-border bg-background">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-foreground">
-                    Draft details
+                    Advanced listing details
                     <ChevronDownIcon className="size-4 text-muted-foreground" />
                   </summary>
                   <div className="space-y-3 border-t border-border px-4 py-4 text-sm">

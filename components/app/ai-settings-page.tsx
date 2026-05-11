@@ -208,13 +208,12 @@ export function AiSettingsPage({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 lg:px-8">
         <section className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-2">
-            <Badge variant="secondary">AI</Badge>
+            <Badge variant="secondary">Settings</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Switch providers without touching env files.
+              Configure AI helpers.
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Route listing and grouping to different models. For local use,
-              both tasks need vision-capable models.
+              Keep daily selling in Workbench. Tune model routing here only when setup changes.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">

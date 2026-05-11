@@ -16,6 +16,7 @@ import {
   commitCandidateClusterAction,
   createStockItemFromSelectionAction,
   dissolveCandidateClusterAction,
+  generateStockItemDraftAction,
   pauseInboxWatcherAction,
   resumeInboxWatcherAction,
   saveInboxWatcherSettingsAction,
@@ -155,14 +156,21 @@ export function InboxPage({
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8 lg:px-8">
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-2">
-            <Badge variant="secondary">Inbox</Badge>
+            <Badge variant="secondary">Workbench</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Drop photos in one folder. Group the item here.
+              Turn photos into Vinted listings.
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Import is automatic. Manual grouping is the default. Suggestions stay optional.
+              Select photos for one item, create it, then generate the listing.
             </p>
           </div>
+
+          <form action={scanInboxWatcherNowAction}>
+            <PendingSubmitButton type="submit" size="lg" pendingLabel="Scanning photos">
+              <RefreshCwIcon data-icon="inline-start" />
+              Scan photos
+            </PendingSubmitButton>
+          </form>
         </section>
 
         {feedback.error ? (
@@ -177,159 +185,147 @@ export function InboxPage({
           </div>
         ) : null}
 
-        <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <section>
           <Card>
-            <CardHeader>
-              <CardTitle>Watched folder</CardTitle>
-              <CardDescription>
-                Keep one desktop folder as the intake inbox. New photos land here while
-                the app is open.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <form action={saveInboxWatcherSettingsAction} className="grid gap-4">
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Folder path
-                  </label>
-                  <input
-                    type="text"
-                    name="folderPath"
-                    defaultValue={inbox.watcher.config.folderPath}
-                    className={inputClassName}
-                  />
+            <CardContent className="space-y-4 pt-1">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={
+                        inbox.watcher.health === "error"
+                          ? "destructive"
+                          : inbox.watcher.health === "scanning" || inbox.watcher.running
+                            ? "default"
+                            : "secondary"
+                      }
+                    >
+                      {getWatcherStatusLabel(inbox.watcher.health, inbox.watcher.running)}
+                    </Badge>
+                    <Badge variant="outline">
+                      {inbox.loosePhotoAssets.length} photo
+                      {inbox.loosePhotoAssets.length === 1 ? "" : "s"} to group
+                    </Badge>
+                    <Badge variant="outline">
+                      {draftableStockItems.length} item
+                      {draftableStockItems.length === 1 ? "" : "s"} ready
+                    </Badge>
+                  </div>
+                  <p className="truncate text-sm text-muted-foreground">
+                    {inbox.watcher.config.folderPath}
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <PendingSubmitButton type="submit" pendingLabel="Saving folder">
-                    <FolderSyncIcon data-icon="inline-start" />
-                    Save folder
-                  </PendingSubmitButton>
+                  <form action={scanInboxWatcherNowAction}>
+                    <PendingSubmitButton
+                      type="submit"
+                      pendingLabel="Scanning photos"
+                      variant="outline"
+                    >
+                      <RefreshCwIcon data-icon="inline-start" />
+                      Scan photos
+                    </PendingSubmitButton>
+                  </form>
                   <CopyTextButton
                     value={inbox.watcher.config.folderPath}
-                    label="Copy path"
+                    label="Copy folder path"
                   />
                 </div>
-              </form>
-
-              <div className="flex flex-wrap gap-3">
-                <form action={resumeInboxWatcherAction}>
-                  <PendingSubmitButton
-                    type="submit"
-                    pendingLabel="Resuming watcher"
-                    variant={inbox.watcher.running ? "outline" : "default"}
-                  >
-                    <PlayIcon data-icon="inline-start" />
-                    {inbox.watcher.running ? "Watching" : "Resume watcher"}
-                  </PendingSubmitButton>
-                </form>
-
-                <form action={pauseInboxWatcherAction}>
-                  <PendingSubmitButton
-                    type="submit"
-                    pendingLabel="Pausing watcher"
-                    variant="outline"
-                    disabled={!inbox.watcher.config.enabled}
-                  >
-                    <PauseIcon data-icon="inline-start" />
-                    Pause
-                  </PendingSubmitButton>
-                </form>
-
-                <form action={scanInboxWatcherNowAction}>
-                  <PendingSubmitButton
-                    type="submit"
-                    pendingLabel="Scanning now"
-                    variant="outline"
-                  >
-                    <RefreshCwIcon data-icon="inline-start" />
-                    Scan now
-                  </PendingSubmitButton>
-                </form>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Watcher</CardTitle>
-              <CardDescription>
-                Auto import runs here. Grouping stays manual unless you ask for a suggestion.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              <div className="flex flex-wrap gap-2">
-                <Badge
-                  variant={
-                    inbox.watcher.health === "error"
-                      ? "destructive"
-                      : inbox.watcher.health === "scanning" || inbox.watcher.running
-                        ? "default"
-                        : "secondary"
-                  }
-                >
-                  {getWatcherStatusLabel(inbox.watcher.health, inbox.watcher.running)}
-                </Badge>
-                <Badge variant="outline">{inbox.autoStockedItemsCount} stock</Badge>
-                <Badge variant="outline">
-                  {inbox.pendingReviewClusterCount} review cluster
-                  {inbox.pendingReviewClusterCount === 1 ? "" : "s"}
-                </Badge>
-                <Badge variant="outline">
-                  {inbox.loosePhotoAssets.length} loose photo
-                  {inbox.loosePhotoAssets.length === 1 ? "" : "s"}
-                </Badge>
-                <Badge variant="outline">
-                  {inbox.draftedStockItemsCount} drafted
-                </Badge>
               </div>
 
-              <dl className="grid gap-2">
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-foreground">Last start</dt>
-                  <dd>{formatDate(inbox.watcher.lastStartedAt)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-foreground">Last event</dt>
-                  <dd>{formatDate(inbox.watcher.lastEventAt)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-foreground">Last scan</dt>
-                  <dd>{formatDate(inbox.watcher.lastScanAt)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-foreground">Last import</dt>
-                  <dd>{formatDate(inbox.watcher.lastImportAt)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <dt className="text-muted-foreground">Imported files</dt>
-                  <dd>{inbox.watcher.importedFileCount}</dd>
-                </div>
-              </dl>
+              <details className="rounded-lg border border-border bg-background">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
+                  Advanced folder and watcher details
+                </summary>
+                <div className="space-y-5 border-t border-border px-4 py-4">
+                  <form action={saveInboxWatcherSettingsAction} className="grid gap-4">
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium text-foreground">
+                        Folder path
+                      </label>
+                      <input
+                        type="text"
+                        name="folderPath"
+                        defaultValue={inbox.watcher.config.folderPath}
+                        className={inputClassName}
+                      />
+                    </div>
 
-              {inbox.watcher.lastScanSummary ? (
-                <div className="rounded-lg border border-border/70 bg-background px-4 py-3">
-                  <p className="font-medium text-foreground">Last scan result</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {inbox.watcher.lastScanSummary}
-                  </p>
-                </div>
-              ) : null}
+                    <div className="flex flex-wrap gap-3">
+                      <PendingSubmitButton type="submit" pendingLabel="Saving folder">
+                        <FolderSyncIcon data-icon="inline-start" />
+                        Save folder
+                      </PendingSubmitButton>
+                    </div>
+                  </form>
 
-              {latestGroupingRun?.notes ? (
-                <div className="rounded-lg border border-border/70 bg-background px-4 py-3">
-                  <p className="font-medium text-foreground">Last grouping run</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {latestGroupingRun.notes}
-                  </p>
-                </div>
-              ) : null}
+                  <div className="flex flex-wrap gap-3">
+                    <form action={resumeInboxWatcherAction}>
+                      <PendingSubmitButton
+                        type="submit"
+                        pendingLabel="Resuming watcher"
+                        variant={inbox.watcher.running ? "outline" : "default"}
+                      >
+                        <PlayIcon data-icon="inline-start" />
+                        {inbox.watcher.running ? "Watching" : "Resume"}
+                      </PendingSubmitButton>
+                    </form>
+                    <form action={pauseInboxWatcherAction}>
+                      <PendingSubmitButton
+                        type="submit"
+                        pendingLabel="Pausing watcher"
+                        variant="outline"
+                        disabled={!inbox.watcher.config.enabled}
+                      >
+                        <PauseIcon data-icon="inline-start" />
+                        Pause
+                      </PendingSubmitButton>
+                    </form>
+                  </div>
 
-              {inbox.watcher.lastError ? (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                  {inbox.watcher.lastError}
+                  <dl className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-5">
+                    <div className="space-y-1">
+                      <dt className="text-muted-foreground">Last start</dt>
+                      <dd>{formatDate(inbox.watcher.lastStartedAt)}</dd>
+                    </div>
+                    <div className="space-y-1">
+                      <dt className="text-muted-foreground">Last event</dt>
+                      <dd>{formatDate(inbox.watcher.lastEventAt)}</dd>
+                    </div>
+                    <div className="space-y-1">
+                      <dt className="text-muted-foreground">Last scan</dt>
+                      <dd>{formatDate(inbox.watcher.lastScanAt)}</dd>
+                    </div>
+                    <div className="space-y-1">
+                      <dt className="text-muted-foreground">Last import</dt>
+                      <dd>{formatDate(inbox.watcher.lastImportAt)}</dd>
+                    </div>
+                    <div className="space-y-1">
+                      <dt className="text-muted-foreground">Imported files</dt>
+                      <dd>{inbox.watcher.importedFileCount}</dd>
+                    </div>
+                  </dl>
+
+                  {inbox.watcher.lastScanSummary ? (
+                    <p className="text-sm text-muted-foreground">
+                      Last scan: {inbox.watcher.lastScanSummary}
+                    </p>
+                  ) : null}
+
+                  {latestGroupingRun?.notes ? (
+                    <p className="text-sm text-muted-foreground">
+                      Last grouping: {latestGroupingRun.notes}
+                    </p>
+                  ) : null}
+
+                  {inbox.watcher.lastError ? (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                      {inbox.watcher.lastError}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
+              </details>
             </CardContent>
           </Card>
         </section>
@@ -337,10 +333,9 @@ export function InboxPage({
         <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
           <Card>
             <CardHeader>
-              <CardTitle>Ungrouped photos</CardTitle>
+              <CardTitle>Photos to group</CardTitle>
               <CardDescription>
-                Tick matching photos and submit one action. No client-side selection
-                state required.
+                Select the photos for one item, name it, then create the item.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -371,7 +366,7 @@ export function InboxPage({
                   <div className="grid gap-4 rounded-lg border border-border/70 bg-background px-4 py-4">
                     <div className="grid gap-2">
                       <label className="text-sm font-medium text-foreground">
-                        New item name
+                        Item name
                       </label>
                       <input
                         type="text"
@@ -390,28 +385,35 @@ export function InboxPage({
                         pendingLabel="Grouping photos"
                       >
                         <BoxIcon data-icon="inline-start" />
-                        Group selected into item
-                      </PendingSubmitButton>
-                      <PendingSubmitButton
-                        type="submit"
-                        formAction={suggestChosenInboxGroupsAction ?? undefined}
-                        variant="outline"
-                        pendingLabel="Suggesting selection"
-                      >
-                        <SparklesIcon data-icon="inline-start" />
-                        Suggest selected
-                      </PendingSubmitButton>
-                      <PendingSubmitButton
-                        type="submit"
-                        formAction={suggestAllInboxGroupsAction ?? undefined}
-                        variant="outline"
-                        disabled={inbox.loosePhotoAssets.length < 2}
-                        pendingLabel="Suggesting groups"
-                      >
-                        <SparklesIcon data-icon="inline-start" />
-                        Suggest groups
+                        Create item
                       </PendingSubmitButton>
                     </div>
+                    <details className="rounded-lg border border-border bg-card/60">
+                      <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-foreground">
+                        AI grouping helpers
+                      </summary>
+                      <div className="flex flex-wrap gap-3 border-t border-border px-3 py-3">
+                        <PendingSubmitButton
+                          type="submit"
+                          formAction={suggestChosenInboxGroupsAction ?? undefined}
+                          variant="outline"
+                          pendingLabel="Suggesting selection"
+                        >
+                          <SparklesIcon data-icon="inline-start" />
+                          Suggest selected
+                        </PendingSubmitButton>
+                        <PendingSubmitButton
+                          type="submit"
+                          formAction={suggestAllInboxGroupsAction ?? undefined}
+                          variant="outline"
+                          disabled={inbox.loosePhotoAssets.length < 2}
+                          pendingLabel="Suggesting groups"
+                        >
+                          <SparklesIcon data-icon="inline-start" />
+                          Suggest groups
+                        </PendingSubmitButton>
+                      </div>
+                    </details>
                   </div>
 
                   {inbox.loosePhotoAssets.length === 0 ? (
@@ -470,16 +472,16 @@ export function InboxPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Existing stock items</CardTitle>
+              <CardTitle>Items ready for listing</CardTitle>
               <CardDescription>
-                Use this when selected photos belong to an item that already exists.
+                Generate a listing, or add selected photos to an item that already exists.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {draftableStockItems.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
                   <BoxIcon className="size-4" />
-                  No undrafted stock items available yet.
+                  No items waiting for a listing yet.
                 </div>
               ) : (
                 draftableStockItems.map((stockItem) => (
@@ -510,6 +512,19 @@ export function InboxPage({
                       </Badge>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
+                      <form
+                        action={generateStockItemDraftAction.bind(
+                          null,
+                          stockItem.sessionId,
+                          stockItem.id,
+                          "inbox"
+                        )}
+                      >
+                        <PendingSubmitButton type="submit" pendingLabel="Generating listing">
+                          <SparklesIcon data-icon="inline-start" />
+                          Generate listing
+                        </PendingSubmitButton>
+                      </form>
                       <PendingSubmitButton
                         type="submit"
                         form={inboxSelectionFormId}
@@ -539,10 +554,9 @@ export function InboxPage({
               <CardHeader>
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-1">
-                    <CardTitle>Suggested groups</CardTitle>
+                    <CardTitle>AI suggestions</CardTitle>
                     <CardDescription>
-                      Optional auto-grouping help. Review the suggestion, then create the
-                      item or send the photos back to Inbox.
+                      Optional helper. Create the item only when the suggestion looks right.
                     </CardDescription>
                   </div>
                   {watchedSession ? (

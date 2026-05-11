@@ -7,10 +7,9 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/", label: "Inbox" },
-  { href: "/stock", label: "Stock" },
-  { href: "/review", label: "Review" },
-  { href: "/settings/ai", label: "AI" },
+  { href: "/", label: "Workbench" },
+  { href: "/review", label: "Listings" },
+  { href: "/settings/ai", label: "Settings" },
 ];
 
 export function AppTopNav() {
@@ -24,7 +23,7 @@ export function AppTopNav() {
             Vinted Auto
           </p>
           <p className="text-xs text-muted-foreground">
-            Inbox, Stock, Review
+            Photos to Vinted
           </p>
         </div>
 

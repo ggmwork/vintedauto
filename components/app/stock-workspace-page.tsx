@@ -203,12 +203,12 @@ export function StockWorkspacePage({
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8 lg:px-8">
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-2">
-            <Badge variant="secondary">Stock</Badge>
+            <Badge variant="secondary">Items</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Grouped items ready for generation.
+              Items waiting for listings.
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Inbox is where you group items. Stock is the clean item layer after that.
+              Use Workbench for daily photo grouping. This view is for item maintenance.
             </p>
           </div>
 
@@ -217,10 +217,10 @@ export function StockWorkspacePage({
               type="submit"
               size="lg"
               disabled={readyEntries.length === 0}
-              pendingLabel="Generating drafts"
+              pendingLabel="Generating listings"
             >
               <SparklesIcon data-icon="inline-start" />
-              Generate all ready
+              Generate all listings
             </PendingSubmitButton>
           </form>
         </section>
@@ -238,33 +238,33 @@ export function StockWorkspacePage({
         ) : null}
 
         <section className="flex flex-wrap gap-2">
-          <Badge variant="outline">{stockEntries.length} stock items</Badge>
-          <Badge variant="outline">{readyEntries.length} ready to generate</Badge>
-          <Badge variant="outline">{draftedEntries.length} drafted</Badge>
-          <Badge variant="outline">{pendingReviewCount} awaiting Inbox review</Badge>
-          <Badge variant="outline">{loosePhotoCount} photos still in Inbox</Badge>
+          <Badge variant="outline">{stockEntries.length} items</Badge>
+          <Badge variant="outline">{readyEntries.length} waiting for listing</Badge>
+          <Badge variant="outline">{draftedEntries.length} listings generated</Badge>
+          <Badge variant="outline">{pendingReviewCount} suggestions to review</Badge>
+          <Badge variant="outline">{loosePhotoCount} photos to group</Badge>
         </section>
 
         {pendingReviewCount > 0 || loosePhotoCount > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>Inbox still has work</CardTitle>
+              <CardTitle>Workbench still has photos</CardTitle>
               <CardDescription>
-                Finish manual grouping or suggestion review before treating Stock as complete.
+                Group remaining photos before treating the item list as complete.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary">
-                  {pendingReviewCount} review cluster{pendingReviewCount === 1 ? "" : "s"}
+                  {pendingReviewCount} suggestion{pendingReviewCount === 1 ? "" : "s"}
                 </Badge>
                 <Badge variant="outline">
-                  {loosePhotoCount} loose photo{loosePhotoCount === 1 ? "" : "s"}
+                  {loosePhotoCount} photo{loosePhotoCount === 1 ? "" : "s"} to group
                 </Badge>
               </div>
               <Link href="/" className={buttonVariants({ variant: "outline" })}>
                 <FolderSyncIcon data-icon="inline-start" />
-                Open Inbox
+                Open Workbench
               </Link>
             </CardContent>
           </Card>
@@ -273,9 +273,9 @@ export function StockWorkspacePage({
         {stockEntries.length === 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>No stock items yet</CardTitle>
+              <CardTitle>No items yet</CardTitle>
               <CardDescription>
-                Paste photos into the watched folder or group loose Inbox files first.
+                Add photos in Workbench and create the first item.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -284,9 +284,9 @@ export function StockWorkspacePage({
         {readyEntries.length > 0 ? (
           <section className="space-y-4">
             <div className="space-y-1">
-              <h2 className="font-heading text-2xl font-semibold">Ready to generate</h2>
+              <h2 className="font-heading text-2xl font-semibold">Need listing</h2>
               <p className="text-sm text-muted-foreground">
-                These items already have grouped photos and no linked draft yet.
+                These items have photos and no generated listing yet.
               </p>
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
@@ -309,10 +309,9 @@ export function StockWorkspacePage({
         {draftedEntries.length > 0 ? (
           <section className="space-y-4">
             <div className="space-y-1">
-              <h2 className="font-heading text-2xl font-semibold">Linked drafts</h2>
+              <h2 className="font-heading text-2xl font-semibold">Generated listings</h2>
               <p className="text-sm text-muted-foreground">
-                These items already have a generated draft. Open the draft or keep the
-                stock label tidy here.
+                Open the listing to review fields, fill Vinted, or mark it listed.
               </p>
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
@@ -573,7 +572,7 @@ function StockEntryCard({
               href={`/drafts/${entry.stockItem.draftId}`}
               className={buttonVariants({ variant: "outline" })}
             >
-              Open draft
+              Open listing
             </Link>
           ) : (
             <>
@@ -585,9 +584,9 @@ function StockEntryCard({
                   "stock"
                 )}
               >
-                <PendingSubmitButton type="submit" pendingLabel="Generating draft">
+                <PendingSubmitButton type="submit" pendingLabel="Generating listing">
                   <SparklesIcon data-icon="inline-start" />
-                  Generate draft
+                  Generate listing
                 </PendingSubmitButton>
               </form>
 
