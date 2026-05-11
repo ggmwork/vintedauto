@@ -216,17 +216,6 @@ export function AiSettingsPage({
               Keep daily selling in Workbench. Tune model routing here only when setup changes.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">
-              Listing: {settings.tasks.listing.provider}
-            </Badge>
-            <Badge variant="outline">
-              Grouping: {settings.tasks.grouping.provider}
-            </Badge>
-            <Badge variant="outline">
-              Updated: {formatDate(settings.updatedAt)}
-            </Badge>
-          </div>
         </section>
 
         {feedback.error ? (
@@ -401,163 +390,157 @@ export function AiSettingsPage({
             </Card>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CpuIcon className="size-4" />
-                  Ollama
-                </CardTitle>
-                <CardDescription>Local models, runtime URL, and current model options.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Base URL</span>
-                  <input
-                    type="text"
-                    name="ollamaBaseUrl"
-                    defaultValue={settings.providers.ollama.baseUrl}
-                    className={inputClassName}
-                  />
-                </label>
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Timeout (ms)</span>
-                  <input
-                    type="number"
-                    min={30000}
-                    step={1000}
-                    name="ollamaTimeoutMs"
-                    defaultValue={settings.providers.ollama.timeoutMs}
-                    className={inputClassName}
-                  />
-                </label>
-                <div className="rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
-                  Local options for this setup:{" "}
-                  <code>{localOllamaModelIds.join(", ")}</code>
-                </div>
-              </CardContent>
-            </Card>
+          <details className="rounded-xl border border-border bg-card">
+            <summary className="cursor-pointer px-4 py-4 text-sm font-medium text-foreground">
+              Provider details
+            </summary>
+            <section className="grid gap-6 border-t border-border px-4 py-4 xl:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CpuIcon className="size-4" />
+                    Ollama
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">Base URL</span>
+                    <input
+                      type="text"
+                      name="ollamaBaseUrl"
+                      defaultValue={settings.providers.ollama.baseUrl}
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">Timeout (ms)</span>
+                    <input
+                      type="number"
+                      min={30000}
+                      step={1000}
+                      name="ollamaTimeoutMs"
+                      defaultValue={settings.providers.ollama.timeoutMs}
+                      className={inputClassName}
+                    />
+                  </label>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
                     <CardTitle className="flex items-center gap-2">
                       <KeyRoundIcon className="size-4" />
                       OpenAI
                     </CardTitle>
-                    <CardDescription>ChatGPT via OpenAI API.</CardDescription>
+                    <Badge variant={settings.providers.openai.hasApiKey ? "default" : "outline"}>
+                      {getKeyStatusLabel(
+                        settings.providers.openai.hasApiKey,
+                        settings.storedFlags.openAiApiKey
+                      )}
+                    </Badge>
                   </div>
-                  <Badge variant={settings.providers.openai.hasApiKey ? "default" : "outline"}>
-                    {getKeyStatusLabel(
-                      settings.providers.openai.hasApiKey,
-                      settings.storedFlags.openAiApiKey
-                    )}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Base URL</span>
-                  <input
-                    type="text"
-                    name="openAiBaseUrl"
-                    defaultValue={settings.providers.openai.baseUrl}
-                    className={inputClassName}
-                  />
-                </label>
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">API key</span>
-                  <input
-                    type="password"
-                    name="openAiApiKey"
-                    placeholder={
-                      settings.providers.openai.hasApiKey
-                        ? "Leave blank to keep current key"
-                        : "sk-..."
-                    }
-                    className={inputClassName}
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <input type="checkbox" name="clearOpenAiApiKey" />
-                  Clear stored OpenAI key
-                </label>
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Timeout (ms)</span>
-                  <input
-                    type="number"
-                    min={30000}
-                    step={1000}
-                    name="openAiTimeoutMs"
-                    defaultValue={settings.providers.openai.timeoutMs}
-                    className={inputClassName}
-                  />
-                </label>
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">Base URL</span>
+                    <input
+                      type="text"
+                      name="openAiBaseUrl"
+                      defaultValue={settings.providers.openai.baseUrl}
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">API key</span>
+                    <input
+                      type="password"
+                      name="openAiApiKey"
+                      placeholder={
+                        settings.providers.openai.hasApiKey
+                          ? "Leave blank to keep current key"
+                          : "sk-..."
+                      }
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" name="clearOpenAiApiKey" />
+                    Clear stored key
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">Timeout (ms)</span>
+                    <input
+                      type="number"
+                      min={30000}
+                      step={1000}
+                      name="openAiTimeoutMs"
+                      defaultValue={settings.providers.openai.timeoutMs}
+                      className={inputClassName}
+                    />
+                  </label>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
                     <CardTitle className="flex items-center gap-2">
                       <KeyRoundIcon className="size-4" />
                       Anthropic
                     </CardTitle>
-                    <CardDescription>Claude via Anthropic API.</CardDescription>
+                    <Badge
+                      variant={settings.providers.anthropic.hasApiKey ? "default" : "outline"}
+                    >
+                      {getKeyStatusLabel(
+                        settings.providers.anthropic.hasApiKey,
+                        settings.storedFlags.anthropicApiKey
+                      )}
+                    </Badge>
                   </div>
-                  <Badge
-                    variant={settings.providers.anthropic.hasApiKey ? "default" : "outline"}
-                  >
-                    {getKeyStatusLabel(
-                      settings.providers.anthropic.hasApiKey,
-                      settings.storedFlags.anthropicApiKey
-                    )}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Base URL</span>
-                  <input
-                    type="text"
-                    name="anthropicBaseUrl"
-                    defaultValue={settings.providers.anthropic.baseUrl}
-                    className={inputClassName}
-                  />
-                </label>
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">API key</span>
-                  <input
-                    type="password"
-                    name="anthropicApiKey"
-                    placeholder={
-                      settings.providers.anthropic.hasApiKey
-                        ? "Leave blank to keep current key"
-                        : "sk-ant-..."
-                    }
-                    className={inputClassName}
-                  />
-                </label>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <input type="checkbox" name="clearAnthropicApiKey" />
-                  Clear stored Anthropic key
-                </label>
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Timeout (ms)</span>
-                  <input
-                    type="number"
-                    min={30000}
-                    step={1000}
-                    name="anthropicTimeoutMs"
-                    defaultValue={settings.providers.anthropic.timeoutMs}
-                    className={inputClassName}
-                  />
-                </label>
-              </CardContent>
-            </Card>
-          </section>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">Base URL</span>
+                    <input
+                      type="text"
+                      name="anthropicBaseUrl"
+                      defaultValue={settings.providers.anthropic.baseUrl}
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">API key</span>
+                    <input
+                      type="password"
+                      name="anthropicApiKey"
+                      placeholder={
+                        settings.providers.anthropic.hasApiKey
+                          ? "Leave blank to keep current key"
+                          : "sk-ant-..."
+                      }
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input type="checkbox" name="clearAnthropicApiKey" />
+                    Clear stored key
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">Timeout (ms)</span>
+                    <input
+                      type="number"
+                      min={30000}
+                      step={1000}
+                      name="anthropicTimeoutMs"
+                      defaultValue={settings.providers.anthropic.timeoutMs}
+                      className={inputClassName}
+                    />
+                  </label>
+                </CardContent>
+              </Card>
+            </section>
+          </details>
 
           <div className="flex flex-wrap gap-3">
             <PendingSubmitButton type="submit" pendingLabel="Saving AI settings">
@@ -570,7 +553,11 @@ export function AiSettingsPage({
           </div>
         </form>
 
-        <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <details className="rounded-xl border border-border bg-card">
+          <summary className="cursor-pointer px-4 py-4 text-sm font-medium text-foreground">
+            Model guidance
+          </summary>
+        <section className="grid gap-6 border-t border-border px-4 py-4 xl:grid-cols-[1.1fr_0.9fr]">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -639,27 +626,33 @@ export function AiSettingsPage({
             </CardContent>
           </Card>
         </section>
+        </details>
 
-        <section className="grid gap-6 xl:grid-cols-3">
-          <ProviderTestCard
-            provider="ollama"
-            title="Ollama"
-            description="Check local runtime, endpoint, and configured models."
-            result={settings.lastTests.ollama}
-          />
-          <ProviderTestCard
-            provider="openai"
-            title="OpenAI"
-            description="Check API auth and configured OpenAI models."
-            result={settings.lastTests.openai}
-          />
-          <ProviderTestCard
-            provider="anthropic"
-            title="Anthropic"
-            description="Check API auth and configured Claude models."
-            result={settings.lastTests.anthropic}
-          />
-        </section>
+        <details className="rounded-xl border border-border bg-card">
+          <summary className="cursor-pointer px-4 py-4 text-sm font-medium text-foreground">
+            Connection tests
+          </summary>
+          <section className="grid gap-6 border-t border-border px-4 py-4 xl:grid-cols-3">
+            <ProviderTestCard
+              provider="ollama"
+              title="Ollama"
+              description="Check local runtime, endpoint, and configured models."
+              result={settings.lastTests.ollama}
+            />
+            <ProviderTestCard
+              provider="openai"
+              title="OpenAI"
+              description="Check API auth and configured OpenAI models."
+              result={settings.lastTests.openai}
+            />
+            <ProviderTestCard
+              provider="anthropic"
+              title="Anthropic"
+              description="Check API auth and configured Claude models."
+              result={settings.lastTests.anthropic}
+            />
+          </section>
+        </details>
       </div>
     </main>
   );

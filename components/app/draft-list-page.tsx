@@ -202,14 +202,6 @@ export function DraftListPage({
           </form>
         </section>
 
-        <section className="flex flex-wrap gap-2">
-          <Badge variant="outline">{stats.total} listings</Badge>
-          <Badge variant="outline">{stats.generated} generated</Badge>
-          <Badge variant="outline">{stats.readyForHandoff} ready</Badge>
-          <Badge variant="outline">{stats.byStatus.listed} listed</Badge>
-          <Badge variant="outline">{stats.byStatus.sold} sold</Badge>
-        </section>
-
         <section className="space-y-4">
           <div className="flex flex-col gap-1">
             <h2 className="font-heading text-2xl font-semibold">Listings</h2>
@@ -217,6 +209,9 @@ export function DraftListPage({
               {filteredDrafts.length === drafts.length
                 ? `${drafts.length} listing${drafts.length === 1 ? "" : "s"} available.`
                 : `${filteredDrafts.length} of ${drafts.length} listings shown.`}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {stats.readyForHandoff} ready, {stats.byStatus.listed} listed, {stats.byStatus.sold} sold.
             </p>
           </div>
 

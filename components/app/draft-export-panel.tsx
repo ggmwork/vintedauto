@@ -434,28 +434,6 @@ export function DraftExportPanel({
               Fill and next
             </Button>
           ) : null}
-          {afterCopyHref ? (
-            <Button
-              type="button"
-              disabled={handoffText.trim().length === 0 || !readiness.ready}
-              variant="outline"
-              onClick={handleCopyAndAdvance}
-            >
-              <ClipboardCopyIcon data-icon="inline-start" />
-              Copy fallback and next
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            disabled={handoffText.trim().length === 0}
-            variant={lastCopied === "vinted-handoff" ? "default" : "outline"}
-            onClick={() =>
-              handleCopy(primaryItems.find((item) => item.key === "vinted-handoff")!)
-            }
-          >
-            <ClipboardCopyIcon data-icon="inline-start" />
-            Copy fallback
-          </Button>
         </div>
 
         {copyError ? (
@@ -488,6 +466,28 @@ export function DraftExportPanel({
           </summary>
           <div className="space-y-4 border-t border-border px-4 py-4">
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <Button
+                type="button"
+                disabled={handoffText.trim().length === 0}
+                variant={lastCopied === "vinted-handoff" ? "default" : "outline"}
+                onClick={() =>
+                  handleCopy(primaryItems.find((item) => item.key === "vinted-handoff")!)
+                }
+              >
+                <ClipboardCopyIcon data-icon="inline-start" />
+                Copy fallback
+              </Button>
+              {afterCopyHref ? (
+                <Button
+                  type="button"
+                  disabled={handoffText.trim().length === 0 || !readiness.ready}
+                  variant="outline"
+                  onClick={handleCopyAndAdvance}
+                >
+                  <ClipboardCopyIcon data-icon="inline-start" />
+                  Copy and next
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 disabled={primaryItems[1].value.trim().length === 0}

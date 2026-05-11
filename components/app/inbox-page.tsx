@@ -156,21 +156,13 @@ export function InboxPage({
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8 lg:px-8">
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-2">
-            <Badge variant="secondary">Workbench</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Turn photos into Vinted listings.
+              Workbench
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Select photos for one item, create it, then generate the listing.
+              Photos, items, listings, Vinted.
             </p>
           </div>
-
-          <form action={scanInboxWatcherNowAction}>
-            <PendingSubmitButton type="submit" size="lg" pendingLabel="Scanning photos">
-              <RefreshCwIcon data-icon="inline-start" />
-              Scan photos
-            </PendingSubmitButton>
-          </form>
         </section>
 
         {feedback.error ? (
@@ -203,12 +195,7 @@ export function InboxPage({
                       {getWatcherStatusLabel(inbox.watcher.health, inbox.watcher.running)}
                     </Badge>
                     <Badge variant="outline">
-                      {inbox.loosePhotoAssets.length} photo
-                      {inbox.loosePhotoAssets.length === 1 ? "" : "s"} to group
-                    </Badge>
-                    <Badge variant="outline">
-                      {draftableStockItems.length} item
-                      {draftableStockItems.length === 1 ? "" : "s"} ready
+                      {inbox.loosePhotoAssets.length} photos
                     </Badge>
                   </div>
                   <p className="truncate text-sm text-muted-foreground">
@@ -221,22 +208,17 @@ export function InboxPage({
                     <PendingSubmitButton
                       type="submit"
                       pendingLabel="Scanning photos"
-                      variant="outline"
                     >
                       <RefreshCwIcon data-icon="inline-start" />
                       Scan photos
                     </PendingSubmitButton>
                   </form>
-                  <CopyTextButton
-                    value={inbox.watcher.config.folderPath}
-                    label="Copy folder path"
-                  />
                 </div>
               </div>
 
               <details className="rounded-lg border border-border bg-background">
                 <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
-                  Advanced folder and watcher details
+                  Folder settings
                 </summary>
                 <div className="space-y-5 border-t border-border px-4 py-4">
                   <form action={saveInboxWatcherSettingsAction} className="grid gap-4">
@@ -257,6 +239,10 @@ export function InboxPage({
                         <FolderSyncIcon data-icon="inline-start" />
                         Save folder
                       </PendingSubmitButton>
+                      <CopyTextButton
+                        value={inbox.watcher.config.folderPath}
+                        label="Copy path"
+                      />
                     </div>
                   </form>
 
@@ -334,9 +320,6 @@ export function InboxPage({
           <Card>
             <CardHeader>
               <CardTitle>Photos to group</CardTitle>
-              <CardDescription>
-                Select the photos for one item, name it, then create the item.
-              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               {watchedSession ? (
@@ -347,8 +330,7 @@ export function InboxPage({
                 >
                   <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/70 bg-background px-4 py-4">
                     <Badge variant="secondary">
-                      {inbox.loosePhotoAssets.length} loose photo
-                      {inbox.loosePhotoAssets.length === 1 ? "" : "s"}
+                      {inbox.loosePhotoAssets.length} photos
                     </Badge>
                     <span className="text-sm text-muted-foreground">
                       {watchedSession.intakeConfig.folderLabel ??
@@ -359,7 +341,7 @@ export function InboxPage({
                       type="reset"
                       className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
                     >
-                      Clear checkboxes
+                      Clear
                     </button>
                   </div>
 
@@ -375,10 +357,6 @@ export function InboxPage({
                         className={inputClassName}
                       />
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Check the matching photos below, then submit one action. The page
-                      stays stable while you group.
-                    </p>
                     <div className="flex flex-wrap gap-3">
                       <PendingSubmitButton
                         type="submit"
@@ -472,16 +450,13 @@ export function InboxPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Items ready for listing</CardTitle>
-              <CardDescription>
-                Generate a listing, or add selected photos to an item that already exists.
-              </CardDescription>
+              <CardTitle>Items</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {draftableStockItems.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
                   <BoxIcon className="size-4" />
-                  No items waiting for a listing yet.
+                  No items yet.
                 </div>
               ) : (
                 draftableStockItems.map((stockItem) => (
@@ -498,18 +473,6 @@ export function InboxPage({
                         </p>
                       </div>
                       <StockItemStatusBadge stockItem={stockItem} />
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Badge variant="outline">
-                        {stockItem.sourceMethod === "folder_rule"
-                          ? "folder"
-                          : stockItem.sourceMethod === "auto_cluster"
-                            ? "auto"
-                            : "manual"}
-                      </Badge>
-                      <Badge variant={getConfidenceBadgeVariant(stockItem.confidence)}>
-                        {stockItem.confidence} confidence
-                      </Badge>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
                       <form

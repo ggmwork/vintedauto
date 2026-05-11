@@ -87,29 +87,6 @@ function getSourceLabel(session: StudioSessionDetail) {
   );
 }
 
-function getConfidenceBadgeVariant(confidence: StockItem["confidence"]) {
-  if (confidence === "high") {
-    return "default";
-  }
-
-  if (confidence === "medium") {
-    return "secondary";
-  }
-
-  return "outline";
-}
-
-function getSourceMethodLabel(sourceMethod: StockItem["sourceMethod"]) {
-  switch (sourceMethod) {
-    case "folder_rule":
-      return "folder";
-    case "auto_cluster":
-      return "auto";
-    default:
-      return "manual";
-  }
-}
-
 function formatMissingFieldLabel(value: string) {
   switch (value) {
     case "vinted:logistics.packageSize":
@@ -203,12 +180,11 @@ export function StockWorkspacePage({
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8 lg:px-8">
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-2">
-            <Badge variant="secondary">Items</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Items waiting for listings.
+              Items
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Use Workbench for daily photo grouping. This view is for item maintenance.
+              Generate listings or open existing ones.
             </p>
           </div>
 
@@ -237,21 +213,10 @@ export function StockWorkspacePage({
           </div>
         ) : null}
 
-        <section className="flex flex-wrap gap-2">
-          <Badge variant="outline">{stockEntries.length} items</Badge>
-          <Badge variant="outline">{readyEntries.length} waiting for listing</Badge>
-          <Badge variant="outline">{draftedEntries.length} listings generated</Badge>
-          <Badge variant="outline">{pendingReviewCount} suggestions to review</Badge>
-          <Badge variant="outline">{loosePhotoCount} photos to group</Badge>
-        </section>
-
         {pendingReviewCount > 0 || loosePhotoCount > 0 ? (
           <Card>
             <CardHeader>
-              <CardTitle>Workbench still has photos</CardTitle>
-              <CardDescription>
-                Group remaining photos before treating the item list as complete.
-              </CardDescription>
+              <CardTitle>More photos in Workbench</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
@@ -285,9 +250,6 @@ export function StockWorkspacePage({
           <section className="space-y-4">
             <div className="space-y-1">
               <h2 className="font-heading text-2xl font-semibold">Need listing</h2>
-              <p className="text-sm text-muted-foreground">
-                These items have photos and no generated listing yet.
-              </p>
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
               {readyEntries.map((entry) => {
@@ -310,9 +272,6 @@ export function StockWorkspacePage({
           <section className="space-y-4">
             <div className="space-y-1">
               <h2 className="font-heading text-2xl font-semibold">Generated listings</h2>
-              <p className="text-sm text-muted-foreground">
-                Open the listing to review fields, fill Vinted, or mark it listed.
-              </p>
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
               {draftedEntries.map((entry) => (
@@ -404,217 +363,214 @@ function StockEntryCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-5">
-        <form
-          action={renameStockItemAction.bind(
-            null,
-            entry.sessionId,
-            entry.stockItem.id,
-            "stock"
-          )}
-          className="flex flex-col gap-3 sm:flex-row"
-        >
-          <input
-            type="text"
-            name="stockItemName"
-            defaultValue={entry.stockItem.name}
-            className={inputClassName}
-          />
-          <PendingSubmitButton
-            type="submit"
-            variant="outline"
-            pendingLabel="Saving name"
-          >
-            Save
-          </PendingSubmitButton>
-        </form>
-
+      <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">
             <ImagesIcon data-icon="inline-start" />
             {entry.photoAssets.length} photo{entry.photoAssets.length === 1 ? "" : "s"}
           </Badge>
-          <Badge variant="outline">{getSourceMethodLabel(entry.stockItem.sourceMethod)}</Badge>
-          <Badge variant={getConfidenceBadgeVariant(entry.stockItem.confidence)}>
-            {entry.stockItem.confidence} confidence
-          </Badge>
           {entry.stockItem.draftId ? (
-            <Badge variant="outline">draft linked</Badge>
+            <Badge variant="outline">listing ready</Badge>
           ) : (
-            <Badge variant="secondary">ready</Badge>
+            <Badge variant="secondary">needs listing</Badge>
           )}
-          {entry.loosePhotoCount > 0 ? (
-            <Badge variant="outline">{entry.loosePhotoCount} still in Inbox</Badge>
-          ) : null}
-          {entry.pendingReviewCount > 0 ? (
-            <Badge variant="outline">
-              {entry.pendingReviewCount} still in review
-            </Badge>
-          ) : null}
         </div>
 
-        {linkedDraft && linkedDraftProfile ? (
-          <div className="space-y-3 rounded-lg border border-border bg-muted/20 px-4 py-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  Vinted profile
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {linkedDraftProfile.label}
-                </p>
-              </div>
-              <Badge variant={linkedDraftMissingVintedFields.length === 0 ? "default" : "outline"}>
-                {linkedDraftMissingVintedFields.length === 0
-                  ? "later fields complete"
-                  : `${linkedDraftMissingVintedFields.length} later field${linkedDraftMissingVintedFields.length === 1 ? "" : "s"} missing`}
-              </Badge>
-            </div>
-
-            <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">Category path</p>
-                <p>
-                  {formatVintedCategoryPathInput(linkedDraftCategoryPlan) || "Not set"}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="font-medium text-foreground">Draft readiness</p>
-                <p>
-                  {linkedDraftReadiness?.ready
-                    ? "Ready for extension fill"
-                    : linkedDraftReadiness?.missing
-                        .map(formatMissingFieldLabel)
-                        .join(", ") || "Not ready"}
-                </p>
-              </div>
-            </div>
-          </div>
+        {linkedDraftReadiness && !linkedDraftReadiness.ready ? (
+          <p className="text-sm text-muted-foreground">
+            Missing {linkedDraftReadiness.missing.map(formatMissingFieldLabel).join(", ")}.
+          </p>
         ) : null}
 
-        <div className="grid grid-cols-4 gap-3">
-          {entry.photoAssets.map((photoAsset) => {
-            const selected = selectedPhotoAssetIds.includes(photoAsset.id);
-            const isCover = entry.stockItem.coverPhotoAssetId === photoAsset.id;
+        <details className="rounded-lg border border-border bg-background">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
+            Edit item
+          </summary>
+          <div className="space-y-5 border-t border-border px-4 py-4">
+            <form
+              action={renameStockItemAction.bind(
+                null,
+                entry.sessionId,
+                entry.stockItem.id,
+                "stock"
+              )}
+              className="flex flex-col gap-3 sm:flex-row"
+            >
+              <input
+                type="text"
+                name="stockItemName"
+                defaultValue={entry.stockItem.name}
+                className={inputClassName}
+              />
+              <PendingSubmitButton
+                type="submit"
+                variant="outline"
+                pendingLabel="Saving name"
+              >
+                Save
+              </PendingSubmitButton>
+            </form>
 
-            return (
-              <div key={photoAsset.id} className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    entry.stockItem.draftId
-                      ? undefined
-                      : onTogglePhotoSelection(entry.stockItem.id, photoAsset.id)
-                  }
-                  className={cn(
-                    "relative aspect-square w-full overflow-hidden rounded-lg border bg-muted transition",
-                    entry.stockItem.draftId
-                      ? "cursor-default border-border"
-                      : selected
-                        ? "border-primary ring-2 ring-primary/20"
-                        : "border-border hover:border-primary/40"
-                  )}
-                >
-                  <Image
-                    src={`/api/sessions/${entry.sessionId}/photos/${photoAsset.id}`}
-                    alt={photoAsset.originalFilename}
-                    fill
-                    sizes="96px"
-                    className="object-cover"
-                    unoptimized
-                  />
-                  <div className="absolute inset-x-0 top-0 flex justify-between p-2 text-[11px] font-medium">
-                    {isCover ? (
-                      <span className="rounded-full bg-background/90 px-2 py-1 text-foreground">
-                        cover
-                      </span>
-                    ) : (
-                      <span />
-                    )}
-                    {!entry.stockItem.draftId && selected ? (
-                      <span className="rounded-full bg-primary px-2 py-1 text-primary-foreground">
-                        selected
-                      </span>
+            {linkedDraft && linkedDraftProfile ? (
+              <div className="space-y-3 rounded-lg border border-border bg-muted/20 px-4 py-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-foreground">
+                    {linkedDraftProfile.label}
+                  </p>
+                  <Badge variant={linkedDraftMissingVintedFields.length === 0 ? "default" : "outline"}>
+                    {linkedDraftMissingVintedFields.length === 0
+                      ? "complete"
+                      : `${linkedDraftMissingVintedFields.length} missing`}
+                  </Badge>
+                </div>
+
+                <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
+                  <div className="space-y-1">
+                    <p className="font-medium text-foreground">Category</p>
+                    <p>
+                      {formatVintedCategoryPathInput(linkedDraftCategoryPlan) || "Not set"}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-medium text-foreground">Ready</p>
+                    <p>
+                      {linkedDraftReadiness?.ready
+                        ? "Yes"
+                        : linkedDraftReadiness?.missing
+                            .map(formatMissingFieldLabel)
+                            .join(", ") || "No"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid grid-cols-4 gap-3">
+              {entry.photoAssets.map((photoAsset) => {
+                const selected = selectedPhotoAssetIds.includes(photoAsset.id);
+                const isCover = entry.stockItem.coverPhotoAssetId === photoAsset.id;
+
+                return (
+                  <div key={photoAsset.id} className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        entry.stockItem.draftId
+                          ? undefined
+                          : onTogglePhotoSelection(entry.stockItem.id, photoAsset.id)
+                      }
+                      className={cn(
+                        "relative aspect-square w-full overflow-hidden rounded-lg border bg-muted transition",
+                        entry.stockItem.draftId
+                          ? "cursor-default border-border"
+                          : selected
+                            ? "border-primary ring-2 ring-primary/20"
+                            : "border-border hover:border-primary/40"
+                      )}
+                    >
+                      <Image
+                        src={`/api/sessions/${entry.sessionId}/photos/${photoAsset.id}`}
+                        alt={photoAsset.originalFilename}
+                        fill
+                        sizes="96px"
+                        className="object-cover"
+                        unoptimized
+                      />
+                      <div className="absolute inset-x-0 top-0 flex justify-between p-2 text-[11px] font-medium">
+                        {isCover ? (
+                          <span className="rounded-full bg-background/90 px-2 py-1 text-foreground">
+                            cover
+                          </span>
+                        ) : (
+                          <span />
+                        )}
+                        {!entry.stockItem.draftId && selected ? (
+                          <span className="rounded-full bg-primary px-2 py-1 text-primary-foreground">
+                            selected
+                          </span>
+                        ) : null}
+                      </div>
+                    </button>
+
+                    {!entry.stockItem.draftId && !isCover ? (
+                      <form
+                        action={setStockItemCoverPhotoAction.bind(
+                          null,
+                          entry.sessionId,
+                          entry.stockItem.id,
+                          photoAsset.id,
+                          "stock"
+                        )}
+                      >
+                        <PendingSubmitButton
+                          type="submit"
+                          variant="outline"
+                          className="w-full"
+                          pendingLabel="Saving"
+                        >
+                          Cover
+                        </PendingSubmitButton>
+                      </form>
                     ) : null}
                   </div>
-                </button>
+                );
+              })}
+            </div>
 
-                {!entry.stockItem.draftId && !isCover ? (
-                  <form
-                    action={setStockItemCoverPhotoAction.bind(
-                      null,
-                      entry.sessionId,
-                      entry.stockItem.id,
-                      photoAsset.id,
-                      "stock"
-                    )}
+            {!entry.stockItem.draftId ? (
+              <div className="flex flex-wrap gap-3">
+                <form
+                  action={releasePhotoAssetsFromStockItemAction.bind(
+                    null,
+                    entry.sessionId,
+                    entry.stockItem.id,
+                    "stock"
+                  )}
+                >
+                  <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
+                  <PendingSubmitButton
+                    type="submit"
+                    variant="outline"
+                    disabled={selectedPhotoAssetIds.length === 0}
+                    pendingLabel="Moving photos"
                   >
-                    <PendingSubmitButton
-                      type="submit"
-                      variant="outline"
-                      className="w-full"
-                      pendingLabel="Saving"
-                    >
-                      Set cover
-                    </PendingSubmitButton>
-                  </form>
-                ) : null}
+                    Move selected
+                  </PendingSubmitButton>
+                </form>
+                <form
+                  action={removeStockItemAction.bind(
+                    null,
+                    entry.sessionId,
+                    entry.stockItem.id,
+                    "stock"
+                  )}
+                >
+                  <PendingSubmitButton
+                    type="submit"
+                    variant="outline"
+                    pendingLabel="Removing item"
+                  >
+                    <Trash2Icon data-icon="inline-start" />
+                    Remove
+                  </PendingSubmitButton>
+                </form>
               </div>
-            );
-          })}
-        </div>
+            ) : null}
+          </div>
+        </details>
       </CardContent>
 
-      <CardFooter className="flex flex-wrap justify-between gap-3 border-t border-border/70 bg-muted/10">
-        <div className="flex flex-wrap gap-3">
-          {entry.stockItem.draftId ? (
-            <Link
-              href={`/drafts/${entry.stockItem.draftId}`}
-              className={buttonVariants({ variant: "outline" })}
-            >
-              Open listing
-            </Link>
-          ) : (
-            <>
-              <form
-                action={generateStockItemDraftAction.bind(
-                  null,
-                  entry.sessionId,
-                  entry.stockItem.id,
-                  "stock"
-                )}
-              >
-                <PendingSubmitButton type="submit" pendingLabel="Generating listing">
-                  <SparklesIcon data-icon="inline-start" />
-                  Generate listing
-                </PendingSubmitButton>
-              </form>
-
-              <form
-                action={releasePhotoAssetsFromStockItemAction.bind(
-                  null,
-                  entry.sessionId,
-                  entry.stockItem.id,
-                  "stock"
-                )}
-              >
-                <HiddenPhotoAssetInputs photoAssetIds={selectedPhotoAssetIds} />
-                <PendingSubmitButton
-                  type="submit"
-                  variant="outline"
-                  disabled={selectedPhotoAssetIds.length === 0}
-                  pendingLabel="Moving photos"
-                >
-                  Move selected to Inbox
-                </PendingSubmitButton>
-              </form>
-            </>
-          )}
-        </div>
-
-        {!entry.stockItem.draftId ? (
+      <CardFooter className="justify-end gap-3 border-t border-border/70 bg-muted/10">
+        {entry.stockItem.draftId ? (
+          <Link
+            href={`/drafts/${entry.stockItem.draftId}`}
+            className={buttonVariants()}
+          >
+            Open listing
+          </Link>
+        ) : (
           <form
-            action={removeStockItemAction.bind(
+            action={generateStockItemDraftAction.bind(
               null,
               entry.sessionId,
               entry.stockItem.id,
@@ -623,14 +579,13 @@ function StockEntryCard({
           >
             <PendingSubmitButton
               type="submit"
-              variant="outline"
-              pendingLabel="Removing item"
+              pendingLabel="Generating listing"
             >
-              <Trash2Icon data-icon="inline-start" />
-              Remove item
+              <SparklesIcon data-icon="inline-start" />
+              Generate listing
             </PendingSubmitButton>
           </form>
-        ) : null}
+        )}
       </CardFooter>
     </Card>
   );

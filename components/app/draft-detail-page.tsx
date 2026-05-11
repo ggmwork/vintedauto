@@ -316,45 +316,43 @@ export function DraftDetailPage({
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    {queueContext.stateLinks.map((stateLink) => (
-                      <Link
-                        key={stateLink.state}
-                        href={stateLink.href}
-                        className={buttonVariants({
-                          variant:
-                            stateLink.state === queueContext.state
-                              ? "default"
-                              : "outline",
-                          size: "sm",
-                        })}
-                      >
-                        {stateLink.label} ({queueContext.counts[stateLink.state]})
-                      </Link>
-                    ))}
-                  </div>
+                  <details className="rounded-lg border border-border bg-background">
+                    <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
+                      Switch listing view
+                    </summary>
+                    <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
+                      {queueContext.stateLinks.map((stateLink) => (
+                        <Link
+                          key={stateLink.state}
+                          href={stateLink.href}
+                          className={buttonVariants({
+                            variant:
+                              stateLink.state === queueContext.state
+                                ? "default"
+                                : "outline",
+                            size: "sm",
+                          })}
+                        >
+                          {stateLink.label} ({queueContext.counts[stateLink.state]})
+                        </Link>
+                      ))}
+                    </div>
+                  </details>
                 </div>
               ) : null}
-
-              <div className="flex flex-wrap items-center gap-3">
-                <DraftStatusBadge status={draft.status} />
-                {!queueContext ? (
-                  <Link
-                    href="/drafts"
-                    className={buttonVariants({ variant: "outline" })}
-                  >
-                    Listing list
-                  </Link>
-                ) : null}
-              </div>
 
               <div className="space-y-2">
                 <h1 className="font-heading text-3xl font-semibold text-balance">
                   {draft.title ?? "New listing"}
                 </h1>
-                <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                  Keep the next action obvious: photos, listing text, Vinted fill.
-                </p>
+                {!queueContext ? (
+                  <Link
+                    href="/drafts"
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    Listing list
+                  </Link>
+                ) : null}
               </div>
             </section>
 
@@ -377,7 +375,6 @@ export function DraftDetailPage({
             <section ref={uploadRef} className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <Badge variant="secondary">Step 1</Badge>
                   <h2 className="font-heading text-2xl font-semibold">
                     Upload images
                   </h2>
@@ -386,9 +383,6 @@ export function DraftDetailPage({
                     image set.
                   </p>
                 </div>
-                <Badge variant="outline">
-                  {draft.imageCount} image{draft.imageCount === 1 ? "" : "s"}
-                </Badge>
               </div>
 
               <Card>
@@ -500,7 +494,6 @@ export function DraftDetailPage({
 
             <section ref={generateRef} className="space-y-4">
               <div className="space-y-1">
-                <Badge variant="secondary">Step 2</Badge>
                 <h2 className="font-heading text-2xl font-semibold">
                   Generate listing
                 </h2>
@@ -571,10 +564,9 @@ export function DraftDetailPage({
 
             <section ref={reviewRef} className="space-y-4">
               <div className="space-y-1">
-                <Badge variant="secondary">Step 3</Badge>
-                <h2 className="font-heading text-2xl font-semibold">
-                  Review listing fields
-                </h2>
+                  <h2 className="font-heading text-2xl font-semibold">
+                    Review listing fields
+                  </h2>
                 <p className="text-sm text-muted-foreground">
                   Generated fields land here. Edit the listing once, then save
                   the full draft state in one form.
@@ -841,7 +833,6 @@ export function DraftDetailPage({
             {hasReviewContent ? (
               <section ref={exportRef} className="space-y-4">
                 <div className="space-y-1">
-                  <Badge variant="secondary">Step 4</Badge>
                   <h2 className="font-heading text-2xl font-semibold">
                     Fill Vinted
                   </h2>

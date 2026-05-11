@@ -18,12 +18,9 @@ export function AppTopNav() {
   return (
     <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-6 py-4 lg:px-8">
-        <div className="space-y-0.5">
+        <div>
           <p className="font-heading text-base font-semibold text-foreground">
             Vinted Auto
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Photos to Vinted
           </p>
         </div>
 
