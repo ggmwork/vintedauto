@@ -1,6 +1,6 @@
 # Vinted Auto Documentation Index
 
-Last updated: 2026-05-08
+Last updated: 2026-05-11
 
 This folder captures current product context, market research, MVP scope, and technical direction for the desktop-first Vinted listing assistant.
 
@@ -14,10 +14,11 @@ Important:
 - documents `26` through `28` capture the recommended multi-provider AI research and implementation plan
 - documents `29` through `32` capture the Vinted extension MVP research, architecture, field contract, and implementation plan
 - document `33` captures the current repo-state checkpoint and recommended next implementation step
+- documents `43` through `45` capture the simplified UX reset, user-flow reference, and implementation reference
 - for extension/admin work, treat `22` through `25` as the source of truth
 - for AI provider routing work, treat `26` through `28` as the source of truth
 - for the actual Vinted extension build, treat `29` through `32` as the source of truth
-- for deciding what to implement next, start with `33`
+- for the simplified UX implementation phase, start with `43`
 
 Documents:
 
@@ -55,6 +56,9 @@ Documents:
 - [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) - step-by-step implementation plan for the extension MVP and first handoff API endpoint
 - [33-current-state-and-next-step.md](./33-current-state-and-next-step.md) - current repo-state checkpoint and recommended next implementation step
 - [42-code-quality-baseline.md](./42-code-quality-baseline.md) - project identity, current verification status, and code-quality risk baseline
+- [43-simplified-ux-redesign-plan.md](./43-simplified-ux-redesign-plan.md) - implementation plan for reducing UX complexity around one seller workbench
+- [44-simplified-ux-flow-reference.md](./44-simplified-ux-flow-reference.md) - flow diagrams, screen responsibilities, and simplified IA reference
+- [45-simplified-ui-implementation-reference.md](./45-simplified-ui-implementation-reference.md) - component-level implementation guidance and verification checklist
 
 Current product decision:
 
@@ -63,8 +67,9 @@ Current product decision:
 - Target Vinted web in browser, not the native mobile app.
 - Keep copy/export as a valid success path.
 - Keep manual final submit as a hard safety boundary.
-- Next major implementation cycle is:
-  - finalize the Vinted extension contract
-  - build Chrome extension autofill MVP
-  - add internal multi-account management
-  - add orders and profit tracking
+- Next major implementation cycle is the simplified UX reset:
+  - make `/` a seller Workbench
+  - reduce visible navigation to Workbench, Listings, and Settings
+  - keep one primary action per screen state
+  - move debug and low-frequency controls behind advanced sections
+  - preserve the manual Vinted submit boundary
