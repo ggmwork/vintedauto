@@ -1,6 +1,6 @@
 # Vinted Auto Documentation Index
 
-Last updated: 2026-05-11
+Last updated: 2026-05-15
 
 This folder captures current product context, market research, MVP scope, and technical direction for the desktop-first Vinted listing assistant.
 
@@ -17,8 +17,8 @@ Important:
 - documents `43` through `45` capture the simplified UX reset, user-flow reference, and implementation reference
 - for extension/admin work, treat `22` through `25` as the source of truth
 - for AI provider routing work, treat `26` through `28` as the source of truth
-- for the actual Vinted extension build, treat `29` through `32` as the source of truth
-- for the simplified UX implementation phase, start with `43`
+- for the implemented Vinted extension MVP and remaining hardening, treat `29` through `38` as the source of truth
+- for the current simplified UX implementation phase, start with `43`
 
 Documents:
 
@@ -53,8 +53,13 @@ Documents:
 - [29-vinted-extension-research.md](./29-vinted-extension-research.md) - current research baseline for the safe Vinted extension MVP
 - [30-vinted-extension-architecture.md](./30-vinted-extension-architecture.md) - recommended MV3 extension shape, handoff flow, and adapter boundaries
 - [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md) - MVP field contract between the app and the extension
-- [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) - step-by-step implementation plan for the extension MVP and first handoff API endpoint
+- [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) - implemented extension MVP plan and remaining hardening reference
 - [33-current-state-and-next-step.md](./33-current-state-and-next-step.md) - current repo-state checkpoint and recommended next implementation step
+- [34-vinted-extension-dom-smoke-test.md](./34-vinted-extension-dom-smoke-test.md) - selector repair and live smoke-test checklist for the supported Vinted page
+- [35-vinted-extension-handoff-research-2026-05-03.md](./35-vinted-extension-handoff-research-2026-05-03.md) - app-to-extension launch and handoff research
+- [36-vinted-extension-recommended-bridge-architecture.md](./36-vinted-extension-recommended-bridge-architecture.md) - direct bridge architecture and fallback route
+- [37-vinted-extension-message-reference.md](./37-vinted-extension-message-reference.md) - extension/app protocol, storage keys, and state machine
+- [38-vinted-extension-stable-id-setup.md](./38-vinted-extension-stable-id-setup.md) - stable unpacked extension ID setup guide
 - [42-code-quality-baseline.md](./42-code-quality-baseline.md) - project identity, current verification status, and code-quality risk baseline
 - [43-simplified-ux-redesign-plan.md](./43-simplified-ux-redesign-plan.md) - implementation plan for reducing UX complexity around one seller workbench
 - [44-simplified-ux-flow-reference.md](./44-simplified-ux-flow-reference.md) - flow diagrams, screen responsibilities, and simplified IA reference

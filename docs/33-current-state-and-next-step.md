@@ -1,6 +1,6 @@
 # Current State And Next Step
 
-Last updated: 2026-05-03
+Last updated: 2026-05-15
 
 ## Purpose
 
@@ -35,7 +35,7 @@ cross-account cloning automation.
 Implemented app surface:
 
 - Next.js app with App Router
-- top navigation for Inbox, Stock, Review, and AI settings
+- top navigation for Workbench, Listings, and Settings
 - watched-folder Inbox with manual scan, watcher controls, and live refresh
 - local JSON/file storage under `.data`
 - photo intake and image API routes
@@ -84,20 +84,20 @@ Missing or still narrow pieces:
 
 ## Existing Docs For This Feature
 
-These markdown files already cover the missing extension and API work:
+These markdown files cover the extension, API, and hardening work:
 
 - [10-next-phase-roadmap.md](./10-next-phase-roadmap.md) defines listing payload stabilization, Chrome extension MVP, `Fill on Vinted`, and manual final submit.
 - [25-implementation-plan-extension-and-admin.md](./25-implementation-plan-extension-and-admin.md) defines the larger extension/admin cycle and puts payload stabilization before the extension.
 - [29-vinted-extension-research.md](./29-vinted-extension-research.md) explains the safety boundary, MV3 choice, service worker, content script, popup, and app-as-source-of-truth model.
 - [30-vinted-extension-architecture.md](./30-vinted-extension-architecture.md) defines the app endpoint, service worker, content script, popup, image upload, error model, and versioning rule.
 - [31-vinted-extension-field-contract.md](./31-vinted-extension-field-contract.md) defines fields, required payload data, fill rules, image rules, status result, and future queue events.
-- [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) is the build plan for payload endpoint, MV3 scaffold, app connection, page detection, field fill, image upload, app trigger, queue polish, and hardening.
+- [32-implementation-plan-vinted-extension-mvp.md](./32-implementation-plan-vinted-extension-mvp.md) is the implemented MVP plan and remaining selector-hardening reference.
 - [34-vinted-extension-dom-smoke-test.md](./34-vinted-extension-dom-smoke-test.md) is the repeatable selector-repair and smoke-test checklist for the supported Vinted page.
 - [35-vinted-extension-handoff-research-2026-05-03.md](./35-vinted-extension-handoff-research-2026-05-03.md) captures the current Chrome extension research and compares launch/handoff options.
 - [36-vinted-extension-recommended-bridge-architecture.md](./36-vinted-extension-recommended-bridge-architecture.md) defines the recommended direct app-to-extension bridge plus the fallback route.
 - [37-vinted-extension-message-reference.md](./37-vinted-extension-message-reference.md) records the protocol, storage keys, and launch/fill state machine.
 - [38-vinted-extension-stable-id-setup.md](./38-vinted-extension-stable-id-setup.md) records the stable unpacked extension ID setup and the next manual Chrome step.
-- This file records the current repo-state gap and recommends the exact first endpoint: `GET /api/drafts/[draftId]/vinted-handoff`.
+- This file records the current repo-state gap and recommends selector hardening as the next extension step.
 
 ## Main Gap
 
@@ -108,6 +108,11 @@ The MVP handoff loop is present, including the first later-field profile layer:
 The next gap is survivability:
 
 `real PT later-field selectors -> fast diagnosis -> fast repair`
+
+The wider current UI track is the simplified Workbench UX in
+[43-simplified-ux-redesign-plan.md](./43-simplified-ux-redesign-plan.md). That
+track improves how sellers reach `Fill on Vinted`; it does not replace the
+extension hardening work.
 
 ## Recommended Next Step
 

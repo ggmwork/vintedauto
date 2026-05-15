@@ -1,6 +1,6 @@
 # Implementation Plan: Vinted Extension MVP
 
-Last updated: 2026-04-30
+Last updated: 2026-05-15
 
 ## Purpose
 
@@ -9,6 +9,23 @@ This plan turns the research and architecture into an executable build sequence.
 The target milestone is:
 
 `seller clicks Fill on Vinted -> extension fills Vinted web form -> seller reviews -> seller submits`
+
+## Current status
+
+The first extension MVP is implemented in the current repo.
+
+Implemented:
+
+- `GET /api/drafts/[draftId]/vinted-handoff`
+- `GET /api/drafts/[draftId]/fill-on-vinted`
+- `POST /api/drafts/[draftId]/vinted-fill-result`
+- Chrome MV3 extension under `extension/`
+- popup, service worker, content scripts, and form adapter
+- review UI actions for `Fill on Vinted` and queue continuation
+- field-level diagnostics and persisted fill-result states
+- schema-driven Vinted PT profile fields in the handoff payload
+
+Remaining work in this plan is Phase I: selector hardening and maintenance.
 
 ## Guiding rule
 
@@ -26,7 +43,9 @@ Current repo alignment:
 
 - `lib/vinted/handoff.ts` already builds the Vinted payload used by the export panel
 - `app/api/drafts/[draftId]/images/[imageId]/route.ts` already serves draft image binaries
-- no extension-fetchable payload route exists yet
+- `app/api/drafts/[draftId]/vinted-handoff/route.ts` exposes the extension payload
+- `app/api/drafts/[draftId]/fill-on-vinted/route.ts` launches the supported Vinted create page
+- `app/api/drafts/[draftId]/vinted-fill-result/route.ts` persists extension results
 
 Tasks:
 
@@ -41,6 +60,10 @@ Tasks:
 Deliverable:
 
 Extension can fetch a deterministic payload from the app.
+
+Status:
+
+Implemented. Keep this section as contract reference.
 
 Verification:
 
@@ -69,6 +92,10 @@ Deliverable:
 
 Loadable unpacked extension with no app integration yet.
 
+Status:
+
+Implemented in `extension/`.
+
 ## Phase C - Connect extension to the app
 
 Goal:
@@ -86,6 +113,10 @@ Deliverable:
 
 Extension can confirm app connectivity and payload availability.
 
+Status:
+
+Implemented with popup and app/extension handoff protocol.
+
 ## Phase D - Detect supported Vinted pages
 
 Goal:
@@ -101,6 +132,10 @@ Tasks:
 Deliverable:
 
 Extension knows whether current tab is fillable.
+
+Status:
+
+Implemented for the first supported Vinted create-listing flow.
 
 ## Phase E - Fill core text and metadata fields
 
@@ -126,6 +161,10 @@ Deliverable:
 
 Text and structured fields fill reliably on the supported listing page.
 
+Status:
+
+Implemented for the first PT profile scope. Keep hardening under Phase I.
+
 ## Phase F - Upload ordered images
 
 Goal:
@@ -144,6 +183,10 @@ Deliverable:
 
 Ordered images upload into the Vinted form from app URLs.
 
+Status:
+
+Implemented through the extension image transport path.
+
 ## Phase G - Add app-side trigger
 
 Goal:
@@ -161,6 +204,10 @@ Deliverable:
 
 Seller can start autofill from the app, not from extension internals.
 
+Status:
+
+Implemented through `Fill on Vinted`.
+
 ## Phase H - Add queue workflow polish
 
 Goal:
@@ -177,6 +224,10 @@ Tasks:
 Deliverable:
 
 Seller can process multiple listings quickly.
+
+Status:
+
+Implemented at MVP level with persisted handoff/fill states.
 
 ## Phase I - Hardening and selector maintenance
 
