@@ -41,14 +41,52 @@ type ChoiceOption = {
   disabled?: boolean;
 };
 
+const sharedOpenAiModelOptions: ChoiceOption[] = [
+  {
+    value: "gpt-5.5",
+    label: "GPT-5.5",
+    description: "Best OpenAI quality for image reading and reasoning.",
+  },
+  {
+    value: "gpt-5.4",
+    label: "GPT-5.4",
+    description: "Strong OpenAI vision model with lower cost than GPT-5.5.",
+  },
+  {
+    value: "gpt-5.4-mini",
+    label: "GPT-5.4 mini",
+    description: "Faster OpenAI option for lower-latency runs.",
+  },
+  {
+    value: "gpt-5.4-nano",
+    label: "GPT-5.4 nano",
+    description: "Cheapest OpenAI option for simple extraction.",
+  },
+];
+
+const codexCliModelOptions: ChoiceOption[] = [
+  {
+    value: "default",
+    label: "Codex CLI default",
+    description: "Let your installed Codex CLI choose the default model.",
+  },
+  {
+    value: "gpt-5.3-codex",
+    label: "GPT-5.3-Codex",
+    description: "Current Codex-optimized model for agentic CLI work.",
+  },
+];
+
 function ChoiceGroup({
   name,
   value,
   options,
+  dense = false,
 }: {
   name: string;
   value: string;
   options: ChoiceOption[];
+  dense?: boolean;
 }) {
   return (
     <div className="grid gap-2">
@@ -58,7 +96,7 @@ function ChoiceGroup({
         return (
           <label
             key={option.value}
-            className={`flex min-h-14 items-start gap-3 rounded-lg border px-3 py-2 text-sm transition ${
+            className={`flex ${dense ? "min-h-12" : "min-h-14"} items-start gap-3 rounded-lg border px-3 py-2 text-sm transition ${
               checked
                 ? "border-foreground bg-muted/40"
                 : "border-border bg-background"
@@ -89,6 +127,29 @@ function ChoiceGroup({
       })}
     </div>
   );
+}
+
+function buildModelOptions(currentModel: string | null, options: ChoiceOption[]) {
+  const trimmed = currentModel?.trim();
+
+  if (!trimmed) {
+    return options;
+  }
+
+  if (
+    options.some((option) => option.value.toLowerCase() === trimmed.toLowerCase())
+  ) {
+    return options;
+  }
+
+  return [
+    {
+      value: trimmed,
+      label: `Current custom: ${trimmed}`,
+      description: "Saved model not in the built-in list. Pick another option to replace it.",
+    },
+    ...options,
+  ];
 }
 
 function formatDate(value: string | null) {
@@ -265,6 +326,22 @@ export function AiSettingsPage({
   const localOllamaModelIds = recommendedOllamaModelProfiles.map(
     (profile) => profile.id
   );
+  const localOllamaModelOptions: ChoiceOption[] = recommendedOllamaModelProfiles.map(
+    (profile) => ({
+      value: profile.id,
+      label: `${profile.label} (${profile.id})`,
+      description: `${profile.vision ? "Vision" : "Text only"} local Ollama model. ${profile.note}`,
+    })
+  );
+  const listingModelOptions = buildModelOptions(settings.tasks.listing.model, [
+    ...codexCliModelOptions,
+    ...sharedOpenAiModelOptions,
+    ...localOllamaModelOptions,
+  ]);
+  const groupingModelOptions = buildModelOptions(settings.tasks.grouping.model, [
+    ...sharedOpenAiModelOptions,
+    ...localOllamaModelOptions,
+  ]);
 
   return (
     <main className="flex-1 bg-muted/20">
@@ -362,29 +439,26 @@ export function AiSettingsPage({
                   />
                 </div>
 
-                <label className="grid gap-2 text-sm">
+                <div className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">Listing model</span>
-                  <input
-                    type="text"
+                  <ChoiceGroup
                     name="listingModel"
-                    list="ollama-listing-model-options"
-                    defaultValue={settings.tasks.listing.model ?? ""}
-                    className={inputClassName}
-                    placeholder="default / gpt-5.4 / qwen3.5:9b"
+                    value={settings.tasks.listing.model ?? ""}
+                    options={listingModelOptions}
+                    dense
                   />
-                  <datalist id="ollama-listing-model-options">
-                    {localOllamaModelIds.map((modelId) => (
-                      <option key={modelId} value={modelId} />
-                    ))}
-                  </datalist>
                   <span className="text-xs text-muted-foreground">
-                    Installed local options: <code>{localOllamaModelIds.join(", ")}</code>
+                    Codex CLI options:{" "}
+                    <code>{codexCliModelOptions.map((option) => option.value).join(", ")}</code>
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    For Local CLI, this becomes <code>codex exec --model</code>.
-                    Use <code>default</code> to let Codex choose.
+                    OpenAI/Codex shared options:{" "}
+                    <code>{sharedOpenAiModelOptions.map((option) => option.value).join(", ")}</code>
                   </span>
-                </label>
+                  <span className="text-xs text-muted-foreground">
+                    Ollama options: <code>{localOllamaModelIds.join(", ")}</code>
+                  </span>
+                </div>
 
                 <div className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">Grouping provider</span>
@@ -405,28 +479,22 @@ export function AiSettingsPage({
                   />
                 </div>
 
-                <label className="grid gap-2 text-sm">
+                <div className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">Grouping model</span>
-                  <input
-                    type="text"
+                  <ChoiceGroup
                     name="groupingModel"
-                    list="ollama-grouping-model-options"
-                    defaultValue={settings.tasks.grouping.model ?? ""}
-                    className={inputClassName}
-                    placeholder="qwen3-vl:8b / qwen3.5:9b / gpt-5 mini"
+                    value={settings.tasks.grouping.model ?? ""}
+                    options={groupingModelOptions}
+                    dense
                   />
-                  <datalist id="ollama-grouping-model-options">
-                    {localOllamaModelIds.map((modelId) => (
-                      <option key={modelId} value={modelId} />
-                    ))}
-                  </datalist>
                   <span className="text-xs text-muted-foreground">
-                    Installed local options: <code>{localOllamaModelIds.join(", ")}</code>
+                    OpenAI options:{" "}
+                    <code>{sharedOpenAiModelOptions.map((option) => option.value).join(", ")}</code>
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    Recommended local default: <code>qwen3-vl:8b</code>
+                    Ollama options: <code>{localOllamaModelIds.join(", ")}</code>
                   </span>
-                </label>
+                </div>
               </CardContent>
             </Card>
 
