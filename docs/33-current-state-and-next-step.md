@@ -58,7 +58,8 @@ Implemented app surface:
 - category-path and later-field handoff through `listing.profile`
 - multi-provider AI routing for Ollama, OpenAI, and Anthropic
 - AI settings page with task-specific provider/model config
-- local CLI provider is researched and planned in docs `51` through `53`, but not implemented yet
+- experimental local CLI listing provider using Codex CLI
+- AI settings page can enable Local CLI, choose engine, choose listing model, and test provider setup
 
 Current local data snapshot:
 
@@ -82,7 +83,7 @@ Missing or still narrow pieces:
 - market-generalization beyond the first supported create-listing flow
 - shipping, discounts, promo, and other advanced Vinted controls
 - more PT profile coverage beyond the first apparel branches
-- local CLI AI provider for personal desktop subscription use
+- local CLI AI benchmarking against Ollama/API providers
 
 ## Existing Docs For This Feature
 
@@ -115,6 +116,10 @@ The wider current UI track is the simplified Workbench UX in
 [43-simplified-ux-redesign-plan.md](./43-simplified-ux-redesign-plan.md). That
 track improves how sellers reach `Fill on Vinted`; it does not replace the
 extension hardening work.
+
+The local CLI AI provider track is implemented for the first Codex listing
+slice. The remaining AI work is quality benchmarking and optional Claude Code
+support after the `claude` CLI is installed and its image path is verified.
 
 ## Recommended Next Step
 

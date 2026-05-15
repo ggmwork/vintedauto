@@ -6,6 +6,8 @@ import {
   getGroupingProviderConfig,
   getListingMaxImages,
   getListingProviderConfig,
+  getLocalCliEnabled,
+  getLocalCliEngine,
   getOllamaBaseUrl,
   getOpenAiBaseUrl,
   getProviderTimeoutMs,
@@ -40,6 +42,11 @@ export function getAiSettingsViewModel() {
         timeoutMs: getProviderTimeoutMs("anthropic", "listing"),
         hasApiKey:
           Boolean(stored.anthropicApiKey) || Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
+      },
+      localCli: {
+        enabled: getLocalCliEnabled(),
+        engine: getLocalCliEngine(),
+        timeoutMs: getProviderTimeoutMs("local-cli", "listing"),
       },
     },
     lastTests: stored.lastTests,

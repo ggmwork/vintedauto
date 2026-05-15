@@ -4,6 +4,7 @@ import {
   CpuIcon,
   KeyRoundIcon,
   Settings2Icon,
+  TerminalIcon,
   TriangleAlertIcon,
 } from "lucide-react";
 
@@ -184,6 +185,11 @@ export function AiSettingsPage({
         timeoutMs: number;
         hasApiKey: boolean;
       };
+      localCli: {
+        enabled: boolean;
+        engine: "codex" | "claude";
+        timeoutMs: number;
+      };
     };
     lastTests: Partial<Record<AiProvider, AiProviderTestResult>>;
     updatedAt: string | null;
@@ -283,6 +289,7 @@ export function AiSettingsPage({
                     <option value="ollama">Ollama</option>
                     <option value="openai">OpenAI</option>
                     <option value="anthropic">Anthropic</option>
+                    <option value="local-cli">Local CLI</option>
                   </select>
                 </label>
 
@@ -319,6 +326,7 @@ export function AiSettingsPage({
                     <option value="ollama">Ollama</option>
                     <option value="openai">OpenAI</option>
                     <option value="anthropic">Anthropic</option>
+                    <option value="local-cli">Local CLI (listing only)</option>
                   </select>
                 </label>
 
@@ -394,7 +402,7 @@ export function AiSettingsPage({
             <summary className="cursor-pointer px-4 py-4 text-sm font-medium text-foreground">
               Provider details
             </summary>
-            <section className="grid gap-6 border-t border-border px-4 py-4 xl:grid-cols-3">
+            <section className="grid gap-6 border-t border-border px-4 py-4 xl:grid-cols-4">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -539,6 +547,59 @@ export function AiSettingsPage({
                   </label>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    <CardTitle className="flex items-center gap-2">
+                      <TerminalIcon className="size-4" />
+                      Local CLI
+                    </CardTitle>
+                    <Badge variant={settings.providers.localCli.enabled ? "default" : "outline"}>
+                      {settings.providers.localCli.enabled ? "enabled" : "disabled"}
+                    </Badge>
+                  </div>
+                  <CardDescription>
+                    Uses a local agent CLI login. Codex is supported first.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      name="localCliEnabled"
+                      defaultChecked={settings.providers.localCli.enabled}
+                    />
+                    Enable local CLI provider
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">Engine</span>
+                    <select
+                      name="localCliEngine"
+                      defaultValue={settings.providers.localCli.engine}
+                      className={inputClassName}
+                    >
+                      <option value="codex">Codex CLI</option>
+                      <option value="claude">Claude Code (planned)</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">Timeout (ms)</span>
+                    <input
+                      type="number"
+                      min={30000}
+                      step={1000}
+                      name="localCliTimeoutMs"
+                      defaultValue={settings.providers.localCli.timeoutMs}
+                      className={inputClassName}
+                    />
+                  </label>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Listing model above controls <code>codex exec --model</code>.
+                    Leave it as <code>default</code> to use the CLI default.
+                  </p>
+                </CardContent>
+              </Card>
             </section>
           </details>
 
@@ -632,7 +693,7 @@ export function AiSettingsPage({
           <summary className="cursor-pointer px-4 py-4 text-sm font-medium text-foreground">
             Connection tests
           </summary>
-          <section className="grid gap-6 border-t border-border px-4 py-4 xl:grid-cols-3">
+          <section className="grid gap-6 border-t border-border px-4 py-4 xl:grid-cols-4">
             <ProviderTestCard
               provider="ollama"
               title="Ollama"
@@ -650,6 +711,12 @@ export function AiSettingsPage({
               title="Anthropic"
               description="Check API auth and configured Claude models."
               result={settings.lastTests.anthropic}
+            />
+            <ProviderTestCard
+              provider="local-cli"
+              title="Local CLI"
+              description="Check local Codex CLI availability and local provider setup."
+              result={settings.lastTests["local-cli"]}
             />
           </section>
         </details>

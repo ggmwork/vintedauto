@@ -4,6 +4,7 @@ import {
   getGroupingProviderConfig,
   getListingProviderConfig,
 } from "@/lib/ai/provider-config";
+import { localCliListingGenerationService } from "@/lib/ai/local-cli-listing-generation-service";
 import { openAiListingGenerationService } from "@/lib/ai/openai-listing-generation-service";
 import { ollamaListingGenerationService } from "@/lib/ai/ollama-listing-generation-service";
 import { anthropicPhotoDescriptorService } from "@/lib/grouping/anthropic-photo-descriptor-service";
@@ -20,6 +21,8 @@ function getListingProviderService(provider: AiProvider): ListingGenerationServi
       return anthropicListingGenerationService;
     case "ollama":
       return ollamaListingGenerationService;
+    case "local-cli":
+      return localCliListingGenerationService;
   }
 
   throw new Error(`Unsupported listing provider: ${provider}`);
@@ -33,6 +36,8 @@ function getGroupingProviderService(provider: AiProvider): PhotoDescriptorServic
       return anthropicPhotoDescriptorService;
     case "ollama":
       return ollamaPhotoDescriptorService;
+    case "local-cli":
+      throw new Error("Local CLI provider only supports listing generation.");
   }
 
   throw new Error(`Unsupported grouping provider: ${provider}`);

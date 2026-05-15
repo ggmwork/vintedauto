@@ -18,6 +18,9 @@
     "lib/vinted/listing-profile.ts",
     "lib/vinted/handoff.ts",
     "lib/drafts/draft-readiness.ts",
+    "lib/ai/local-cli-command-runner.ts",
+    "lib/ai/local-cli-codex.ts",
+    "lib/ai/local-cli-output.ts",
     "types/**/*.ts"
   ],
   "exclude": ["node_modules", ".next", ".test-build"]

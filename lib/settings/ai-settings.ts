@@ -8,6 +8,7 @@ import type {
   AiProvider,
   AiProviderTestResult,
   AiRouterMode,
+  LocalCliEngine,
 } from "@/types/ai";
 
 export interface StoredAiSettings {
@@ -22,9 +23,12 @@ export interface StoredAiSettings {
   openAiApiKey: string | null;
   anthropicBaseUrl: string | null;
   anthropicApiKey: string | null;
+  localCliEnabled: boolean | null;
+  localCliEngine: LocalCliEngine | null;
   openAiTimeoutMs: number | null;
   anthropicTimeoutMs: number | null;
   ollamaTimeoutMs: number | null;
+  localCliTimeoutMs: number | null;
   lastTests: Partial<Record<AiProvider, AiProviderTestResult>>;
   updatedAt: string | null;
 }
@@ -33,9 +37,16 @@ const dataDirectory = path.join(process.cwd(), ".data");
 const aiSettingsFilePath = path.join(dataDirectory, "ai-settings.json");
 
 function normalizeProvider(value: unknown): AiProvider | null {
-  return value === "ollama" || value === "openai" || value === "anthropic"
+  return value === "ollama" ||
+    value === "openai" ||
+    value === "anthropic" ||
+    value === "local-cli"
     ? value
     : null;
+}
+
+function normalizeLocalCliEngine(value: unknown): LocalCliEngine | null {
+  return value === "codex" || value === "claude" ? value : null;
 }
 
 function normalizeRouterMode(value: unknown): AiRouterMode | null {
@@ -55,6 +66,10 @@ function normalizeNumber(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function normalizeBoolean(value: unknown) {
+  return typeof value === "boolean" ? value : null;
+}
+
 function createDefaultStoredAiSettings(): StoredAiSettings {
   return {
     routerMode: null,
@@ -68,9 +83,12 @@ function createDefaultStoredAiSettings(): StoredAiSettings {
     openAiApiKey: null,
     anthropicBaseUrl: null,
     anthropicApiKey: null,
+    localCliEnabled: null,
+    localCliEngine: null,
     openAiTimeoutMs: null,
     anthropicTimeoutMs: null,
     ollamaTimeoutMs: null,
+    localCliTimeoutMs: null,
     lastTests: {},
     updatedAt: null,
   };
@@ -95,9 +113,12 @@ function normalizeStoredAiSettings(value: unknown): StoredAiSettings {
     openAiApiKey: normalizeString(candidate.openAiApiKey),
     anthropicBaseUrl: normalizeString(candidate.anthropicBaseUrl),
     anthropicApiKey: normalizeString(candidate.anthropicApiKey),
+    localCliEnabled: normalizeBoolean(candidate.localCliEnabled),
+    localCliEngine: normalizeLocalCliEngine(candidate.localCliEngine),
     openAiTimeoutMs: normalizeNumber(candidate.openAiTimeoutMs),
     anthropicTimeoutMs: normalizeNumber(candidate.anthropicTimeoutMs),
     ollamaTimeoutMs: normalizeNumber(candidate.ollamaTimeoutMs),
+    localCliTimeoutMs: normalizeNumber(candidate.localCliTimeoutMs),
     lastTests:
       candidate.lastTests && typeof candidate.lastTests === "object"
         ? Object.fromEntries(

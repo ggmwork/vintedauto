@@ -378,7 +378,7 @@ export function resolveGeneratedAt(value: unknown) {
 }
 
 export function buildCanonicalGenerationResult(
-  provider: "ollama" | "openai" | "anthropic",
+  provider: "ollama" | "openai" | "anthropic" | "local-cli",
   model: string,
   generatedAt: string,
   parsedPayload: unknown,

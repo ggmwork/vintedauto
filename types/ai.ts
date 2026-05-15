@@ -1,4 +1,5 @@
-export type AiProvider = "ollama" | "openai" | "anthropic";
+export type AiProvider = "ollama" | "openai" | "anthropic" | "local-cli";
+export type LocalCliEngine = "codex" | "claude";
 export type AiTask = "listing" | "grouping";
 export type AiRouterMode = "manual" | "fallback";
 

@@ -2,7 +2,7 @@ import "server-only";
 
 import { getRecommendedOllamaPreset } from "@/lib/ai/ollama-presets";
 import { readStoredAiSettingsSync } from "@/lib/settings/ai-settings";
-import type { AiProvider, AiRouterMode, AiTask } from "@/types/ai";
+import type { AiProvider, AiRouterMode, AiTask, LocalCliEngine } from "@/types/ai";
 
 const defaultLocalPreset = getRecommendedOllamaPreset("balanced-local");
 
@@ -12,12 +12,31 @@ function parseProvider(value: string | undefined | null): AiProvider | null {
   if (
     normalized === "ollama" ||
     normalized === "openai" ||
-    normalized === "anthropic"
+    normalized === "anthropic" ||
+    normalized === "local-cli"
   ) {
     return normalized;
   }
 
   return null;
+}
+
+function parseBoolean(value: string | undefined | null, fallback: boolean) {
+  const normalized = value?.trim().toLowerCase();
+
+  if (normalized === "true" || normalized === "1" || normalized === "yes") {
+    return true;
+  }
+
+  if (normalized === "false" || normalized === "0" || normalized === "no") {
+    return false;
+  }
+
+  return fallback;
+}
+
+function parseLocalCliEngine(value: string | undefined | null): LocalCliEngine {
+  return value?.trim().toLowerCase() === "claude" ? "claude" : "codex";
 }
 
 function parseRouterMode(value: string | undefined | null): AiRouterMode {
@@ -94,6 +113,8 @@ function getProviderSpecificModel(task: AiTask, provider: AiProvider) {
           : process.env.ANTHROPIC_GROUPING_MODEL?.trim() ||
             process.env.ANTHROPIC_MODEL?.trim() ||
             null;
+    case "local-cli":
+      return process.env.LOCAL_CLI_MODEL?.trim() || "default";
   }
 }
 
@@ -156,6 +177,10 @@ export function getProviderTimeoutMs(provider: AiProvider, task: AiTask) {
       return typeof stored.anthropicTimeoutMs === "number"
         ? stored.anthropicTimeoutMs
         : parseTimeout(process.env.ANTHROPIC_TIMEOUT_MS, 120_000);
+    case "local-cli":
+      return typeof stored.localCliTimeoutMs === "number"
+        ? stored.localCliTimeoutMs
+        : parseTimeout(process.env.LOCAL_CLI_TIMEOUT_MS, 300_000);
   }
 }
 
@@ -196,6 +221,22 @@ export function getAnthropicBaseUrl() {
     process.env.ANTHROPIC_BASE_URL?.trim() ??
     "https://api.anthropic.com/v1"
   );
+}
+
+export function getLocalCliEnabled() {
+  const stored = readStoredAiSettingsSync();
+
+  return stored.localCliEnabled ?? parseBoolean(process.env.LOCAL_CLI_ENABLED, false);
+}
+
+export function getLocalCliEngine() {
+  const stored = readStoredAiSettingsSync();
+
+  return stored.localCliEngine ?? parseLocalCliEngine(process.env.LOCAL_CLI_ENGINE);
+}
+
+export function getLocalCliKeepRuns() {
+  return parseBoolean(process.env.LOCAL_CLI_KEEP_RUNS, false);
 }
 
 export function requireProviderApiKey(provider: Extract<AiProvider, "openai" | "anthropic">) {

@@ -94,7 +94,7 @@ Current product decision:
   - skip uncertain categories instead of guessing
   - let user manually edit before final submit
   - preserve simplified UX docs for later UI work
-- Current AI subscription-use path is experimental local CLI provider work:
+- Current AI subscription-use path is experimental local CLI provider:
   - use official non-interactive CLI modes, not browser chat automation
-  - start with Codex CLI because it is installed locally and supports schema/image flags
+  - Codex CLI listing generation is implemented behind explicit Local CLI settings
   - keep grouping on Ollama until local CLI listing quality is verified

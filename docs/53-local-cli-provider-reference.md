@@ -36,7 +36,7 @@ Do not expose arbitrary command names.
 
 ## Environment Variables
 
-Recommended variables:
+Implemented variables:
 
 ```env
 LOCAL_CLI_ENABLED="false"

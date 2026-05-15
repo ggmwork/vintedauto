@@ -8,11 +8,14 @@ import {
   getAnthropicBaseUrl,
   getGroupingProviderConfig,
   getListingProviderConfig,
+  getLocalCliEnabled,
+  getLocalCliEngine,
   getOllamaBaseUrl,
   getOpenAiBaseUrl,
   requireProviderApiKey,
   requireProviderModel,
 } from "@/lib/ai/provider-config";
+import { runLocalCliCommand } from "@/lib/ai/local-cli-command-runner";
 import type { AiProvider, AiProviderTestResult, AiTask } from "@/types/ai";
 
 function getTasksUsingProvider(provider: AiProvider): AiTask[] {
@@ -214,6 +217,63 @@ async function testAnthropicProvider() {
   );
 }
 
+async function testLocalCliProvider() {
+  if (!getLocalCliEnabled()) {
+    throw new Error(
+      "Local CLI provider is disabled. Enable LOCAL_CLI_ENABLED before using local agent CLI generation."
+    );
+  }
+
+  if (getGroupingProviderConfig().provider === "local-cli") {
+    throw new Error(
+      "Local CLI provider currently supports listing only. Keep grouping provider on Ollama."
+    );
+  }
+
+  const engine = getLocalCliEngine();
+
+  if (engine !== "codex") {
+    throw new Error(
+      "Claude local CLI engine is planned but not implemented. Use LOCAL_CLI_ENGINE=codex."
+    );
+  }
+
+  const versionResult = await runLocalCliCommand({
+    executable: "codex",
+    args: ["--version"],
+    timeoutMs: 15_000,
+  });
+
+  if (versionResult.exitCode !== 0) {
+    throw new Error(
+      `Codex CLI version check failed: ${versionResult.stderr || versionResult.stdout || "unknown error"}`
+    );
+  }
+
+  const helpResult = await runLocalCliCommand({
+    executable: "codex",
+    args: ["exec", "--help"],
+    timeoutMs: 15_000,
+  });
+
+  if (helpResult.exitCode !== 0) {
+    throw new Error(
+      `Codex CLI exec check failed: ${helpResult.stderr || helpResult.stdout || "unknown error"}`
+    );
+  }
+
+  const taskModels = getModelsUsingProvider("local-cli");
+  const version = versionResult.stdout.trim() || "codex";
+
+  return createResult(
+    "local-cli",
+    "success",
+    taskModels.length > 0
+      ? `Connected to ${version}. Ready for ${taskModels.map((entry) => `${entry.task}:${entry.model}`).join(", ")}.`
+      : `Connected to ${version}. No active task is currently using Local CLI.`
+  );
+}
+
 export async function testAiProviderConnection(provider: AiProvider) {
   try {
     switch (provider) {
@@ -223,6 +283,8 @@ export async function testAiProviderConnection(provider: AiProvider) {
         return await testOpenAiProvider();
       case "anthropic":
         return await testAnthropicProvider();
+      case "local-cli":
+        return await testLocalCliProvider();
     }
   } catch (error) {
     return createResult(

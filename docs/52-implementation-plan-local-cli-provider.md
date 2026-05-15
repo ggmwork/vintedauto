@@ -23,6 +23,8 @@ Target outcome:
 
 ## Phase 1 - Provider Contract
 
+Status: implemented 2026-05-15.
+
 Goal:
 
 Add `local-cli` to the provider model without changing generation behavior.
@@ -50,6 +52,8 @@ Verification:
 - settings page renders
 
 ## Phase 2 - Codex Health Check
+
+Status: implemented 2026-05-15.
 
 Goal:
 
@@ -80,6 +84,8 @@ Verification:
 - manual local check: installed Codex is detected
 
 ## Phase 3 - Codex Listing Adapter
+
+Status: implemented 2026-05-15.
 
 Goal:
 
@@ -121,6 +127,8 @@ Verification:
 
 ## Phase 4 - Settings UI
 
+Status: implemented 2026-05-15.
+
 Goal:
 
 Make local CLI provider usable without editing `.env.local`.
@@ -153,6 +161,8 @@ Verification:
 
 ## Phase 5 - Benchmark Against Current Providers
 
+Status: not implemented.
+
 Goal:
 
 Know whether local CLI output is good enough before making it default.
@@ -184,6 +194,9 @@ Verification:
 - no provider switch based on vibes only
 
 ## Phase 6 - Claude Code Adapter
+
+Status: not implemented. Blocked until `claude` is installed locally and image
+input is verified.
 
 Goal:
 

@@ -505,7 +505,7 @@ export function DraftDetailPage({
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Run the local model</CardTitle>
+                  <CardTitle>Run AI generation</CardTitle>
                   <CardDescription>
                     {draft.imageCount === 0
                       ? "Upload at least one image first."
@@ -518,7 +518,7 @@ export function DraftDetailPage({
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">
                       {draft.generation
                         ? `${draft.generation.provider}:${draft.generation.model}`
-                        : "ollama:qwen3.5:9b (default unless env overrides it)"}
+                        : "Configured in AI settings"}
                     </p>
                   </div>
 

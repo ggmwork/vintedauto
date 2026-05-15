@@ -291,7 +291,9 @@ function normalizeGenerationInfo(
     provider:
       candidate.provider === "openai" ||
       candidate.provider === "mock" ||
-      candidate.provider === "ollama"
+      candidate.provider === "ollama" ||
+      candidate.provider === "anthropic" ||
+      candidate.provider === "local-cli"
         ? candidate.provider
         : "mock",
     model: typeof candidate.model === "string" ? candidate.model : "unknown",

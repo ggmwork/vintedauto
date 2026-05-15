@@ -119,9 +119,16 @@ function parseOptionalInteger(value: FormDataEntryValue | null) {
 }
 
 function parseAiProvider(value: FormDataEntryValue | null): AiProvider | null {
-  return value === "ollama" || value === "openai" || value === "anthropic"
+  return value === "ollama" ||
+    value === "openai" ||
+    value === "anthropic" ||
+    value === "local-cli"
     ? value
     : null;
+}
+
+function parseLocalCliEngine(value: FormDataEntryValue | null) {
+  return value === "claude" ? "claude" : "codex";
 }
 
 function parseAiRouterMode(value: FormDataEntryValue | null): AiRouterMode | null {
@@ -1753,9 +1760,12 @@ export async function saveAiSettingsAction(formData: FormData) {
       ollamaBaseUrl: parseStringOrNull(formData.get("ollamaBaseUrl")),
       openAiBaseUrl: parseStringOrNull(formData.get("openAiBaseUrl")),
       anthropicBaseUrl: parseStringOrNull(formData.get("anthropicBaseUrl")),
+      localCliEnabled: formData.get("localCliEnabled") === "on",
+      localCliEngine: parseLocalCliEngine(formData.get("localCliEngine")),
       ollamaTimeoutMs: parseOptionalInteger(formData.get("ollamaTimeoutMs")),
       openAiTimeoutMs: parseOptionalInteger(formData.get("openAiTimeoutMs")),
       anthropicTimeoutMs: parseOptionalInteger(formData.get("anthropicTimeoutMs")),
+      localCliTimeoutMs: parseOptionalInteger(formData.get("localCliTimeoutMs")),
       openAiApiKey:
         formData.get("clearOpenAiApiKey") === "on"
           ? null
