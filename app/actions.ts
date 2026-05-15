@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getListingGenerationService } from "@/lib/ai";
-import { getRecommendedOllamaPreset } from "@/lib/ai/ollama-presets";
+import { getRecommendedAiPreset } from "@/lib/ai/ollama-presets";
 import { testAiProviderConnection } from "@/lib/ai/provider-health";
 import { draftRepository } from "@/lib/drafts";
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
@@ -1783,7 +1783,7 @@ export async function saveAiSettingsAction(formData: FormData) {
 }
 
 export async function applyAiPresetAction(presetId: string) {
-  const preset = getRecommendedOllamaPreset(presetId);
+  const preset = getRecommendedAiPreset(presetId);
 
   if (!preset) {
     redirectToAiSettings({
@@ -1794,11 +1794,13 @@ export async function applyAiPresetAction(presetId: string) {
   await updateStoredAiSettings((current) => ({
     ...current,
     routerMode: "manual",
-    listingProvider: "ollama",
-    groupingProvider: "ollama",
+    listingProvider: preset.listingProvider,
+    groupingProvider: preset.groupingProvider,
     listingModel: preset.listingModel,
     groupingModel: preset.groupingModel,
     listingMaxImages: preset.listingMaxImages,
+    localCliEnabled: preset.localCliEnabled ?? current.localCliEnabled,
+    localCliEngine: preset.localCliEngine ?? current.localCliEngine,
   }));
 
   redirectToAiSettings({

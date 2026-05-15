@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { AiTask } from "@/types/ai";
+import type { AiProvider, AiTask, LocalCliEngine } from "@/types/ai";
 
 export interface OllamaModelProfile {
   id: string;
@@ -18,6 +18,20 @@ export interface OllamaPreset {
   listingModel: string;
   groupingModel: string;
   listingMaxImages: number;
+}
+
+export interface AiPreset {
+  id: OllamaPreset["id"] | "codex-cli-test";
+  label: string;
+  description: string;
+  listingProvider: AiProvider;
+  groupingProvider: AiProvider;
+  listingModel: string;
+  groupingModel: string;
+  listingMaxImages: number;
+  badge: string;
+  localCliEnabled?: boolean;
+  localCliEngine?: LocalCliEngine;
 }
 
 export const recommendedOllamaModelProfiles: OllamaModelProfile[] = [
@@ -74,8 +88,34 @@ export const recommendedOllamaPresets: OllamaPreset[] = [
   },
 ];
 
+export const recommendedAiPresets: AiPreset[] = [
+  ...recommendedOllamaPresets.map((preset) => ({
+    ...preset,
+    listingProvider: "ollama" as const,
+    groupingProvider: "ollama" as const,
+    badge: "Ollama",
+  })),
+  {
+    id: "codex-cli-test",
+    label: "Codex CLI test",
+    description: "Use Codex CLI for listing generation and keep grouping local.",
+    listingProvider: "local-cli",
+    groupingProvider: "ollama",
+    listingModel: "gpt-5.3-codex",
+    groupingModel: "qwen3-vl:8b",
+    listingMaxImages: 4,
+    badge: "Local CLI",
+    localCliEnabled: true,
+    localCliEngine: "codex",
+  },
+];
+
 export function getRecommendedOllamaPreset(presetId: string) {
   return recommendedOllamaPresets.find((preset) => preset.id === presetId) ?? null;
+}
+
+export function getRecommendedAiPreset(presetId: string) {
+  return recommendedAiPresets.find((preset) => preset.id === presetId) ?? null;
 }
 
 export function getRecommendedOllamaModelProfile(model: string | null | undefined) {

@@ -16,8 +16,8 @@ import {
 import {
   buildOllamaPullCommand,
   getRecommendedOllamaModelProfile,
+  recommendedAiPresets,
   recommendedOllamaModelProfiles,
-  recommendedOllamaPresets,
 } from "@/lib/ai/ollama-presets";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { Badge } from "@/components/ui/badge";
@@ -182,7 +182,7 @@ function getKeyStatusLabel(hasKey: boolean, stored: boolean) {
 function PresetCard({
   preset,
 }: {
-  preset: (typeof recommendedOllamaPresets)[number];
+  preset: (typeof recommendedAiPresets)[number];
 }) {
   const action = applyAiPresetAction.bind(null, preset.id);
 
@@ -194,7 +194,9 @@ function PresetCard({
             <CardTitle className="text-base">{preset.label}</CardTitle>
             <CardDescription>{preset.description}</CardDescription>
           </div>
-          <Badge variant="outline">Ollama</Badge>
+          <Badge variant={preset.badge === "Local CLI" ? "default" : "outline"}>
+            {preset.badge}
+          </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
@@ -371,7 +373,7 @@ export function AiSettingsPage({
         ) : null}
 
         <section className="grid gap-6 xl:grid-cols-3">
-          {recommendedOllamaPresets.map((preset) => (
+          {recommendedAiPresets.map((preset) => (
             <PresetCard key={preset.id} preset={preset} />
           ))}
         </section>
