@@ -15,9 +15,12 @@ Important:
 - documents `29` through `32` capture the Vinted extension MVP research, architecture, field contract, and implementation plan
 - document `33` captures the current repo-state checkpoint and recommended next implementation step
 - documents `43` through `45` capture the simplified UX reset, user-flow reference, and implementation reference
+- documents `46` through `50` capture the live Vinted category resolver roadmap, phased implementation plans, and technical reference
 - for extension/admin work, treat `22` through `25` as the source of truth
 - for AI provider routing work, treat `26` through `28` as the source of truth
 - for the implemented Vinted extension MVP and remaining hardening, treat `29` through `38` as the source of truth
+- for Vinted dynamic profile fields, treat `39` through `41` as the source of truth
+- for live Vinted category automation, start with `46`, then implement `47`
 - for the current simplified UX implementation phase, start with `43`
 
 Documents:
@@ -60,10 +63,18 @@ Documents:
 - [36-vinted-extension-recommended-bridge-architecture.md](./36-vinted-extension-recommended-bridge-architecture.md) - direct bridge architecture and fallback route
 - [37-vinted-extension-message-reference.md](./37-vinted-extension-message-reference.md) - extension/app protocol, storage keys, and state machine
 - [38-vinted-extension-stable-id-setup.md](./38-vinted-extension-stable-id-setup.md) - stable unpacked extension ID setup guide
+- [39-vinted-dynamic-fields-research.md](./39-vinted-dynamic-fields-research.md) - research for Vinted category-dependent field behavior
+- [40-vinted-dynamic-field-reference-pt.md](./40-vinted-dynamic-field-reference-pt.md) - PT dynamic field catalog and profile reference
+- [41-vinted-dynamic-fields-rollout.md](./41-vinted-dynamic-fields-rollout.md) - rollout notes for category-dependent Vinted fields
 - [42-code-quality-baseline.md](./42-code-quality-baseline.md) - project identity, current verification status, and code-quality risk baseline
 - [43-simplified-ux-redesign-plan.md](./43-simplified-ux-redesign-plan.md) - implementation plan for reducing UX complexity around one seller workbench
 - [44-simplified-ux-flow-reference.md](./44-simplified-ux-flow-reference.md) - flow diagrams, screen responsibilities, and simplified IA reference
 - [45-simplified-ui-implementation-reference.md](./45-simplified-ui-implementation-reference.md) - component-level implementation guidance and verification checklist
+- [46-vinted-live-category-automation-roadmap.md](./46-vinted-live-category-automation-roadmap.md) - roadmap for live Vinted category automation with manual final control
+- [47-implementation-plan-vinted-category-phase-1.md](./47-implementation-plan-vinted-category-phase-1.md) - Phase 1 implementation plan for image-first fill and live category resolver
+- [48-implementation-plan-vinted-category-phase-2.md](./48-implementation-plan-vinted-category-phase-2.md) - Phase 2 implementation plan for manual correction capture
+- [49-implementation-plan-vinted-category-phase-3.md](./49-implementation-plan-vinted-category-phase-3.md) - Phase 3 implementation plan for local taxonomy memory
+- [50-vinted-category-resolver-reference.md](./50-vinted-category-resolver-reference.md) - scoring, diagnostics, manual override, and resolver behavior reference
 
 Current product decision:
 
@@ -72,9 +83,9 @@ Current product decision:
 - Target Vinted web in browser, not the native mobile app.
 - Keep copy/export as a valid success path.
 - Keep manual final submit as a hard safety boundary.
-- Next major implementation cycle is the simplified UX reset:
-  - make `/` a seller Workbench
-  - reduce visible navigation to Workbench, Listings, and Settings
-  - keep one primary action per screen state
-  - move debug and low-frequency controls behind advanced sections
-  - preserve the manual Vinted submit boundary
+- Current extension priority is live category automation Phase 1:
+  - upload images before resolving category
+  - use live Vinted suggestions/options
+  - skip uncertain categories instead of guessing
+  - let user manually edit before final submit
+  - preserve simplified UX docs for later UI work
