@@ -13,8 +13,6 @@ export function buildCodexListingArgs(input: CodexListingArgsInput) {
     input.runDir,
     "--sandbox",
     "read-only",
-    "--ask-for-approval",
-    "never",
     "--ephemeral",
     "--ignore-rules",
     "--output-schema",

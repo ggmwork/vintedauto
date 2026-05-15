@@ -40,20 +40,19 @@ describe("local CLI provider", () => {
       model: "gpt-5.4",
     });
 
-    assert.deepEqual(args.slice(0, 12), [
+    assert.deepEqual(args.slice(0, 10), [
       "exec",
       "--cd",
       "C:\\tmp\\run",
       "--sandbox",
       "read-only",
-      "--ask-for-approval",
-      "never",
       "--ephemeral",
       "--ignore-rules",
       "--output-schema",
       "C:\\tmp\\run\\schema.json",
       "--output-last-message",
     ]);
+    assert.equal(args.includes("--ask-for-approval"), false);
     assert.ok(args.includes("--model"));
     assert.ok(args.includes("gpt-5.4"));
     assert.equal(args.filter((entry) => entry === "--image").length, 2);

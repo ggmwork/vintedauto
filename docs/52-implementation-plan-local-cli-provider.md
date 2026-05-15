@@ -102,7 +102,6 @@ Tasks:
 - call `codex exec` with:
   - `--cd <runDir>`
   - `--sandbox read-only`
-  - `--ask-for-approval never`
   - `--ephemeral`
   - `--ignore-rules`
   - `--output-schema <schemaFile>`

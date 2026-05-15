@@ -65,7 +65,6 @@ Command shape:
 codex exec
   --cd <runDir>
   --sandbox read-only
-  --ask-for-approval never
   --ephemeral
   --ignore-rules
   --output-schema <schemaPath>

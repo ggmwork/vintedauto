@@ -38,7 +38,6 @@ Observed on 2026-05-15:
   - `--image`
   - `--model`
   - `--sandbox`
-  - `--ask-for-approval`
   - `--cd`
   - `--ephemeral`
   - `--ignore-user-config`
@@ -129,7 +128,6 @@ Recommended command shape:
 codex exec
   --cd <isolated-run-directory>
   --sandbox read-only
-  --ask-for-approval never
   --ephemeral
   --ignore-rules
   --output-schema <listing-generation.schema.json>
@@ -184,7 +182,7 @@ Required controls:
 - copy only selected images and schema into the run directory
 - do not expose `.env`, `.data`, repo files, or draft storage paths to the CLI
 - default sandbox: read-only
-- approval mode: never
+- do not pass unsupported approval flags; this installed Codex CLI rejects `--ask-for-approval`
 - hard timeout
 - output size limit
 - structured parser rejects non-JSON
