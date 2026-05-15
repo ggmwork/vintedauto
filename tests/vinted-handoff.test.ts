@@ -160,7 +160,7 @@ describe("Vinted handoff payload", () => {
     );
   });
 
-  it("marks the handoff unready when required Vinted profile fields are missing", () => {
+  it("keeps handoff ready when optional Vinted profile fields are missing", () => {
     const payload = createVintedHandoffPayload(
       createDraft({
         vintedProfile: {
@@ -174,8 +174,8 @@ describe("Vinted handoff payload", () => {
       })
     );
 
-    assert.equal(payload.handoff.ready, false);
-    assert.ok(payload.handoff.missingFields.includes("vinted:logistics.packageSize"));
+    assert.equal(payload.handoff.ready, true);
+    assert.deepEqual(payload.handoff.missingFields, []);
     assert.deepEqual(payload.listing.profile?.missingRequiredFieldKeys, [
       "logistics.packageSize",
     ]);

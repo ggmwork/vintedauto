@@ -1451,7 +1451,7 @@ export async function removeDraftImageAction(
     });
 
     redirectToDraft(draftId, {
-      flash: "Removed image and moved the draft back to draft because required Vinted fields are now missing.",
+      flash: "Removed image and moved the draft back to draft because required listing fields are now missing.",
     });
   }
 
@@ -1578,7 +1578,7 @@ export async function saveDraftReviewAction(
     flash:
       result.nextStatus === result.previousStatus
         ? "Saved listing fields."
-        : "Saved listing fields and moved the draft back to draft because required Vinted fields are now missing.",
+        : "Saved listing fields and moved the draft back to draft because required listing fields are now missing.",
     focus: "export",
   });
 }
@@ -1596,7 +1596,7 @@ export async function saveDraftReviewAndAdvanceAction(
       flash:
         result.nextStatus === result.previousStatus
           ? "Saved listing fields. End of queue."
-          : "Saved listing fields and moved the draft back to draft because required Vinted fields are now missing. End of queue.",
+          : "Saved listing fields and moved the draft back to draft because required listing fields are now missing. End of queue.",
       focus: "export",
     });
   }
@@ -1639,7 +1639,7 @@ export async function saveDraftMetadataAction(
     flash:
       nextStatus === draft.status
         ? "Saved metadata changes."
-        : "Saved metadata changes and moved the draft back to draft because required Vinted fields are now missing.",
+        : "Saved metadata changes and moved the draft back to draft because required listing fields are now missing.",
   });
 }
 
@@ -1728,7 +1728,7 @@ export async function restoreDraftGenerationAction(
     });
 
     redirectToDraft(draftId, {
-      flash: "Restored a previous generation and moved the draft back to draft because required Vinted fields are now missing.",
+      flash: "Restored a previous generation and moved the draft back to draft because required listing fields are now missing.",
     });
   }
 

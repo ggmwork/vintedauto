@@ -1,8 +1,3 @@
-import {
-  getVintedProfileMissingFieldKeys,
-  hydrateDraftVintedProfileState,
-  resolveVintedListingProfile,
-} from "@/lib/vinted/listing-profile";
 import type { DraftDetail } from "@/types/draft";
 
 export interface DraftReadiness {
@@ -55,25 +50,6 @@ export function getDraftReadiness(
 
   if (!draft.metadata.condition?.trim()) {
     missing.push("condition");
-  }
-
-  if (draft.metadata.category?.trim()) {
-    const vintedProfileState = hydrateDraftVintedProfileState({
-      category: draft.metadata.category,
-      state: draft.vintedProfile,
-    });
-    const resolvedProfile = resolveVintedListingProfile({
-      category: draft.metadata.category,
-      state: vintedProfileState,
-    });
-    const missingVintedFields = getVintedProfileMissingFieldKeys(
-      resolvedProfile,
-      vintedProfileState
-    );
-
-    missing.push(
-      ...missingVintedFields.map((fieldKey) => `vinted:${fieldKey}`)
-    );
   }
 
   return {

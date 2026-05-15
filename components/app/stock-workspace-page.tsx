@@ -420,8 +420,8 @@ function StockEntryCard({
                   </p>
                   <Badge variant={linkedDraftMissingVintedFields.length === 0 ? "default" : "outline"}>
                     {linkedDraftMissingVintedFields.length === 0
-                      ? "complete"
-                      : `${linkedDraftMissingVintedFields.length} missing`}
+                      ? "optional complete"
+                      : `${linkedDraftMissingVintedFields.length} optional`}
                   </Badge>
                 </div>
 

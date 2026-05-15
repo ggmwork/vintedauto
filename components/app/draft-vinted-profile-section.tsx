@@ -38,7 +38,7 @@ export function DraftVintedProfileSection({
     category: draft.metadata.category,
     state: vintedProfileState,
   });
-  const missingRequiredFieldKeys = getVintedProfileMissingFieldKeys(
+  const missingManualFieldKeys = getVintedProfileMissingFieldKeys(
     resolvedProfile,
     vintedProfileState
   );
@@ -66,10 +66,10 @@ export function DraftVintedProfileSection({
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary">{resolvedProfile.market}</Badge>
-          <Badge variant={missingRequiredFieldKeys.length === 0 ? "default" : "outline"}>
-            {missingRequiredFieldKeys.length === 0
-              ? "later fields complete"
-              : `${missingRequiredFieldKeys.length} required later field${missingRequiredFieldKeys.length === 1 ? "" : "s"} missing`}
+          <Badge variant={missingManualFieldKeys.length === 0 ? "default" : "outline"}>
+            {missingManualFieldKeys.length === 0
+              ? "optional fields complete"
+              : `${missingManualFieldKeys.length} optional field${missingManualFieldKeys.length === 1 ? "" : "s"} left for manual fill`}
           </Badge>
         </div>
       </div>
@@ -158,7 +158,7 @@ export function DraftVintedProfileSection({
                             {fieldDefinition.label}
                           </span>
                           {fieldDefinition.required ? (
-                            <Badge variant="outline">required</Badge>
+                            <Badge variant="outline">manual ok</Badge>
                           ) : null}
                           {fieldDefinition.recommended ? (
                             <Badge variant="secondary">recommended</Badge>
@@ -176,7 +176,7 @@ export function DraftVintedProfileSection({
                           {fieldDefinition.label}
                         </label>
                         {fieldDefinition.required ? (
-                          <Badge variant="outline">required</Badge>
+                          <Badge variant="outline">manual ok</Badge>
                         ) : null}
                         {fieldDefinition.recommended ? (
                           <Badge variant="secondary">recommended</Badge>
@@ -205,7 +205,7 @@ export function DraftVintedProfileSection({
                           {fieldDefinition.label}
                         </label>
                         {fieldDefinition.required ? (
-                          <Badge variant="outline">required</Badge>
+                          <Badge variant="outline">manual ok</Badge>
                         ) : null}
                         {fieldDefinition.recommended ? (
                           <Badge variant="secondary">recommended</Badge>
