@@ -16,11 +16,13 @@ Important:
 - document `33` captures the current repo-state checkpoint and recommended next implementation step
 - documents `43` through `45` capture the simplified UX reset, user-flow reference, and implementation reference
 - documents `46` through `50` capture the live Vinted category resolver roadmap, phased implementation plans, and technical reference
+- documents `51` through `53` capture the local CLI provider research, implementation plan, and command reference
 - for extension/admin work, treat `22` through `25` as the source of truth
 - for AI provider routing work, treat `26` through `28` as the source of truth
 - for the implemented Vinted extension MVP and remaining hardening, treat `29` through `38` as the source of truth
 - for Vinted dynamic profile fields, treat `39` through `41` as the source of truth
 - for live Vinted category automation, start with `46`, then implement `47`
+- for local CLI AI provider work, start with `51`, then implement `52`
 - for the current simplified UX implementation phase, start with `43`
 
 Documents:
@@ -75,6 +77,9 @@ Documents:
 - [48-implementation-plan-vinted-category-phase-2.md](./48-implementation-plan-vinted-category-phase-2.md) - Phase 2 implementation plan for manual correction capture
 - [49-implementation-plan-vinted-category-phase-3.md](./49-implementation-plan-vinted-category-phase-3.md) - Phase 3 implementation plan for local taxonomy memory
 - [50-vinted-category-resolver-reference.md](./50-vinted-category-resolver-reference.md) - scoring, diagnostics, manual override, and resolver behavior reference
+- [51-local-cli-ai-provider-research.md](./51-local-cli-ai-provider-research.md) - research on using local Codex/Claude CLIs through subscription-authenticated command adapters
+- [52-implementation-plan-local-cli-provider.md](./52-implementation-plan-local-cli-provider.md) - phased implementation plan for an experimental `local-cli` AI provider
+- [53-local-cli-provider-reference.md](./53-local-cli-provider-reference.md) - command contracts, env vars, safety rules, and test path for local CLI provider work
 
 Current product decision:
 
@@ -89,3 +94,7 @@ Current product decision:
   - skip uncertain categories instead of guessing
   - let user manually edit before final submit
   - preserve simplified UX docs for later UI work
+- Current AI subscription-use path is experimental local CLI provider work:
+  - use official non-interactive CLI modes, not browser chat automation
+  - start with Codex CLI because it is installed locally and supports schema/image flags
+  - keep grouping on Ollama until local CLI listing quality is verified

@@ -58,6 +58,7 @@ Implemented app surface:
 - category-path and later-field handoff through `listing.profile`
 - multi-provider AI routing for Ollama, OpenAI, and Anthropic
 - AI settings page with task-specific provider/model config
+- local CLI provider is researched and planned in docs `51` through `53`, but not implemented yet
 
 Current local data snapshot:
 
@@ -81,6 +82,7 @@ Missing or still narrow pieces:
 - market-generalization beyond the first supported create-listing flow
 - shipping, discounts, promo, and other advanced Vinted controls
 - more PT profile coverage beyond the first apparel branches
+- local CLI AI provider for personal desktop subscription use
 
 ## Existing Docs For This Feature
 

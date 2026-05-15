@@ -153,6 +153,29 @@ Deliverable:
 
 The app can recover from provider failures without complex guessing.
 
+## Phase I - Local CLI provider
+
+Goal:
+
+Allow personal desktop use of subscription-authenticated local agent CLIs.
+
+Tasks:
+
+- add experimental `local-cli` provider
+- start with `codex exec`
+- keep local CLI provider disabled by default
+- isolate each run in a temp directory
+- pass images as files
+- pass the canonical listing schema with `--output-schema`
+- pipe prompt through stdin
+- parse and validate the final response before persistence
+- add Claude Code only after `claude` is installed and image support is verified
+
+Deliverable:
+
+Listing generation can use Codex CLI locally while the rest of the app still
+uses the canonical `GenerationResult` shape.
+
 ## Recommended order
 
 1. config foundation
@@ -163,6 +186,7 @@ The app can recover from provider failures without complex guessing.
 6. health checks
 7. settings UI
 8. fallback chains later
+9. local CLI provider for personal desktop subscription use
 
 ## Recommended first milestone
 
@@ -188,3 +212,11 @@ Each provider implementation should be verified with:
 3. provider/model persistence in saved output
 4. useful failure message on bad credentials
 5. useful failure message on timeout
+
+Local CLI provider must additionally verify:
+
+1. missing CLI error
+2. disabled feature flag error
+3. malformed CLI output rejection
+4. no repo write access during generation
+5. one explicit user click maps to one CLI run

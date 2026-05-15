@@ -21,13 +21,21 @@ Best approach:
 - keep one canonical output schema in the app
 - make provider/model selection configurable per task
 
-Do not build this around consumer chat logins.
+Do not build the normal backend path around consumer chat logins.
+
+Exception:
+
+Consumer-plan access can be used through official local agent CLIs, such as
+Codex CLI or Claude Code, when the app runs locally and spawns the CLI in
+non-interactive mode. That is a separate experimental provider path, not a
+replacement for API providers.
 
 For backend integration, use:
 
 - OpenAI API keys
 - Anthropic API keys
 - local Ollama runtime
+- optional local CLI adapter for personal desktop use
 
 ## Current repo state
 
@@ -96,14 +104,29 @@ Implication:
 
 Ollama can stay as the local provider and can be wrapped more cleanly later behind an OpenAI-compatible client if useful.
 
-### 4. Consumer apps vs APIs
+### 4. Consumer apps, APIs, and local CLIs
 
 The official OpenAI and Anthropic docs are both API-key based.
 
-Inference:
+Original backend inference:
 
 - `chatgpt.com` / ChatGPT consumer access is not the right backend integration surface
 - `claude.ai` consumer access is not the right backend integration surface
+
+Updated 2026-05-15:
+
+There is a valid local-only exception:
+
+- Codex CLI can be authenticated with a ChatGPT plan
+- Claude Code can be authenticated with a Claude Pro or Max plan
+- a local app can spawn those CLIs in non-interactive mode
+
+This is how tools like OpenDesign avoid direct consumer chat automation.
+
+Implication:
+
+Add `local-cli` as an experimental local provider. Do not make it the hosted
+backend contract.
 
 For this app, “ChatGPT” should mean **OpenAI API**, and “Claude” should mean **Anthropic API**.
 
@@ -162,6 +185,7 @@ Best implementation direction:
 4. add simple provider/model switch settings
 5. add health checks
 6. add fallback chains later
+7. add local CLI provider later for personal desktop subscription use
 
 ## Sources
 
@@ -178,3 +202,7 @@ Best implementation direction:
 - [Ollama Vision](https://docs.ollama.com/capabilities/vision)
 - [Ollama Structured Outputs](https://docs.ollama.com/capabilities/structured-outputs)
 - [Ollama OpenAI compatibility](https://docs.ollama.com/openai)
+- [Codex CLI](https://developers.openai.com/codex/cli)
+- [Using Codex with your ChatGPT plan](https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan)
+- [Claude Code with Pro or Max plan](https://support.claude.com/en/articles/11145838-use-claude-code-with-your-pro-or-max-plan)
+- [Claude Code SDK](https://docs.anthropic.com/en/docs/claude-code/sdk)
