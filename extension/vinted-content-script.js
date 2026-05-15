@@ -156,6 +156,23 @@ function isPayloadValueEmpty(value) {
   return value === null || value === undefined || value === "";
 }
 
+function hasUsableCategoryPlan(categoryPlan) {
+  if (!categoryPlan || typeof categoryPlan !== "object") {
+    return false;
+  }
+
+  const hasSearchQuery =
+    typeof categoryPlan.searchQuery === "string" &&
+    categoryPlan.searchQuery.trim().length > 0;
+  const hasPath =
+    Array.isArray(categoryPlan.path) &&
+    categoryPlan.path.some(
+      (entry) => typeof entry === "string" && entry.trim().length > 0
+    );
+
+  return hasSearchQuery || hasPath;
+}
+
 function decodeBase64(base64) {
   const binary = window.atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -339,6 +356,24 @@ async function fillChoiceField(result, field, resolution, value, options) {
   logDebug(result, `Failed ${field}: ${selection.detail}`, "warn");
 }
 
+async function fillCategoryField(result, resolution, value, categoryPlan) {
+  if (!hasUsableCategoryPlan(categoryPlan)) {
+    recordField(result, "skippedFields", "category");
+    setFieldDiagnostic(
+      result,
+      "category",
+      resolution,
+      "Skipped because no Vinted category path plan is saved. Choose the category manually on Vinted."
+    );
+    logDebug(result, "Skipped category: no Vinted category path plan is saved.");
+    return;
+  }
+
+  await fillChoiceField(result, "category", resolution, value, {
+    categoryPlan,
+  });
+}
+
 async function fillBooleanField(result, field, resolution, value) {
   const adapter = getAdapter();
   setFieldDiagnostic(result, field, resolution);
@@ -471,14 +506,11 @@ async function fillPageFieldsFromPayload(payload) {
     adapter.resolveField("brand"),
     payload.listing.metadata.brand
   );
-  await fillChoiceField(
+  await fillCategoryField(
     result,
-    "category",
     adapter.resolveField("category"),
     payload.listing.metadata.category,
-    {
-      categoryPlan: payload.listing.profile?.categoryPlan ?? null,
-    }
+    payload.listing.profile?.categoryPlan ?? null
   );
   await fillChoiceField(
     result,

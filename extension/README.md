@@ -71,7 +71,7 @@ Important:
 - supported flow: create-listing page
 - supported fields: title, description, price, brand, category, size, condition, color, material, images
 - supported PT later fields:
-  - category path plan
+  - category path plan when saved, skipped for manual fill otherwise
   - package size
   - AI-photo checkbox
   - shirt measurements

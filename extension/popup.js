@@ -235,7 +235,7 @@ function renderAppStockItems(state) {
     categoryPath.className = "stock-state";
     categoryPath.textContent = item.vintedCategoryPath
       ? `Category path: ${item.vintedCategoryPath}`
-      : "Category path not set yet.";
+      : "Category path: manual on Vinted.";
 
     const actions = document.createElement("div");
     actions.className = "stock-actions";
