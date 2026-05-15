@@ -34,6 +34,63 @@ import type { AiProvider, AiProviderTestResult } from "@/types/ai";
 const inputClassName =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
+type ChoiceOption = {
+  value: string;
+  label: string;
+  description?: string;
+  disabled?: boolean;
+};
+
+function ChoiceGroup({
+  name,
+  value,
+  options,
+}: {
+  name: string;
+  value: string;
+  options: ChoiceOption[];
+}) {
+  return (
+    <div className="grid gap-2">
+      {options.map((option) => {
+        const checked = option.value === value;
+
+        return (
+          <label
+            key={option.value}
+            className={`flex min-h-14 items-start gap-3 rounded-lg border px-3 py-2 text-sm transition ${
+              checked
+                ? "border-foreground bg-muted/40"
+                : "border-border bg-background"
+            } ${
+              option.disabled
+                ? "cursor-not-allowed opacity-60"
+                : "cursor-pointer hover:border-foreground/40"
+            }`}
+          >
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              defaultChecked={checked}
+              disabled={option.disabled}
+              className="mt-1 size-4 accent-foreground"
+            />
+            <span className="grid gap-1">
+              <span className="font-medium text-foreground">{option.label}</span>
+              {option.description ? (
+                <span className="text-xs leading-5 text-muted-foreground">
+                  {option.description}
+                </span>
+              ) : null}
+            </span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 function formatDate(value: string | null) {
   if (!value) {
     return "Not yet";
@@ -219,7 +276,7 @@ export function AiSettingsPage({
               Configure AI helpers.
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Keep daily selling in Workbench. Tune model routing here only when setup changes.
+              Keep daily selling in Workbench. Choose providers and model names in Task routing.
             </p>
           </div>
         </section>
@@ -255,17 +312,25 @@ export function AiSettingsPage({
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-2 text-sm">
+                <div className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">Router mode</span>
-                  <select
+                  <ChoiceGroup
                     name="routerMode"
-                    defaultValue={settings.routerMode}
-                    className={inputClassName}
-                  >
-                    <option value="manual">Manual</option>
-                    <option value="fallback">Fallback</option>
-                  </select>
-                </label>
+                    value={settings.routerMode}
+                    options={[
+                      {
+                        value: "manual",
+                        label: "Manual",
+                        description: "Use the selected provider exactly.",
+                      },
+                      {
+                        value: "fallback",
+                        label: "Fallback",
+                        description: "Saved for later automatic fallback logic.",
+                      },
+                    ]}
+                  />
+                </div>
 
                 <label className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">Listing max images</span>
@@ -279,19 +344,23 @@ export function AiSettingsPage({
                   />
                 </label>
 
-                <label className="grid gap-2 text-sm">
+                <div className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">Listing provider</span>
-                  <select
+                  <ChoiceGroup
                     name="listingProvider"
-                    defaultValue={settings.tasks.listing.provider}
-                    className={inputClassName}
-                  >
-                    <option value="ollama">Ollama</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic</option>
-                    <option value="local-cli">Local CLI</option>
-                  </select>
-                </label>
+                    value={settings.tasks.listing.provider}
+                    options={[
+                      { value: "ollama", label: "Ollama" },
+                      { value: "openai", label: "OpenAI" },
+                      { value: "anthropic", label: "Anthropic" },
+                      {
+                        value: "local-cli",
+                        label: "Local CLI",
+                        description: "Use Codex CLI for listing generation.",
+                      },
+                    ]}
+                  />
+                </div>
 
                 <label className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">Listing model</span>
@@ -301,7 +370,7 @@ export function AiSettingsPage({
                     list="ollama-listing-model-options"
                     defaultValue={settings.tasks.listing.model ?? ""}
                     className={inputClassName}
-                    placeholder="qwen3.5:9b / qwen3-vl:8b / gpt-5.2"
+                    placeholder="default / gpt-5.4 / qwen3.5:9b"
                   />
                   <datalist id="ollama-listing-model-options">
                     {localOllamaModelIds.map((modelId) => (
@@ -312,23 +381,29 @@ export function AiSettingsPage({
                     Installed local options: <code>{localOllamaModelIds.join(", ")}</code>
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    Recommended local default: <code>qwen3.5:9b</code>
+                    For Local CLI, this becomes <code>codex exec --model</code>.
+                    Use <code>default</code> to let Codex choose.
                   </span>
                 </label>
 
-                <label className="grid gap-2 text-sm">
+                <div className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">Grouping provider</span>
-                  <select
+                  <ChoiceGroup
                     name="groupingProvider"
-                    defaultValue={settings.tasks.grouping.provider}
-                    className={inputClassName}
-                  >
-                    <option value="ollama">Ollama</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic</option>
-                    <option value="local-cli">Local CLI (listing only)</option>
-                  </select>
-                </label>
+                    value={settings.tasks.grouping.provider}
+                    options={[
+                      { value: "ollama", label: "Ollama" },
+                      { value: "openai", label: "OpenAI" },
+                      { value: "anthropic", label: "Anthropic" },
+                      {
+                        value: "local-cli",
+                        label: "Local CLI",
+                        description: "Listing only. Keep grouping on another provider.",
+                        disabled: true,
+                      },
+                    ]}
+                  />
+                </div>
 
                 <label className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">Grouping model</span>
@@ -572,17 +647,26 @@ export function AiSettingsPage({
                     />
                     Enable local CLI provider
                   </label>
-                  <label className="grid gap-2 text-sm">
+                  <div className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Engine</span>
-                    <select
+                    <ChoiceGroup
                       name="localCliEngine"
-                      defaultValue={settings.providers.localCli.engine}
-                      className={inputClassName}
-                    >
-                      <option value="codex">Codex CLI</option>
-                      <option value="claude">Claude Code (planned)</option>
-                    </select>
-                  </label>
+                      value={settings.providers.localCli.engine}
+                      options={[
+                        {
+                          value: "codex",
+                          label: "Codex CLI",
+                          description: "Supported now.",
+                        },
+                        {
+                          value: "claude",
+                          label: "Claude Code",
+                          description: "Planned after install and image-input verification.",
+                          disabled: true,
+                        },
+                      ]}
+                    />
+                  </div>
                   <label className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Timeout (ms)</span>
                     <input
