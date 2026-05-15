@@ -36,6 +36,7 @@ const CONTENT_SCRIPT_MESSAGE_TYPES = {
 };
 
 const MAX_MESSAGE_BASE64_BYTES = 48 * 1024 * 1024;
+const POST_IMAGE_SUGGESTION_DELAY_MS = 2500;
 
 const DEFAULT_CONFIG = {
   appOrigin: "http://127.0.0.1:3000",
@@ -574,11 +575,7 @@ async function waitForSupportedPage(tabId, timeoutMs = 8000) {
 async function fillTabFromContext(tabId, context) {
   const normalizedContext = await setLastContext(context);
   const payload = await fetchHandoffPayload(normalizedContext);
-  const fieldResult = await chrome.tabs.sendMessage(tabId, {
-    type: CONTENT_SCRIPT_MESSAGE_TYPES.fillPageFields,
-    payload,
-    context: normalizedContext,
-  });
+  let fieldResult = null;
   let imageResult = null;
   let preparedImages = [];
   let imagePreparationError = null;
@@ -619,6 +616,16 @@ async function fillTabFromContext(tabId, context) {
       "Extension worker did not provide any prepared images."
     );
   }
+
+  if (imageResult?.filledFields?.includes("images")) {
+    await wait(POST_IMAGE_SUGGESTION_DELAY_MS);
+  }
+
+  fieldResult = await chrome.tabs.sendMessage(tabId, {
+    type: CONTENT_SCRIPT_MESSAGE_TYPES.fillPageFields,
+    payload,
+    context: normalizedContext,
+  });
 
   const result = mergeFillResults(fieldResult, imageResult);
 

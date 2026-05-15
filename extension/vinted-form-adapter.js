@@ -182,6 +182,8 @@
     "button[aria-haspopup='listbox']",
     "button[aria-expanded]",
   ].join(", ");
+  const CATEGORY_AUTO_SELECT_THRESHOLD = 80;
+  const CATEGORY_AMBIGUITY_MARGIN = 10;
 
   function wait(ms) {
     return new Promise((resolve) => {
@@ -830,6 +832,8 @@
 
     const candidates = buildPriceCandidates(numericValue);
     let lastVisibleValue = "";
+    let lastNormalizedNumericValue = "";
+    let lastParsedValue = null;
 
     for (const candidate of candidates) {
       await typeControlLikeUser(control, candidate);
@@ -843,12 +847,14 @@
       }
 
       const normalizedNumericValue = normalizeNumericText(lastVisibleValue);
+      lastNormalizedNumericValue = normalizedNumericValue;
 
       if (!normalizedNumericValue) {
         continue;
       }
 
       const parsedValue = Number(normalizedNumericValue.replace(",", "."));
+      lastParsedValue = parsedValue;
 
       if (!Number.isNaN(parsedValue) && Math.abs(parsedValue - numericValue) < 0.01) {
         return {
@@ -860,15 +866,19 @@
 
     return {
       ok: false,
-      detail: `Price control rejected ${candidates.join(", ")}. Last visible value was "${lastVisibleValue || "empty"}".`,
+      detail: `Price control rejected ${candidates.join(", ")}. Last visible value was "${lastVisibleValue || "empty"}", normalized "${lastNormalizedNumericValue || "empty"}", parsed "${lastParsedValue ?? "NaN"}".`,
     };
   }
 
   function buildCategorySelectionPlan(value, categoryPlan) {
-    if (categoryPlan && (categoryPlan.searchQuery || categoryPlan.path?.length > 0)) {
-      const explicitPath = Array.isArray(categoryPlan.path)
-        ? categoryPlan.path.filter((entry) => typeof entry === "string" && entry.trim().length > 0)
+    const explicitPath =
+      categoryPlan && Array.isArray(categoryPlan.path)
+        ? categoryPlan.path.filter(
+            (entry) => typeof entry === "string" && entry.trim().length > 0
+          )
         : [];
+
+    if (categoryPlan && (categoryPlan.searchQuery || categoryPlan.path?.length > 0)) {
       const explicitLeaf = explicitPath[explicitPath.length - 1] ?? null;
       const queryCandidates = [
         categoryPlan.searchQuery,
@@ -880,6 +890,7 @@
 
       return {
         queryCandidates: [...new Set(queryCandidates)],
+        explicitPath,
         requiredBreadcrumbTerms: explicitPath.slice(0, -1),
         preferredBreadcrumbTerms: explicitPath.slice(0, -1),
         preferredLeafTerms:
@@ -893,13 +904,17 @@
     const exactPlan = PT_CATEGORY_SELECTION_PLANS[normalizedValue];
 
     if (exactPlan) {
-      return exactPlan;
+      return {
+        ...exactPlan,
+        explicitPath: [],
+      };
     }
 
     const queryCandidates = buildChoiceCandidates("category", value);
 
     return {
       queryCandidates,
+      explicitPath: [],
       requiredBreadcrumbTerms: [],
       preferredBreadcrumbTerms: [],
       preferredLeafTerms: queryCandidates,
@@ -919,6 +934,53 @@
       : option.leaf;
   }
 
+  function summarizeCategoryRanking(entry) {
+    const reasonText = entry.reasons.length > 0 ? `: ${entry.reasons.join(", ")}` : "";
+    return `${summarizeCategoryOption(entry.option)} [${entry.option.source}, score ${entry.score}${reasonText}]`;
+  }
+
+  function splitCategoryPath(value) {
+    return String(value ?? "")
+      .split(">")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  function normalizedCategoryPath(path) {
+    return path.map((entry) => normalizeText(entry));
+  }
+
+  function categoryPathsEqual(left, right) {
+    const normalizedLeft = normalizedCategoryPath(left);
+    const normalizedRight = normalizedCategoryPath(right);
+
+    return (
+      normalizedLeft.length > 0 &&
+      normalizedLeft.length === normalizedRight.length &&
+      normalizedLeft.every((entry, index) => entry === normalizedRight[index])
+    );
+  }
+
+  function inferCategoryOptionSource(element) {
+    const optionText = normalizeText(element.innerText || element.textContent || "");
+    const containerText = normalizeText(element.parentElement?.innerText ?? "");
+    const optionIndex = containerText.indexOf(optionText);
+    const beforeOption =
+      optionIndex >= 0 ? containerText.slice(0, optionIndex) : containerText;
+    const suggestionIndex = beforeOption.lastIndexOf("sugestoes");
+    const catalogIndex = beforeOption.lastIndexOf("seccoes do catalogo");
+
+    if (catalogIndex >= 0 && catalogIndex > suggestionIndex) {
+      return "catalog_section";
+    }
+
+    if (suggestionIndex >= 0 || beforeOption.includes("suggestions")) {
+      return "suggestion";
+    }
+
+    return "unknown";
+  }
+
   function parseCategoryOption(element) {
     const lines = normalizeCategoryLines(element.innerText || element.textContent || "");
 
@@ -926,10 +988,15 @@
       return null;
     }
 
+    const breadcrumb = lines.slice(1).join(" > ");
+
     return {
       element,
       leaf: lines[0],
-      breadcrumb: lines.slice(1).join(" > "),
+      breadcrumb,
+      path: splitCategoryPath(breadcrumb),
+      rawText: lines.join("\n"),
+      source: inferCategoryOptionSource(element),
     };
   }
 
@@ -960,49 +1027,127 @@
     const normalizedBreadcrumb = normalizeText(option.breadcrumb);
     const normalizedQuery = normalizeText(queryCandidate);
     const requiredTerms = plan.requiredBreadcrumbTerms.map((term) => normalizeText(term));
+    const reasons = [];
 
     if (
       requiredTerms.length > 0 &&
       requiredTerms.some((term) => !normalizedBreadcrumb.includes(term))
     ) {
-      return Number.NEGATIVE_INFINITY;
+      return {
+        score: Number.NEGATIVE_INFINITY,
+        reasons: ["missing required breadcrumb terms"],
+      };
     }
 
     let score = 0;
 
-    if (normalizedLeaf === normalizedQuery) {
-      score += 12;
-    } else if (normalizedLeaf.includes(normalizedQuery)) {
-      score += 8;
+    if (
+      categoryPathsEqual(option.path, plan.explicitPath) ||
+      categoryPathsEqual([...option.path, option.leaf], plan.explicitPath)
+    ) {
+      score += 100;
+      reasons.push("exact saved path");
+    }
+
+    if (normalizedQuery) {
+      if (normalizedLeaf === normalizedQuery) {
+        score += 70;
+        reasons.push("exact leaf query match");
+      } else if (
+        normalizedLeaf.includes(normalizedQuery) ||
+        normalizedQuery.includes(normalizedLeaf)
+      ) {
+        score += 45;
+        reasons.push("partial leaf query match");
+      }
+
+      if (normalizedBreadcrumb.includes(normalizedQuery)) {
+        score += 20;
+        reasons.push("breadcrumb query match");
+      }
     }
 
     for (const preferredLeafTerm of plan.preferredLeafTerms) {
       const normalizedPreferredLeafTerm = normalizeText(preferredLeafTerm);
 
       if (normalizedLeaf === normalizedPreferredLeafTerm) {
-        score += 10;
+        score += 70;
+        reasons.push(`exact preferred leaf ${preferredLeafTerm}`);
       } else if (normalizedLeaf.includes(normalizedPreferredLeafTerm)) {
-        score += 5;
+        score += 35;
+        reasons.push(`partial preferred leaf ${preferredLeafTerm}`);
       }
     }
 
     for (const preferredBreadcrumbTerm of plan.preferredBreadcrumbTerms) {
       if (normalizedBreadcrumb.includes(normalizeText(preferredBreadcrumbTerm))) {
-        score += 4;
+        score += 10;
+        reasons.push(`breadcrumb term ${preferredBreadcrumbTerm}`);
       }
     }
 
-    return score;
+    if (option.source === "suggestion" && score > 0) {
+      score += 15;
+      reasons.push("Vinted suggestion");
+    }
+
+    return {
+      score,
+      reasons,
+    };
   }
 
   function chooseBestCategoryOption(options, plan, queryCandidate) {
-    return options
-      .map((option) => ({
-        option,
-        score: scoreCategoryOption(option, plan, queryCandidate),
-      }))
+    const ranked = options
+      .map((option) => {
+        const score = scoreCategoryOption(option, plan, queryCandidate);
+
+        return {
+          option,
+          score: score.score,
+          reasons: score.reasons,
+        };
+      })
       .filter((entry) => Number.isFinite(entry.score) && entry.score > 0)
-      .sort((left, right) => right.score - left.score)[0]?.option ?? null;
+      .sort((left, right) => right.score - left.score);
+    const best = ranked[0] ?? null;
+    const nextBest = ranked[1] ?? null;
+
+    if (!best) {
+      return {
+        option: null,
+        ranked,
+        skipReason: "no scored category options",
+      };
+    }
+
+    if (best.score < CATEGORY_AUTO_SELECT_THRESHOLD) {
+      return {
+        option: null,
+        ranked,
+        skipReason: `top score ${best.score} below ${CATEGORY_AUTO_SELECT_THRESHOLD}`,
+      };
+    }
+
+    if (
+      !best.reasons.includes("exact saved path") &&
+      nextBest &&
+      best.score - nextBest.score < CATEGORY_AMBIGUITY_MARGIN
+    ) {
+      return {
+        option: null,
+        ranked,
+        skipReason: `ambiguous top scores ${best.score} and ${nextBest.score}`,
+      };
+    }
+
+    return {
+      option: best.option,
+      score: best.score,
+      reasons: best.reasons,
+      ranked,
+      skipReason: null,
+    };
   }
 
   function findCategorySearchInput(control) {
@@ -1034,19 +1179,39 @@
 
   async function selectCategoryValue(control, value, categoryPlan) {
     const plan = buildCategorySelectionPlan(value, categoryPlan);
+
+    control.click();
+    await wait(300);
+
+    let lastObservedOptions = findVisibleCategoryOptions();
+    let lastDecision = chooseBestCategoryOption(
+      lastObservedOptions,
+      plan,
+      plan.queryCandidates[0] ?? ""
+    );
+
+    if (lastDecision.option) {
+      lastDecision.option.element.click();
+      await wait(220);
+
+      return {
+        ok: true,
+        detail: `Selected live Vinted category "${lastDecision.option.leaf}" with path "${lastDecision.option.breadcrumb}" (${lastDecision.score}: ${lastDecision.reasons.join(", ")}).`,
+      };
+    }
+
     const searchControl = findCategorySearchInput(control);
 
     if (!searchControl) {
       return {
         ok: false,
-        detail: "Could not find the category search input after opening the dropdown.",
+        skipped: true,
+        detail: `Skipped category: could not find category search input after opening the dropdown. Visible options: ${lastObservedOptions
+          .slice(0, 5)
+          .map(summarizeCategoryOption)
+          .join(" | ") || "none"}.`,
       };
     }
-
-    control.click();
-    await wait(200);
-
-    let lastObservedOptions = [];
 
     for (const queryCandidate of plan.queryCandidates) {
       await typeControlLikeUser(searchControl, queryCandidate, {
@@ -1056,27 +1221,37 @@
 
       const options = findVisibleCategoryOptions();
       lastObservedOptions = options;
-      const bestOption = chooseBestCategoryOption(options, plan, queryCandidate);
+      lastDecision = chooseBestCategoryOption(options, plan, queryCandidate);
 
-      if (!bestOption) {
+      if (!lastDecision.option) {
         continue;
       }
 
-      bestOption.element.click();
+      lastDecision.option.element.click();
       await wait(220);
 
       return {
         ok: true,
-        detail: `Typed "${queryCandidate}" and selected "${bestOption.leaf}" with path "${bestOption.breadcrumb}".`,
+        detail: `Typed "${queryCandidate}" and selected "${lastDecision.option.leaf}" with path "${lastDecision.option.breadcrumb}" (${lastDecision.score}: ${lastDecision.reasons.join(", ")}).`,
       };
     }
 
     return {
       ok: false,
-      detail: `No PT category option matched ${plan.queryCandidates.join(", ")}. Visible options: ${lastObservedOptions
-        .slice(0, 5)
-        .map(summarizeCategoryOption)
-        .join(" | ") || "none"}.`,
+      skipped: true,
+      detail: `Skipped category: ${
+        lastDecision.skipReason ?? "no high-confidence category match"
+      }. Queries: ${plan.queryCandidates.join(", ") || "none"}. Top visible options: ${
+        lastDecision.ranked
+          ?.slice(0, 5)
+          .map(summarizeCategoryRanking)
+          .join(" | ") ||
+        lastObservedOptions
+          .slice(0, 5)
+          .map(summarizeCategoryOption)
+          .join(" | ") ||
+        "none"
+      }.`,
     };
   }
 

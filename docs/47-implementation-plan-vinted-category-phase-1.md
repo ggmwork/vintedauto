@@ -10,6 +10,21 @@ only live DOM behavior and the existing handoff payload.
 Phase 1 should not add persistent learning. It should make the current extension
 safer and more reliable.
 
+## Current Implementation Notes
+
+Implemented in the extension:
+
+- image upload now runs before field fill
+- extension waits after image upload so Vinted can render suggestions
+- category dropdown opens before search input discovery
+- category resolver scores live visible options and saved category paths
+- uncertain category results are skipped with diagnostics, not guessed
+- category-dependent fields resolve after category selection
+- missing dependent controls are skipped so the user can finish manually
+
+Still requires live Vinted PT smoke validation after reloading the unpacked
+extension.
+
 ## User Outcome
 
 When the user clicks Fill on Vinted:

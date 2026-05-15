@@ -71,12 +71,13 @@ Important:
 - supported flow: create-listing page
 - supported fields: title, description, price, brand, category, size, condition, color, material, images
 - supported PT later fields:
-  - category path plan when saved, skipped for manual fill otherwise
+  - live category suggestions, with saved category path preferred when present
   - package size
   - AI-photo checkbox
   - shirt measurements
 - PT price fill now uses masked-input typing with post-fill numeric verification
-- PT category fill now uses dropdown search plus visible breadcrumb-path matching
+- images upload before field fill so Vinted can generate category suggestions
+- PT category fill now uses live option scoring plus visible breadcrumb-path matching
 - later fields now come from `listing.profile`, not only flat metadata
 - app tracks `handed off`, `filled on Vinted`, `needs manual fix`, and `fill failed`
 - popup exposes page diagnostics and last fill diagnostics for selector debugging

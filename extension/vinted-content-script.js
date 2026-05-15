@@ -24,6 +24,13 @@ function createResult() {
 }
 
 let pendingPreparedImages = [];
+const POST_CATEGORY_FIELD_DELAY_MS = 1000;
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
 
 function logDebug(result, message, level = "info") {
   result.debug.debugLog.push(message);
@@ -156,23 +163,6 @@ function isPayloadValueEmpty(value) {
   return value === null || value === undefined || value === "";
 }
 
-function hasUsableCategoryPlan(categoryPlan) {
-  if (!categoryPlan || typeof categoryPlan !== "object") {
-    return false;
-  }
-
-  const hasSearchQuery =
-    typeof categoryPlan.searchQuery === "string" &&
-    categoryPlan.searchQuery.trim().length > 0;
-  const hasPath =
-    Array.isArray(categoryPlan.path) &&
-    categoryPlan.path.some(
-      (entry) => typeof entry === "string" && entry.trim().length > 0
-    );
-
-  return hasSearchQuery || hasPath;
-}
-
 function decodeBase64(base64) {
   const binary = window.atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -233,7 +223,7 @@ async function uploadImages(preparedImages, imagePreparationError, result) {
   logDebug(result, `Uploaded ${files.length} image file(s).`);
 }
 
-async function fillTextField(result, field, resolution, value) {
+async function fillTextField(result, field, resolution, value, options) {
   const adapter = getAdapter();
   setFieldDiagnostic(result, field, resolution);
 
@@ -250,21 +240,31 @@ async function fillTextField(result, field, resolution, value) {
       resolution.control instanceof HTMLTextAreaElement
     )
   ) {
-    recordField(result, "failedFields", field);
+    const bucket = options?.skipMissingControl ? "skippedFields" : "failedFields";
+    recordField(result, bucket, field);
     setFieldDiagnostic(
       result,
       field,
       resolution,
-      "Failed because no text input control was available."
+      options?.skipMissingControl
+        ? "Skipped because no text input control was visible after category selection."
+        : "Failed because no text input control was available."
     );
-    logDebug(result, `Failed ${field}: ${resolution.detail}`, "warn");
-    return;
+    logDebug(
+      result,
+      `${options?.skipMissingControl ? "Skipped" : "Failed"} ${field}: ${
+        resolution.detail
+      }`,
+      options?.skipMissingControl ? "info" : "warn"
+    );
+    return false;
   }
 
   adapter.setControlValue(resolution.control, value);
   recordField(result, "filledFields", field);
   setFieldDiagnostic(result, field, resolution, `Filled with payload value "${value}".`);
   logDebug(result, `Filled ${field}.`);
+  return true;
 }
 
 async function fillPriceField(result, resolution, amount) {
@@ -318,23 +318,32 @@ async function fillChoiceField(result, field, resolution, value, options) {
   const adapter = getAdapter();
   setFieldDiagnostic(result, field, resolution);
 
-  if (isPayloadValueEmpty(value)) {
+  if (field !== "category" && isPayloadValueEmpty(value)) {
     recordField(result, "skippedFields", field);
     setFieldDiagnostic(result, field, resolution, "Skipped because the payload value is empty.");
     logDebug(result, `Skipped ${field}: payload value is empty.`);
-    return;
+    return false;
   }
 
   if (!resolution.control) {
-    recordField(result, "failedFields", field);
+    const bucket = options?.skipMissingControl ? "skippedFields" : "failedFields";
+    recordField(result, bucket, field);
     setFieldDiagnostic(
       result,
       field,
       resolution,
-      "Failed because no visible choice control was available."
+      options?.skipMissingControl
+        ? "Skipped because no visible choice control was available after category selection."
+        : "Failed because no visible choice control was available."
     );
-    logDebug(result, `Failed ${field}: ${resolution.detail}`, "warn");
-    return;
+    logDebug(
+      result,
+      `${options?.skipMissingControl ? "Skipped" : "Failed"} ${field}: ${
+        resolution.detail
+      }`,
+      options?.skipMissingControl ? "info" : "warn"
+    );
+    return false;
   }
 
   const selection = await adapter.selectChoiceValue(
@@ -348,28 +357,24 @@ async function fillChoiceField(result, field, resolution, value, options) {
     recordField(result, "filledFields", field);
     setFieldDiagnostic(result, field, resolution, selection.detail);
     logDebug(result, `Filled ${field}: ${selection.detail}`);
-    return;
+    return true;
+  }
+
+  if (selection.skipped) {
+    recordField(result, "skippedFields", field);
+    setFieldDiagnostic(result, field, resolution, selection.detail);
+    logDebug(result, `Skipped ${field}: ${selection.detail}`);
+    return false;
   }
 
   recordField(result, "failedFields", field);
   setFieldDiagnostic(result, field, resolution, selection.detail);
   logDebug(result, `Failed ${field}: ${selection.detail}`, "warn");
+  return false;
 }
 
 async function fillCategoryField(result, resolution, value, categoryPlan) {
-  if (!hasUsableCategoryPlan(categoryPlan)) {
-    recordField(result, "skippedFields", "category");
-    setFieldDiagnostic(
-      result,
-      "category",
-      resolution,
-      "Skipped because no Vinted category path plan is saved. Choose the category manually on Vinted."
-    );
-    logDebug(result, "Skipped category: no Vinted category path plan is saved.");
-    return;
-  }
-
-  await fillChoiceField(result, "category", resolution, value, {
+  return fillChoiceField(result, "category", resolution, value, {
     categoryPlan,
   });
 }
@@ -448,7 +453,10 @@ async function fillDynamicProfileFields(result, profile) {
         result,
         fieldDefinition.key,
         resolution,
-        fieldDefinition.value
+        fieldDefinition.value,
+        {
+          skipMissingControl: true,
+        }
       );
       continue;
     }
@@ -457,7 +465,10 @@ async function fillDynamicProfileFields(result, profile) {
       result,
       fieldDefinition.key,
       resolution,
-      fieldDefinition.value
+      fieldDefinition.value,
+      {
+        skipMissingControl: true,
+      }
     );
   }
 }
@@ -506,35 +517,59 @@ async function fillPageFieldsFromPayload(payload) {
     adapter.resolveField("brand"),
     payload.listing.metadata.brand
   );
-  await fillCategoryField(
+  const categoryFilled = await fillCategoryField(
     result,
     adapter.resolveField("category"),
     payload.listing.metadata.category,
     payload.listing.profile?.categoryPlan ?? null
   );
+
+  if (categoryFilled) {
+    logDebug(
+      result,
+      `Waiting ${POST_CATEGORY_FIELD_DELAY_MS}ms for category-dependent fields.`
+    );
+    await wait(POST_CATEGORY_FIELD_DELAY_MS);
+    (adapter.getPageState().debugLog ?? []).forEach((entry) => {
+      logDebug(result, entry);
+    });
+  }
+
   await fillChoiceField(
     result,
     "size",
     adapter.resolveField("size"),
-    payload.listing.metadata.size
+    payload.listing.metadata.size,
+    {
+      skipMissingControl: true,
+    }
   );
   await fillChoiceField(
     result,
     "condition",
     adapter.resolveField("condition"),
-    payload.listing.metadata.condition
+    payload.listing.metadata.condition,
+    {
+      skipMissingControl: true,
+    }
   );
   await fillChoiceField(
     result,
     "color",
     adapter.resolveField("color"),
-    payload.listing.metadata.color
+    payload.listing.metadata.color,
+    {
+      skipMissingControl: true,
+    }
   );
   await fillChoiceField(
     result,
     "material",
     adapter.resolveField("material"),
-    payload.listing.metadata.material
+    payload.listing.metadata.material,
+    {
+      skipMissingControl: true,
+    }
   );
   await fillDynamicProfileFields(result, payload.listing.profile);
 
