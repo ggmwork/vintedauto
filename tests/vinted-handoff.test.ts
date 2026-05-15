@@ -152,12 +152,15 @@ describe("Vinted handoff payload", () => {
     );
     assert.equal(
       payload.images[0].apiPath,
-      "/api/drafts/draft-1/images/image-first"
+      "/api/drafts/draft-1/images/image-first?variant=vinted"
     );
     assert.equal(
       payload.images[0].apiUrl,
-      "http://127.0.0.1:3000/api/drafts/draft-1/images/image-first"
+      "http://127.0.0.1:3000/api/drafts/draft-1/images/image-first?variant=vinted"
     );
+    assert.equal(payload.images[0].filename, "first-vinted.jpg");
+    assert.equal(payload.images[0].contentType, "image/jpeg");
+    assert.equal(payload.images[0].sizeBytes, null);
   });
 
   it("keeps handoff ready when optional Vinted profile fields are missing", () => {

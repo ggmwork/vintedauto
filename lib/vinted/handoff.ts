@@ -6,11 +6,12 @@ import {
   hydrateDraftVintedProfileState,
   resolveVintedListingProfile,
 } from "@/lib/vinted/listing-profile";
+import { buildVintedUploadImageFilename } from "@/lib/vinted/image-upload";
 import type { DraftDetail } from "@/types/draft";
 import type { VintedListingPayload } from "@/types/vinted";
 
 function buildDraftImageApiPath(draftId: string, imageId: string) {
-  return `/api/drafts/${draftId}/images/${imageId}`;
+  return `/api/drafts/${draftId}/images/${imageId}?variant=vinted`;
 }
 
 function buildDraftImageApiUrl(apiPath: string, origin?: string | null) {
@@ -146,10 +147,13 @@ export function createVintedHandoffPayload(
 
         return {
           id: image.id,
-          filename: image.originalFilename,
+          filename: buildVintedUploadImageFilename(
+            image.originalFilename,
+            image.id
+          ),
           sortOrder: image.sortOrder,
-          contentType: image.contentType,
-          sizeBytes: image.sizeBytes,
+          contentType: "image/jpeg",
+          sizeBytes: null,
           width: image.width,
           height: image.height,
           apiPath,

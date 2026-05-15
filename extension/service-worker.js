@@ -461,7 +461,11 @@ async function prepareImageFiles(payload, context) {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch image ${image.filename} (${response.status}).`);
+      const responseText = await response.text();
+      throw new Error(
+        responseText ||
+          `Failed to fetch image ${image.filename} (${response.status}).`
+      );
     }
 
     const blob = await response.blob();
@@ -477,8 +481,8 @@ async function prepareImageFiles(payload, context) {
     preparedImages.push({
       id: image.id,
       filename: image.filename || `image-${image.id}.jpg`,
-      contentType: image.contentType || blob.type || "application/octet-stream",
-      sizeBytes: image.sizeBytes,
+      contentType: blob.type || image.contentType || "application/octet-stream",
+      sizeBytes: blob.size,
       sortOrder: image.sortOrder,
       base64,
     });

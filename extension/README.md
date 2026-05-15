@@ -55,6 +55,8 @@ From a ready draft in the app:
 - the extension service worker fetches `/api/drafts/:draftId/vinted-handoff`
 - the extension service worker also fetches the draft images from the app and
   relays them to the content script as prepared upload files
+- image fetches use the app's Vinted upload variant, which converts decodable
+  images to JPEG and compresses them under Vinted's 9 MB limit
 - image relay uses smaller per-image messages so larger drafts do not hit
   Chrome's extension message size cap
 - the content script fills the page
