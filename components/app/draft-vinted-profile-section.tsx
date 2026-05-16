@@ -23,6 +23,28 @@ function getFieldInputValue(
   return draft.vintedProfile.fieldValues[fieldKey];
 }
 
+function formatSavedCategorySource(source: string | null | undefined) {
+  switch (source) {
+    case "user_manual":
+      return "Saved from Vinted";
+    case "extension_auto":
+      return "Saved from extension fill";
+    default:
+      return "Inferred by app";
+  }
+}
+
+function formatCapturedAt(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
 export function DraftVintedProfileSection({
   draft,
   inputClassName,
@@ -42,6 +64,8 @@ export function DraftVintedProfileSection({
     resolvedProfile,
     vintedProfileState
   );
+  const savedCategoryPlan = vintedProfileState.categoryPlan;
+  const savedCategoryTime = formatCapturedAt(savedCategoryPlan?.capturedAt);
   const groupedFields = Object.entries(SECTION_LABELS)
     .map(([sectionKey, sectionLabel]) => ({
       sectionKey,
@@ -113,6 +137,10 @@ export function DraftVintedProfileSection({
           <p className="text-xs text-muted-foreground">
             Use the exact dropdown path separated by ` &gt; `. Example:
             `Homem &gt; Roupa &gt; Tops e t-shirts &gt; Camisas`.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {formatSavedCategorySource(savedCategoryPlan?.source)}
+            {savedCategoryTime ? ` on ${savedCategoryTime}` : ""}.
           </p>
         </div>
       </div>

@@ -18,6 +18,7 @@ import type {
 import type { GenerationResult } from "@/types/generation";
 import type { PriceSuggestion } from "@/types/pricing";
 import type {
+  VintedCategorySnapshotPayload,
   VintedFieldDiagnosticPayload,
   VintedFillResultPayload,
 } from "@/types/vinted";
@@ -220,6 +221,45 @@ function normalizeVintedFillResult(
             ),
           }
         : null,
+    categorySnapshot: normalizeVintedCategorySnapshot(candidate.categorySnapshot),
+  };
+}
+
+function normalizeVintedCategorySnapshot(
+  value: unknown
+): VintedCategorySnapshotPayload | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<VintedCategorySnapshotPayload>;
+  const path = normalizeStringArray(candidate.path).map((entry) => entry.trim()).filter(Boolean);
+  const leaf =
+    typeof candidate.leaf === "string" && candidate.leaf.trim().length > 0
+      ? candidate.leaf.trim()
+      : null;
+  const rawText =
+    typeof candidate.rawText === "string" && candidate.rawText.trim().length > 0
+      ? candidate.rawText.trim()
+      : null;
+
+  if (
+    (candidate.source !== "user_manual" && candidate.source !== "extension_auto") ||
+    candidate.market !== "vinted.pt" ||
+    typeof candidate.capturedAt !== "string" ||
+    candidate.capturedAt.trim().length === 0 ||
+    (path.length === 0 && !leaf)
+  ) {
+    return null;
+  }
+
+  return {
+    source: candidate.source,
+    market: candidate.market,
+    capturedAt: candidate.capturedAt.trim(),
+    path,
+    leaf,
+    rawText,
   };
 }
 

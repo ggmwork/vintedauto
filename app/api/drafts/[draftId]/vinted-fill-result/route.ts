@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { draftRepository } from "@/lib/drafts";
+import { hydrateDraftVintedProfileState } from "@/lib/vinted/listing-profile";
 import type { DraftVintedHandoffState } from "@/types/draft";
 import type {
+  VintedCategorySnapshotPayload,
   VintedFieldDiagnosticPayload,
   VintedFillResultPayload,
 } from "@/types/vinted";
@@ -41,12 +43,51 @@ function normalizeFieldDiagnostics(
   );
 }
 
+function normalizeCategorySnapshot(
+  value: unknown
+): VintedCategorySnapshotPayload | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<VintedCategorySnapshotPayload>;
+  const path = normalizeStringArray(candidate.path).map((entry) => entry.trim()).filter(Boolean);
+  const leaf =
+    typeof candidate.leaf === "string" && candidate.leaf.trim().length > 0
+      ? candidate.leaf.trim()
+      : null;
+  const rawText =
+    typeof candidate.rawText === "string" && candidate.rawText.trim().length > 0
+      ? candidate.rawText.trim()
+      : null;
+
+  if (
+    (candidate.source !== "user_manual" && candidate.source !== "extension_auto") ||
+    candidate.market !== "vinted.pt" ||
+    typeof candidate.capturedAt !== "string" ||
+    candidate.capturedAt.trim().length === 0 ||
+    (path.length === 0 && !leaf)
+  ) {
+    return null;
+  }
+
+  return {
+    source: candidate.source,
+    market: candidate.market,
+    capturedAt: candidate.capturedAt.trim(),
+    path,
+    leaf,
+    rawText,
+  };
+}
+
 function parseFillResultPayload(value: unknown): VintedFillResultPayload | null {
   if (!value || typeof value !== "object") {
     return null;
   }
 
   const candidate = value as Partial<VintedFillResultPayload>;
+  const categorySnapshot = normalizeCategorySnapshot(candidate.categorySnapshot);
 
   if (
     candidate.status !== "success" &&
@@ -75,6 +116,7 @@ function parseFillResultPayload(value: unknown): VintedFillResultPayload | null 
             ),
           }
         : null,
+    categorySnapshot,
   };
 }
 
@@ -89,6 +131,23 @@ function mapFillResultToDraftStatus(
     case "failure":
       return "fill_failed";
   }
+}
+
+function buildCategoryPlanFromSnapshot(snapshot: VintedCategorySnapshotPayload) {
+  const path =
+    snapshot.path.length > 0
+      ? snapshot.path
+      : snapshot.leaf
+        ? [snapshot.leaf]
+        : [];
+
+  return {
+    searchQuery: snapshot.leaf ?? path[path.length - 1] ?? null,
+    path,
+    source: snapshot.source,
+    capturedAt: snapshot.capturedAt,
+    rawText: snapshot.rawText,
+  };
 }
 
 export async function POST(
@@ -151,7 +210,17 @@ export async function POST(
   }
 
   const recordedAt = new Date().toISOString();
+  const vintedProfile = result.categorySnapshot
+    ? hydrateDraftVintedProfileState({
+        category: draft.metadata.category,
+        state: {
+          ...draft.vintedProfile,
+          categoryPlan: buildCategoryPlanFromSnapshot(result.categorySnapshot),
+        },
+      })
+    : undefined;
   const updatedDraft = await draftRepository.update(draftId, {
+    vintedProfile,
     vintedHandoff: {
       status: mapFillResultToDraftStatus(result),
       lastRequestedAt: draft.vintedHandoff.lastRequestedAt ?? recordedAt,

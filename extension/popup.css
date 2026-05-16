@@ -125,6 +125,13 @@ button.secondary {
   color: #3d3228;
 }
 
+button.wide-secondary {
+  width: 100%;
+  margin-top: 8px;
+  background: #e9dfd1;
+  color: #3d3228;
+}
+
 button.ghost-button {
   padding: 8px 10px;
   background: rgba(233, 223, 209, 0.76);

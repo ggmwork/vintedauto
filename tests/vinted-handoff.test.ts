@@ -185,6 +185,44 @@ describe("Vinted handoff payload", () => {
     assert.equal(payload.images[0].apiUrl, null);
   });
 
+  it("keeps a manually captured Vinted category path in the handoff", () => {
+    const payload = createVintedHandoffPayload(
+      createDraft({
+        metadata: {
+          brand: "Acme",
+          category: "Casacos",
+          size: "M",
+          condition: "Good",
+          color: "Blue",
+          material: "Wool",
+          notes: null,
+        },
+        vintedProfile: {
+          market: "vinted.pt",
+          profileKey: "coats_jackets_pt",
+          categoryPlan: {
+            searchQuery: "Blusoes",
+            path: ["Homem", "Roupa", "Vestuario de exterior", "Blusoes"],
+            source: "user_manual",
+            capturedAt: "2026-05-15T10:00:00.000Z",
+            rawText: "Blusoes\nHomem > Roupa > Vestuario de exterior > Blusoes",
+          },
+          fieldValues: {
+            "logistics.packageSize": "small",
+          },
+        },
+      })
+    );
+
+    assert.deepEqual(payload.listing.profile?.categoryPlan, {
+      searchQuery: "Blusoes",
+      path: ["Homem", "Roupa", "Vestuario de exterior", "Blusoes"],
+      source: "user_manual",
+      capturedAt: "2026-05-15T10:00:00.000Z",
+      rawText: "Blusoes\nHomem > Roupa > Vestuario de exterior > Blusoes",
+    });
+  });
+
   it("falls back to generic readiness failures when core listing fields are absent", () => {
     const payload = createVintedHandoffPayload(
       createDraft({

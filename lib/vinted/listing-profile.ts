@@ -160,8 +160,21 @@ function normalizeCategoryPlan(value: unknown): DraftVintedCategoryPlan | null {
   }
 
   const candidate = value as Partial<DraftVintedCategoryPlan>;
-
-  return {
+  const source =
+    candidate.source === "profile_default" ||
+    candidate.source === "user_manual" ||
+    candidate.source === "extension_auto"
+      ? candidate.source
+      : null;
+  const capturedAt =
+    typeof candidate.capturedAt === "string" && candidate.capturedAt.trim().length > 0
+      ? candidate.capturedAt.trim()
+      : null;
+  const rawText =
+    typeof candidate.rawText === "string" && candidate.rawText.trim().length > 0
+      ? candidate.rawText.trim()
+      : null;
+  const normalizedPlan: DraftVintedCategoryPlan = {
     searchQuery:
       typeof candidate.searchQuery === "string" && candidate.searchQuery.trim().length > 0
         ? candidate.searchQuery.trim()
@@ -173,6 +186,20 @@ function normalizeCategoryPlan(value: unknown): DraftVintedCategoryPlan | null {
           .filter(Boolean)
       : [],
   };
+
+  if (source) {
+    normalizedPlan.source = source;
+  }
+
+  if (capturedAt) {
+    normalizedPlan.capturedAt = capturedAt;
+  }
+
+  if (rawText) {
+    normalizedPlan.rawText = rawText;
+  }
+
+  return normalizedPlan;
 }
 
 export function createDefaultDraftVintedProfileState(): DraftVintedProfileState {
@@ -277,10 +304,24 @@ function inferProfileByCategory(category: string | null) {
 function cloneCategoryPlan(
   categoryPlan: DraftVintedCategoryPlan
 ): DraftVintedCategoryPlan {
-  return {
+  const clonedPlan: DraftVintedCategoryPlan = {
     searchQuery: categoryPlan.searchQuery,
     path: categoryPlan.path.slice(),
   };
+
+  if (categoryPlan.source) {
+    clonedPlan.source = categoryPlan.source;
+  }
+
+  if (categoryPlan.capturedAt) {
+    clonedPlan.capturedAt = categoryPlan.capturedAt;
+  }
+
+  if (categoryPlan.rawText) {
+    clonedPlan.rawText = categoryPlan.rawText;
+  }
+
+  return clonedPlan;
 }
 
 export function resolveVintedListingProfile(options: {
@@ -332,10 +373,7 @@ export function hydrateDraftVintedProfileState(options: {
     categoryPlan:
       normalizedState.categoryPlan &&
       (normalizedState.categoryPlan.searchQuery || normalizedState.categoryPlan.path.length > 0)
-        ? {
-            searchQuery: normalizedState.categoryPlan.searchQuery,
-            path: normalizedState.categoryPlan.path.slice(),
-          }
+        ? cloneCategoryPlan(normalizedState.categoryPlan)
         : cloneCategoryPlan(resolvedProfile.categoryPlan),
     fieldValues: {
       ...normalizedState.fieldValues,

@@ -928,6 +928,94 @@
       .filter(Boolean);
   }
 
+  function isPlaceholderCategoryLine(value) {
+    return textMatches(value, [
+      "category",
+      "categoria",
+      "select category",
+      "seleciona uma categoria",
+      "selecionar categoria",
+    ]);
+  }
+
+  function buildSelectedCategorySnapshot(rawText, source) {
+    const lines = normalizeCategoryLines(rawText).filter(
+      (line) => !isPlaceholderCategoryLine(line)
+    );
+
+    if (lines.length === 0) {
+      return null;
+    }
+
+    const breadcrumbLine = lines.find((line) => line.includes(">"));
+    const path = breadcrumbLine
+      ? splitCategoryPath(breadcrumbLine)
+      : lines.length > 1
+        ? lines.slice(1)
+        : [];
+    const leaf = lines[0] || path[path.length - 1] || null;
+
+    if (!leaf && path.length === 0) {
+      return null;
+    }
+
+    return {
+      source,
+      market: "vinted.pt",
+      capturedAt: new Date().toISOString(),
+      path,
+      leaf,
+      rawText: String(rawText ?? "").trim() || null,
+    };
+  }
+
+  function readSelectedCategory(source = "user_manual") {
+    const resolution = resolveField("category");
+
+    if (!resolution.control) {
+      return {
+        ok: false,
+        detail: resolution.detail,
+        matchedBy: resolution.matchedBy,
+        categorySnapshot: null,
+      };
+    }
+
+    const control = resolution.control;
+    const container =
+      control instanceof HTMLElement
+        ? control.closest("label, section, fieldset, form, div") ?? control
+        : null;
+    const rawCandidates = [
+      control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement
+        ? control.value
+        : "",
+      control instanceof HTMLElement ? control.innerText || control.textContent : "",
+      control instanceof HTMLElement ? control.getAttribute("aria-label") : "",
+      container instanceof HTMLElement ? container.innerText || container.textContent : "",
+    ].filter((value) => typeof value === "string" && value.trim().length > 0);
+
+    for (const rawCandidate of rawCandidates) {
+      const snapshot = buildSelectedCategorySnapshot(rawCandidate, source);
+
+      if (snapshot) {
+        return {
+          ok: true,
+          detail: `Read selected category "${snapshot.leaf ?? snapshot.path.join(" > ")}".`,
+          matchedBy: resolution.matchedBy,
+          categorySnapshot: snapshot,
+        };
+      }
+    }
+
+    return {
+      ok: false,
+      detail: `Could not read a selected category from ${describeControl(control)}.`,
+      matchedBy: resolution.matchedBy,
+      categorySnapshot: null,
+    };
+  }
+
   function summarizeCategoryOption(option) {
     return option.breadcrumb
       ? `${option.leaf} -> ${option.breadcrumb}`
@@ -1495,5 +1583,6 @@
     setPriceValue,
     formatPriceForUi,
     selectChoiceValue,
+    readSelectedCategory,
   };
 })();

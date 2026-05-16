@@ -203,6 +203,9 @@ function parseVintedProfileFromForm(
                 submittedCategoryPath.length > 0
                   ? submittedCategoryPath
                   : resolvedProfile.categoryPlan.path,
+              source: "user_manual",
+              capturedAt: new Date().toISOString(),
+              rawText: currentState.categoryPlan?.rawText ?? null,
             }
           : resolvedProfile.categoryPlan.path.length > 0 ||
               resolvedProfile.categoryPlan.searchQuery

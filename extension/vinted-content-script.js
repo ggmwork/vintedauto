@@ -673,6 +673,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return fillPageFieldsFromPayload(message.payload);
       case "vinted-auto:upload-images":
         return stageOrUploadPreparedImages(message);
+      case "vinted-auto:read-selected-category":
+        return getAdapter().readSelectedCategory(message.source ?? "user_manual");
       default:
         return {
           supported: false,

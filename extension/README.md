@@ -80,6 +80,7 @@ Important:
 - PT price fill now uses masked-input typing with post-fill numeric verification
 - images upload before field fill so Vinted can generate category suggestions
 - PT category fill now uses live option scoring plus visible breadcrumb-path matching
+- popup can save the current Vinted category back to the loaded app draft
 - later fields now come from `listing.profile`, not only flat metadata
 - app tracks `handed off`, `filled on Vinted`, `needs manual fix`, and `fill failed`
 - popup exposes page diagnostics and last fill diagnostics for selector debugging

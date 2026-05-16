@@ -28,6 +28,9 @@ export type DraftVintedFieldValue =
 export interface DraftVintedCategoryPlan {
   searchQuery: string | null;
   path: string[];
+  source?: "profile_default" | "user_manual" | "extension_auto" | null;
+  capturedAt?: string | null;
+  rawText?: string | null;
 }
 
 export interface DraftVintedProfileState {

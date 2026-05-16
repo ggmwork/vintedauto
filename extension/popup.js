@@ -16,6 +16,7 @@ const elements = {
   createListingUrl: document.getElementById("create-listing-url"),
   fillCurrentPageButton: document.getElementById("fill-current-page"),
   openVintedAndFillButton: document.getElementById("open-vinted-and-fill"),
+  saveCurrentCategoryButton: document.getElementById("save-current-category"),
 };
 
 let currentPopupState = null;
@@ -90,6 +91,19 @@ function describeFillDiagnostics(result) {
     "Field diagnostics:",
     formatFieldDiagnostics(result.debug.fieldDiagnostics),
   ];
+
+  if (result.categorySnapshot) {
+    sections.push(
+      "",
+      "Category snapshot:",
+      [
+        `Source: ${result.categorySnapshot.source}`,
+        `Path: ${result.categorySnapshot.path?.join(" > ") || "Not set"}`,
+        `Leaf: ${result.categorySnapshot.leaf ?? "Not set"}`,
+        `Captured: ${formatDateTime(result.categorySnapshot.capturedAt)}`,
+      ].join("\n")
+    );
+  }
 
   if (Array.isArray(result.debug.debugLog) && result.debug.debugLog.length > 0) {
     sections.push("", "Trace:", result.debug.debugLog.join("\n"));
@@ -334,6 +348,11 @@ function renderPopupState(state) {
   if (elements.openVintedAndFillButton) {
     elements.openVintedAndFillButton.disabled = !canUseStoredContext;
   }
+
+  if (elements.saveCurrentCategoryButton) {
+    elements.saveCurrentCategoryButton.disabled =
+      !canUseStoredContext || !pageSupported;
+  }
 }
 
 async function refreshPopupState() {
@@ -410,9 +429,33 @@ async function handleOpenVintedAndFill() {
   setActionStatus("Opened the supported Vinted page.");
 }
 
+async function handleSaveCurrentCategory() {
+  setActionStatus("Saving current Vinted category...");
+
+  const response = await chrome.runtime.sendMessage({
+    type: "vinted-auto:save-current-category",
+  });
+
+  if (!response?.ok) {
+    setActionStatus(response?.message ?? "Failed to save current category.", true);
+    return;
+  }
+
+  setActionStatus(response.result?.message ?? "Current category saved.");
+  await refreshPopupState();
+}
+
 elements.configForm?.addEventListener("submit", handleSaveConfig);
 elements.fillCurrentPageButton?.addEventListener("click", handleFillCurrentPage);
 elements.openVintedAndFillButton?.addEventListener("click", handleOpenVintedAndFill);
+elements.saveCurrentCategoryButton?.addEventListener("click", () => {
+  handleSaveCurrentCategory().catch((error) => {
+    setActionStatus(
+      error instanceof Error ? error.message : "Failed to save current category.",
+      true
+    );
+  });
+});
 elements.refreshAppStockButton?.addEventListener("click", () => {
   refreshPopupState().catch((error) => {
     setActionStatus(error instanceof Error ? error.message : "Refresh failed.", true);

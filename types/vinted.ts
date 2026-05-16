@@ -65,6 +65,15 @@ export interface VintedFillDebugPayload {
   fieldDiagnostics: Record<string, VintedFieldDiagnosticPayload>;
 }
 
+export interface VintedCategorySnapshotPayload {
+  source: "user_manual" | "extension_auto";
+  market: "vinted.pt";
+  capturedAt: string;
+  path: string[];
+  leaf: string | null;
+  rawText: string | null;
+}
+
 export interface VintedFillResultPayload {
   status: VintedFillResultStatus;
   filledFields: string[];
@@ -72,6 +81,7 @@ export interface VintedFillResultPayload {
   failedFields: string[];
   message: string;
   debug: VintedFillDebugPayload | null;
+  categorySnapshot?: VintedCategorySnapshotPayload | null;
 }
 
 export interface VintedListingPayload {

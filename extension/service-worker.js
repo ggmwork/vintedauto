@@ -15,6 +15,7 @@ const PROTOCOL = globalThis.VintedAutoProtocol ?? {
     saveConfig: "vinted-auto:save-config",
     fillCurrentPage: "vinted-auto:fill-current-page",
     openVintedAndFill: "vinted-auto:open-vinted-and-fill",
+    saveCurrentCategory: "vinted-auto:save-current-category",
     loadAppStockItem: "vinted-auto:load-app-stock-item",
     primeFromPage: "vinted-auto:prime-from-page",
     ping: "vinted-auto:ping",
@@ -33,6 +34,7 @@ const CONTENT_SCRIPT_MESSAGE_TYPES = {
   getPageState: "vinted-auto:get-page-state",
   fillPageFields: "vinted-auto:fill-page-fields",
   uploadImages: "vinted-auto:upload-images",
+  readSelectedCategory: "vinted-auto:read-selected-category",
 };
 
 const MAX_MESSAGE_BASE64_BYTES = 48 * 1024 * 1024;
@@ -510,6 +512,44 @@ async function reportFillResult(context, result) {
   }
 }
 
+function buildCategorySaveResult(categoryRead, previousResult) {
+  const previousDebug =
+    previousResult?.debug && typeof previousResult.debug === "object"
+      ? previousResult.debug
+      : null;
+  const categoryDetail =
+    categoryRead.detail ?? "Selected category read from Vinted.";
+  const result = {
+    ...createEmptyFillResult(),
+    status: previousResult?.status ?? "partial_success",
+    filledFields: mergeUniqueStrings(previousResult?.filledFields ?? [], ["category"]),
+    skippedFields: previousResult?.skippedFields ?? [],
+    failedFields: previousResult?.failedFields ?? [],
+    message: `Saved current Vinted category "${
+      categoryRead.categorySnapshot?.leaf ??
+      categoryRead.categorySnapshot?.path?.join(" > ") ??
+      "selected category"
+    }" to the app.`,
+    debug: {
+      pageReason: categoryDetail,
+      debugLog: mergeUniqueStrings(previousDebug?.debugLog ?? [], [categoryDetail]),
+      fieldDiagnostics: {
+        ...(previousDebug?.fieldDiagnostics ?? {}),
+        category: {
+          detail: categoryDetail,
+          matchedBy:
+            typeof categoryRead.matchedBy === "string"
+              ? categoryRead.matchedBy
+              : null,
+        },
+      },
+    },
+    categorySnapshot: categoryRead.categorySnapshot,
+  };
+
+  return result;
+}
+
 async function recordExtensionFailure(context, message) {
   const failureResult = buildExtensionFailureResult(message);
   await setLastFillResult(failureResult);
@@ -838,6 +878,62 @@ async function handleOpenVintedAndFill(message) {
   }
 }
 
+async function handleSaveCurrentCategory(message) {
+  const [config, storedContext, targetTab, previousResult] = await Promise.all([
+    loadConfig(),
+    getLastContext(),
+    getTargetTab(message.tabId),
+    getLastFillResult(),
+  ]);
+
+  if (!targetTab?.id) {
+    return {
+      ok: false,
+      message: "No active tab found.",
+    };
+  }
+
+  const context = {
+    draftId: message.context?.draftId ?? storedContext?.draftId,
+    appOrigin:
+      message.context?.appOrigin ??
+      storedContext?.appOrigin ??
+      config.appOrigin,
+  };
+
+  if (!context.draftId || !context.appOrigin) {
+    return {
+      ok: false,
+      message: "No draft handoff is loaded yet. Load a ready app item first.",
+    };
+  }
+
+  const categoryRead = await chrome.tabs.sendMessage(targetTab.id, {
+    type: CONTENT_SCRIPT_MESSAGE_TYPES.readSelectedCategory,
+    source: "user_manual",
+  });
+
+  if (!categoryRead?.ok || !categoryRead.categorySnapshot) {
+    return {
+      ok: false,
+      message:
+        categoryRead?.detail ??
+        "Could not read the selected Vinted category from this page.",
+    };
+  }
+
+  const normalizedContext = await setLastContext(context);
+  const result = buildCategorySaveResult(categoryRead, previousResult);
+
+  await reportFillResult(normalizedContext, result);
+  await setLastFillResult(result);
+
+  return {
+    ok: true,
+    result,
+  };
+}
+
 async function handleLoadAppStockItem(message) {
   const config = await loadConfig();
   const draftId = message.context?.draftId;
@@ -1006,6 +1102,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return handleFillCurrentPage(message);
       case MESSAGE_TYPES.openVintedAndFill:
         return handleOpenVintedAndFill(message);
+      case MESSAGE_TYPES.saveCurrentCategory:
+        return handleSaveCurrentCategory(message);
       case MESSAGE_TYPES.loadAppStockItem:
         return handleLoadAppStockItem(message);
       case MESSAGE_TYPES.primeFromPage:

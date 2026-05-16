@@ -84,6 +84,32 @@ describe("Vinted listing profile", () => {
     assert.equal(state.fieldValues["measurements.lengthCm"], 74);
   });
 
+  it("preserves saved manual category path metadata", () => {
+    const state = hydrateDraftVintedProfileState({
+      category: "Casacos",
+      state: {
+        market: "vinted.pt",
+        profileKey: "coats_jackets_pt",
+        categoryPlan: {
+          searchQuery: "Blusoes",
+          path: ["Homem", "Roupa", "Vestuario de exterior", "Blusoes"],
+          source: "user_manual",
+          capturedAt: "2026-05-15T10:00:00.000Z",
+          rawText: "Blusoes\nHomem > Roupa > Vestuario de exterior > Blusoes",
+        },
+        fieldValues: {},
+      },
+    });
+
+    assert.deepEqual(state.categoryPlan, {
+      searchQuery: "Blusoes",
+      path: ["Homem", "Roupa", "Vestuario de exterior", "Blusoes"],
+      source: "user_manual",
+      capturedAt: "2026-05-15T10:00:00.000Z",
+      rawText: "Blusoes\nHomem > Roupa > Vestuario de exterior > Blusoes",
+    });
+  });
+
   it("reports only required missing Vinted fields", () => {
     const profile = resolveVintedListingProfile({
       category: "Camisas",
