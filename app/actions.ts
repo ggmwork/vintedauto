@@ -508,59 +508,27 @@ async function generateDraftFromStockItem(
   session: StudioSessionDetail,
   stockItem: StockItem
 ) {
-  const draft = await draftRepository.create({});
   const stockPhotoAssets = getStockItemPhotoAssets(session, stockItem);
   const generationImages = await Promise.all(
-    stockPhotoAssets.map(async (photoAsset, index) => {
+    stockPhotoAssets.map(async (photoAsset) => {
       const bytes = await photoAssetStorage.read(photoAsset.storagePath);
-      const imageId = randomUUID();
-      const storedImage = await draftImageStorage.upload({
-        draftId: draft.id,
-        imageId,
-        fileName: photoAsset.originalFilename,
-        contentType: photoAsset.contentType || "application/octet-stream",
-        bytes: toArrayBuffer(bytes),
-      });
-
-      const draftImage: DraftImage = {
-        id: imageId,
-        draftId: draft.id,
-        storagePath: storedImage.storagePath,
-        originalFilename: photoAsset.originalFilename || `image-${index + 1}`,
-        sortOrder: index,
-        contentType: photoAsset.contentType,
-        sizeBytes: storedImage.sizeBytes,
-        width: storedImage.width,
-        height: storedImage.height,
-      };
 
       return {
-        draftImage,
-        generationImage: {
-          originalFilename: photoAsset.originalFilename,
-          contentType: photoAsset.contentType,
-          bytes,
-        },
+        photoAsset,
+        bytes,
       };
     })
   );
 
-  await draftRepository.attachImages({
-    draftId: draft.id,
-    images: generationImages.map((entry) => entry.draftImage),
-  });
-
-  await studioSessionRepository.attachDraftToStockItem({
-    sessionId: session.id,
-    stockItemId: stockItem.id,
-    draftId: draft.id,
-  });
-
   const generationService = getListingGenerationService();
   try {
     const generation = await generationService.generate({
-      draftId: draft.id,
-      images: generationImages.map((entry) => entry.generationImage),
+      draftId: stockItem.id,
+      images: generationImages.map((entry) => ({
+        originalFilename: entry.photoAsset.originalFilename,
+        contentType: entry.photoAsset.contentType,
+        bytes: entry.bytes,
+      })),
       metadata: {
         brand: null,
         category: null,
@@ -573,6 +541,36 @@ async function generateDraftFromStockItem(
       preferredLanguage: "en",
       currency: "EUR",
       marketplace: "vinted",
+    });
+    const draft = await draftRepository.create({});
+    const draftImages = await Promise.all(
+      generationImages.map(async ({ photoAsset, bytes }, index) => {
+        const imageId = randomUUID();
+        const storedImage = await draftImageStorage.upload({
+          draftId: draft.id,
+          imageId,
+          fileName: photoAsset.originalFilename,
+          contentType: photoAsset.contentType || "application/octet-stream",
+          bytes: toArrayBuffer(bytes),
+        });
+
+        return {
+          id: imageId,
+          draftId: draft.id,
+          storagePath: storedImage.storagePath,
+          originalFilename: photoAsset.originalFilename || `image-${index + 1}`,
+          sortOrder: index,
+          contentType: photoAsset.contentType,
+          sizeBytes: storedImage.sizeBytes,
+          width: storedImage.width,
+          height: storedImage.height,
+        } satisfies DraftImage;
+      })
+    );
+
+    await draftRepository.attachImages({
+      draftId: draft.id,
+      images: draftImages,
     });
 
     const generatedDraft = await draftRepository.saveGeneration({
@@ -590,6 +588,12 @@ async function generateDraftFromStockItem(
       });
     }
 
+    await studioSessionRepository.attachDraftToStockItem({
+      sessionId: session.id,
+      stockItemId: stockItem.id,
+      draftId: draft.id,
+    });
+
     return {
       draftId: draft.id,
       generated: true,
@@ -597,7 +601,7 @@ async function generateDraftFromStockItem(
     };
   } catch (error) {
     return {
-      draftId: draft.id,
+      draftId: null,
       generated: false,
       errorMessage:
         error instanceof Error ? error.message : "Unknown generation failure.",
@@ -1173,9 +1177,9 @@ export async function generateSessionStockDraftsAction(
   for (const stockItem of readyStockItems) {
     try {
       const result = await generateDraftFromStockItem(session, stockItem);
-      createdDraftCount += 1;
 
       if (result.generated) {
+        createdDraftCount += 1;
         generatedDraftCount += 1;
       } else {
         failedStockItems.push(stockItem.name);
@@ -1269,9 +1273,9 @@ export async function generateAllReadyStockDraftsAction() {
   for (const item of readyStockItems) {
     try {
       const result = await generateStockItemDraft(item.sessionId, item.stockItemId);
-      createdDraftCount += 1;
 
       if (result.generated) {
+        createdDraftCount += 1;
         generatedDraftCount += 1;
       } else {
         failedStockItems.push(item.stockItemName);
