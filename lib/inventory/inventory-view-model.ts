@@ -178,8 +178,8 @@ function buildStockRow(
   const status = deriveInventoryStatus(draft);
   const title = draft?.title?.trim() || stockItem.name;
   const subtitle = draft
-    ? `${getSourceLabel(session)} · linked listing`
-    : `${getSourceLabel(session)} · ${photoAssets.length} photo${
+    ? `${getSourceLabel(session)} / linked listing`
+    : `${getSourceLabel(session)} / ${photoAssets.length} photo${
         photoAssets.length === 1 ? "" : "s"
       } grouped`;
 

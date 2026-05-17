@@ -319,7 +319,7 @@ function InventoryMobileCard({ row }: { row: InventoryRow }) {
           <div className="space-y-1">
             <dt className="text-muted-foreground">Category / size</dt>
             <dd>
-              {row.categoryLabel} · {row.sizeLabel}
+              {row.categoryLabel} / {row.sizeLabel}
             </dd>
           </div>
           <div className="space-y-1">
@@ -351,7 +351,7 @@ function InventoryTable({ rows }: { rows: InventoryRow[] }) {
             <th className="px-4 py-3 font-medium">Category / size</th>
             <th className="px-4 py-3 font-medium">Photos</th>
             <th className="px-4 py-3 font-medium">Updated</th>
-            <th className="px-4 py-3 text-right font-medium">Next action</th>
+            <th className="px-4 py-3 text-right font-medium">Action</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -429,23 +429,16 @@ export function InventoryPage({
         .length,
     ])
   ) as Record<InventoryFilter, number>;
-  const actionNeededCount = counts["action-needed"];
-  const needsListingCount = counts["needs-listing"];
-  const readyToFillCount = counts["ready-to-fill"];
-  const listedCount = counts.listed;
-
   return (
     <main className="flex-1 bg-muted/20">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8 lg:px-8">
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-2">
-            <Badge variant="secondary">Inventory</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Manage items and listings.
+              Inventory
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              See every item, its listing status, and the next seller action in
-              one place.
+              Track each item from photos to Vinted.
             </p>
           </div>
 
@@ -466,33 +459,6 @@ export function InventoryPage({
             {feedback.flash}
           </div>
         ) : null}
-
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Action needed</CardDescription>
-              <CardTitle>{actionNeededCount}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Needs listing</CardDescription>
-              <CardTitle>{needsListingCount}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Ready to fill</CardDescription>
-              <CardTitle>{readyToFillCount}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardDescription>Listed</CardDescription>
-              <CardTitle>{listedCount}</CardTitle>
-            </CardHeader>
-          </Card>
-        </section>
 
         <Card>
           <CardContent className="space-y-4 pt-5">
@@ -579,9 +545,6 @@ export function InventoryPage({
                 Showing {visibleRows.length} of {rows.length} item
                 {rows.length === 1 ? "" : "s"}.
               </p>
-              <Badge variant="outline">
-                {normalizedSearch ? "Search active" : "Inventory"}
-              </Badge>
             </div>
 
             <InventoryTable rows={visibleRows} />

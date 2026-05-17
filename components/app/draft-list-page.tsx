@@ -106,7 +106,7 @@ function getNextActionLabel(draft: Draft) {
     return "Review fields";
   }
 
-  return "Ready to export";
+  return "Ready to fill";
 }
 
 export type DraftListStatusFilter = "all" | "draft" | "ready" | "listed" | "sold";
@@ -180,12 +180,11 @@ export function DraftListPage({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8 lg:px-8">
         <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl space-y-2">
-            <Badge variant="secondary">Listings</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Listing archive.
+              Draft archive
             </h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              Most work starts in Workbench. Keep this page for manual checks and edge cases.
+              Use Inventory for daily work. Keep this page for manual drafts.
             </p>
           </div>
 
@@ -197,14 +196,14 @@ export function DraftListPage({
               variant="outline"
             >
               <PlusIcon data-icon="inline-start" />
-              Create manual listing
+              Create manual draft
             </PendingSubmitButton>
           </form>
         </section>
 
         <section className="space-y-4">
           <div className="flex flex-col gap-1">
-            <h2 className="font-heading text-2xl font-semibold">Listings</h2>
+            <h2 className="font-heading text-2xl font-semibold">Manual drafts</h2>
             <p className="text-sm text-muted-foreground">
               {filteredDrafts.length === drafts.length
                 ? `${drafts.length} listing${drafts.length === 1 ? "" : "s"} available.`
@@ -217,9 +216,9 @@ export function DraftListPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Browse listings</CardTitle>
+              <CardTitle>Search</CardTitle>
               <CardDescription>
-                Search, filter, apply, then open the next listing that needs work.
+                Find an older or manual draft.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -299,7 +298,7 @@ export function DraftListPage({
               <CardContent>
                 <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-4 text-sm text-muted-foreground">
                   <FolderOpenDotIcon className="size-4" />
-                  Listing list is empty.
+                  Draft archive is empty.
                 </div>
               </CardContent>
               <CardFooter>
@@ -374,10 +373,6 @@ export function DraftListPage({
                         <div className="space-y-1">
                           <dt className="text-muted-foreground">Updated</dt>
                           <dd>{formatDate(draft.updatedAt)}</dd>
-                        </div>
-                        <div className="space-y-1">
-                          <dt className="text-muted-foreground">Next</dt>
-                          <dd>{nextActionLabel}</dd>
                         </div>
                       </dl>
 

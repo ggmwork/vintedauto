@@ -143,12 +143,12 @@ function getStepCopy(draft: DraftDetail) {
   const readiness = getDraftReadiness(draft);
 
   if (!readiness.ready) {
-    return "Review and complete the generated fields.";
+    return "Complete the required fields.";
   }
 
   switch (draft.vintedHandoff.status) {
     case "handed_off":
-      return "Vinted handoff started. Keep moving while the extension fills the new tab.";
+      return "Vinted fill started.";
     case "filled_on_vinted":
       return "Vinted page filled. Review there and submit manually.";
     case "needs_manual_fix":
@@ -159,7 +159,7 @@ function getStepCopy(draft: DraftDetail) {
       break;
   }
 
-  return "Copy the Vinted handoff and move into Vinted web.";
+  return "Fill the Vinted form.";
 }
 
 interface DraftDetailPageFeedback {
@@ -277,14 +277,14 @@ export function DraftDetailPage({
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="secondary">
                           <ListChecksIcon data-icon="inline-start" />
-                          Listing queue
+                          Queue
                         </Badge>
                         <Badge variant="outline">
                           {queueContext.position} of {queueContext.total}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Move listing by listing without going back to the grid.
+                        Review items without returning to Inventory.
                       </p>
                     </div>
 
@@ -293,7 +293,7 @@ export function DraftDetailPage({
                         href={queueContext.queueRootHref}
                         className={buttonVariants({ variant: "outline" })}
                       >
-                        Listings
+                        Inventory
                       </Link>
                       {queueContext.previousHref ? (
                         <Link
@@ -318,7 +318,7 @@ export function DraftDetailPage({
 
                   <details className="rounded-lg border border-border bg-background">
                     <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
-                      Switch listing view
+                      Change view
                     </summary>
                     <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
                       {queueContext.stateLinks.map((stateLink) => (
@@ -347,10 +347,10 @@ export function DraftDetailPage({
                 </h1>
                 {!queueContext ? (
                   <Link
-                    href="/drafts"
+                    href="/review"
                     className={buttonVariants({ variant: "outline", size: "sm" })}
                   >
-                    Listing list
+                    Inventory
                   </Link>
                 ) : null}
               </div>
@@ -375,22 +375,15 @@ export function DraftDetailPage({
             <section ref={uploadRef} className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <h2 className="font-heading text-2xl font-semibold">
-                    Upload images
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Start with the item photos. Everything else hangs off this
-                    image set.
-                  </p>
+                  <h2 className="font-heading text-2xl font-semibold">Images</h2>
                 </div>
               </div>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Add desktop images</CardTitle>
+                  <CardTitle>Upload images</CardTitle>
                   <CardDescription>
-                    Upload the images in the order you want the draft to read
-                    them.
+                    Use the order you want Vinted to see.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -497,19 +490,15 @@ export function DraftDetailPage({
                 <h2 className="font-heading text-2xl font-semibold">
                   Generate listing
                 </h2>
-                <p className="text-sm text-muted-foreground">
-                  Once the image set is ready, run the model and move straight
-                  into the editable fields.
-                </p>
               </div>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Run AI generation</CardTitle>
+                  <CardTitle>AI generation</CardTitle>
                   <CardDescription>
                     {draft.imageCount === 0
                       ? "Upload at least one image first."
-                      : "This creates or refreshes the generated title, description, keywords, metadata, and price suggestion."}
+                      : "Create or refresh the title, description, fields, and price."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-3">
@@ -544,9 +533,7 @@ export function DraftDetailPage({
                 </CardContent>
                 <CardFooter className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-muted-foreground">
-                    Regeneration keeps fields you already edited away from the
-                    last model output. Local vision runs can take around one to
-                    two minutes on this machine.
+                    Regeneration keeps fields you already edited.
                   </p>
                   <form action={generateAction}>
                     <PendingSubmitButton
@@ -564,22 +551,17 @@ export function DraftDetailPage({
 
             <section ref={reviewRef} className="space-y-4">
               <div className="space-y-1">
-                  <h2 className="font-heading text-2xl font-semibold">
-                    Review listing fields
-                  </h2>
-                <p className="text-sm text-muted-foreground">
-                  Generated fields land here. Edit the listing once, then save
-                  the full draft state in one form.
-                </p>
+                <h2 className="font-heading text-2xl font-semibold">
+                  Review listing
+                </h2>
               </div>
 
               {hasReviewContent ? (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Edit current draft</CardTitle>
+                    <CardTitle>Listing fields</CardTitle>
                     <CardDescription>
-                      Title, description, keywords, price, and structured fields
-                      save together now.
+                      Edit the Vinted-ready text and item details.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -822,8 +804,7 @@ export function DraftDetailPage({
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
                       <SparklesIcon className="size-4" />
-                      Upload images, then run generation to unlock the editable
-                      listing fields here.
+                      Upload images, then run generation to unlock these fields.
                     </div>
                   </CardContent>
                 </Card>
@@ -834,11 +815,8 @@ export function DraftDetailPage({
               <section ref={exportRef} className="space-y-4">
                 <div className="space-y-1">
                   <h2 className="font-heading text-2xl font-semibold">
-                    Fill Vinted
+                    Fill on Vinted
                   </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Copy the full handoff once the draft looks right.
-                  </p>
                 </div>
 
                 <DraftExportPanel
@@ -861,8 +839,7 @@ export function DraftDetailPage({
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Keep this advanced. Open it only when you need to compare
-                        or restore older model runs.
+                        Compare or restore older model runs.
                       </p>
                     </div>
                     <Badge variant="outline">
@@ -978,7 +955,7 @@ export function DraftDetailPage({
           <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
             <Card>
               <CardHeader>
-                  <CardTitle>Listing summary</CardTitle>
+                <CardTitle>Next step</CardTitle>
                 <CardDescription>{getStepCopy(draft)}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -1009,12 +986,12 @@ export function DraftDetailPage({
                     <div className="space-y-1">
                       <p className="font-medium text-foreground">
                         {readiness.ready
-                          ? "Ready for Vinted handoff."
+                          ? "Ready for Vinted."
                           : "Still missing required fields."}
                       </p>
                       <p>
                         {readiness.ready
-                          ? "Title, description, price, category, condition, keywords, and images are all present."
+                          ? "Required fields are complete."
                           : `Missing ${readiness.missing
                               .map(formatReadinessItem)
                               .join(", ")}.`}
@@ -1074,7 +1051,7 @@ export function DraftDetailPage({
 
                 <details className="rounded-lg border border-border bg-background">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-foreground">
-                    Advanced listing details
+                    Details
                     <ChevronDownIcon className="size-4 text-muted-foreground" />
                   </summary>
                   <div className="space-y-3 border-t border-border px-4 py-4 text-sm">

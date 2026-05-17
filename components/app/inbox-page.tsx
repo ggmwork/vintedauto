@@ -165,7 +165,7 @@ export function InboxPage({
               Workbench
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Photos, items, listings, Vinted.
+              Create items from new photos.
             </p>
           </div>
         </section>
@@ -223,7 +223,7 @@ export function InboxPage({
 
               <details className="rounded-lg border border-border bg-background">
                 <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-foreground">
-                  Folder settings
+                  Folder
                 </summary>
                 <div className="space-y-5 border-t border-border px-4 py-4">
                   <form action={saveInboxWatcherSettingsAction} className="grid gap-4">
@@ -362,7 +362,7 @@ export function InboxPage({
                     </div>
                     <details className="rounded-lg border border-border bg-card/60">
                       <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-foreground">
-                        AI grouping helpers
+                        AI suggestions
                       </summary>
                       <div className="flex flex-wrap gap-3 border-t border-border px-3 py-3">
                         <PendingSubmitButton
@@ -554,7 +554,7 @@ export function InboxPage({
                   <div className="space-y-1">
                     <CardTitle>AI suggestions</CardTitle>
                     <CardDescription>
-                      Optional helper. Create the item only when the suggestion looks right.
+                      Use only suggestions that look right.
                     </CardDescription>
                   </div>
                   {watchedSession ? (

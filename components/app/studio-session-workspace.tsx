@@ -107,7 +107,7 @@ export function StudioSessionWorkspace({
                 {session.name}
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                Secondary debug view for one import record. Main workflow now lives in Inbox, Stock, and Review.
+                Internal view for one import record. Main workflow now lives in Workbench and Inventory.
               </p>
             </div>
           </div>

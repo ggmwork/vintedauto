@@ -71,15 +71,15 @@ function formatFieldDiagnostics(
 function getVintedHandoffCopy(draft: DraftDetail) {
   switch (draft.vintedHandoff.status) {
     case "not_started":
-      return "No extension handoff attempt yet.";
+      return "Not started yet.";
     case "handed_off":
-      return "Launch sent to Vinted. The extension will fill the new listing tab.";
+      return "Launch sent to Vinted.";
     case "filled_on_vinted":
-      return "Extension filled the supported Vinted page. Review there and submit manually.";
+      return "Filled. Review and submit on Vinted.";
     case "needs_manual_fix":
-      return "Extension filled part of the Vinted page. Finish the failed fields manually.";
+      return "Some fields need manual fixes.";
     case "fill_failed":
-      return "Extension could not fill the Vinted page. Retry after fixing the page or selector mismatch.";
+      return "Fill failed. Retry after checking Vinted.";
   }
 }
 
@@ -233,7 +233,7 @@ export function DraftExportPanel({
     () => [
       {
         key: "vinted-handoff",
-        label: "Vinted handoff",
+        label: "Fallback text",
         value: handoffText,
       },
       {
@@ -322,9 +322,9 @@ export function DraftExportPanel({
       <CardHeader className="gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-1">
-            <CardTitle>Export for Vinted</CardTitle>
+            <CardTitle>Vinted fill</CardTitle>
             <CardDescription>
-              Fill Vinted when the listing is ready. Copy fallback stays in advanced.
+              Fill the form, then submit manually on Vinted.
             </CardDescription>
           </div>
           <Badge variant={readiness.ready ? "default" : "outline"}>
@@ -337,7 +337,7 @@ export function DraftExportPanel({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">
-                  Extension handoff state
+                  Fill status
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {getVintedHandoffCopy(draft)}
@@ -352,7 +352,7 @@ export function DraftExportPanel({
                 <p>{formatDateTime(draft.vintedHandoff.lastRequestedAt)}</p>
               </div>
               <div className="space-y-1">
-                <p className="font-medium text-foreground">Last extension update</p>
+                <p className="font-medium text-foreground">Last update</p>
                 <p>{formatDateTime(draft.vintedHandoff.lastUpdatedAt)}</p>
               </div>
               {draft.vintedHandoff.lastResult ? (
@@ -461,7 +461,7 @@ export function DraftExportPanel({
       <CardContent className="space-y-4">
         <details className="rounded-lg border border-border bg-background">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-foreground">
-            Advanced copy fallback
+            Copy fallback
             <ChevronDownIcon className="size-4 text-muted-foreground" />
           </summary>
           <div className="space-y-4 border-t border-border px-4 py-4">
@@ -525,7 +525,7 @@ export function DraftExportPanel({
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <TagsIcon className="size-4" />
-                Vinted handoff preview
+                Copy preview
               </div>
               <textarea
                 readOnly
