@@ -1,6 +1,6 @@
 # Simplified UX Flow Reference
 
-Last updated: 2026-05-11
+Last updated: 2026-05-17
 
 ## Purpose
 
@@ -80,15 +80,16 @@ flowchart LR
 ```mermaid
 flowchart TD
   Nav["Primary nav"] --> Workbench["Workbench"]
-  Nav --> Listings["Listings"]
+  Nav --> Inventory["Inventory"]
   Nav --> Settings["Settings"]
 
   Workbench --> Photos["Photo intake"]
   Workbench --> Items["Items"]
   Workbench --> NextAction["Next action"]
 
-  Listings --> Review["Review active listing"]
-  Listings --> History["Listed and sold history"]
+  Inventory --> Statuses["Item and listing statuses"]
+  Inventory --> Actions["Next actions"]
+  Inventory --> History["Listed and sold history"]
 
   Settings --> Folder["Folder"]
   Settings --> AI["AI"]
@@ -137,18 +138,18 @@ Hidden or secondary:
 - Grouping run notes.
 - Watcher implementation language.
 
-### Listings
+### Inventory
 
 Primary job:
 
-Help the seller review, fill, and track listings.
+Help the seller manage all items/listings and decide what to do next.
 
 Visible first:
 
-- Listing requiring review.
-- Required missing fields.
-- Main next action.
-- Queue position if in queue mode.
+- Items and listings in a table/card view.
+- Seller-facing status.
+- Required missing fields when relevant.
+- One main next action per row.
 
 Hidden or secondary:
 
@@ -188,6 +189,7 @@ Use seller verbs:
 - `Fill on Vinted`
 - `Open listing`
 - `Fix missing fields`
+- `Mark listed`
 - `Scan photos`
 - `Change folder`
 
@@ -227,7 +229,7 @@ Per screen:
 - Item without listing: primary action is `Generate listing`.
 - Listing incomplete: primary action is `Fix missing fields`.
 - Listing ready: primary action is `Fill on Vinted`.
-- Vinted filled: primary action is `Mark listed` or leave final submit on Vinted.
+- Vinted filled: primary action is `Mark listed`.
 
 ## Edge Cases
 

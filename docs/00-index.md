@@ -1,6 +1,6 @@
 # Vinted Auto Documentation Index
 
-Last updated: 2026-05-15
+Last updated: 2026-05-17
 
 This folder captures current product context, market research, MVP scope, and technical direction for the desktop-first Vinted listing assistant.
 
@@ -17,13 +17,15 @@ Important:
 - documents `43` through `45` capture the simplified UX reset, user-flow reference, and implementation reference
 - documents `46` through `50` capture the live Vinted category resolver roadmap, phased implementation plans, and technical reference
 - documents `51` through `53` capture the local CLI provider research, implementation plan, and command reference
+- documents `54` and `55` capture the Inventory management UX plan and implementation reference
 - for extension/admin work, treat `22` through `25` as the source of truth
 - for AI provider routing work, treat `26` through `28` as the source of truth
 - for the implemented Vinted extension MVP and remaining hardening, treat `29` through `38` as the source of truth
 - for Vinted dynamic profile fields, treat `39` through `41` as the source of truth
 - for live Vinted category automation, start with `46`, then implement `47`
 - for local CLI AI provider work, start with `51`, then implement `52`
-- for the current simplified UX implementation phase, start with `43`
+- for the current Inventory management UX phase, start with `54`, then use `55`
+- for broader simplified UX background, start with `43`
 
 Documents:
 
@@ -80,6 +82,8 @@ Documents:
 - [51-local-cli-ai-provider-research.md](./51-local-cli-ai-provider-research.md) - research on using local Codex/Claude CLIs through subscription-authenticated command adapters
 - [52-implementation-plan-local-cli-provider.md](./52-implementation-plan-local-cli-provider.md) - phased implementation plan for an experimental `local-cli` AI provider
 - [53-local-cli-provider-reference.md](./53-local-cli-provider-reference.md) - command contracts, env vars, safety rules, and test path for local CLI provider work
+- [54-inventory-management-ux-plan.md](./54-inventory-management-ux-plan.md) - implementation plan for replacing the review queue with an Inventory management surface
+- [55-inventory-management-reference.md](./55-inventory-management-reference.md) - concrete Inventory status, filter, route, and table-layout reference
 
 Current product decision:
 
@@ -88,6 +92,11 @@ Current product decision:
 - Target Vinted web in browser, not the native mobile app.
 - Keep copy/export as a valid success path.
 - Keep manual final submit as a hard safety boundary.
+- Current UX priority is Inventory management:
+  - replace the `/review` queue-first surface with a stock-management table/card view
+  - keep Workbench for photo intake and item creation
+  - keep existing listing editor and Vinted fill routes for the first pass
+  - do not change storage or internal data names until the UI flow is proven
 - Current extension priority is live category automation Phase 1:
   - upload images before resolving category
   - use live Vinted suggestions/options

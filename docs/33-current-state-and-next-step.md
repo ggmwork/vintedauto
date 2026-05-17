@@ -1,6 +1,6 @@
 # Current State And Next Step
 
-Last updated: 2026-05-15
+Last updated: 2026-05-17
 
 ## Purpose
 
@@ -16,9 +16,13 @@ not only the earlier plans.
 
 The project is a desktop-first Vinted listing assistant for a seller workflow.
 
-Current target workflow:
+Current implemented workflow:
 
 `watched folder -> Inbox grouping -> Stock items -> AI listing draft -> Review -> Vinted web handoff -> manual submit`
+
+Target seller workflow for the next UX slice:
+
+`watched folder -> Workbench item creation -> Inventory management -> listing editor -> Vinted fill -> manual submit -> mark listed`
 
 The important product boundary remains:
 
@@ -84,6 +88,7 @@ Missing or still narrow pieces:
 - shipping, discounts, promo, and other advanced Vinted controls
 - more PT profile coverage beyond the first apparel branches
 - local CLI AI benchmarking against Ollama/API providers
+- Inventory management UX replacing the queue-first `/review` page
 
 ## Existing Docs For This Feature
 
@@ -104,6 +109,20 @@ These markdown files cover the extension, API, and hardening work:
 
 ## Main Gap
 
+The immediate UX gap is management clarity.
+
+The app can create items, generate listing drafts, review fields, and fill
+Vinted, but daily work is split across Workbench, Stock, Review, and Drafts.
+The seller needs one Inventory surface that answers:
+
+`what items do I have, what state are they in, and what should I do next?`
+
+Use [54-inventory-management-ux-plan.md](./54-inventory-management-ux-plan.md)
+and [55-inventory-management-reference.md](./55-inventory-management-reference.md)
+as the current implementation guide for this UX slice.
+
+## Extension Hardening Gap
+
 The MVP handoff loop is present, including the first later-field profile layer:
 
 `draft -> stable payload API -> extension fill -> result callback -> queue continues`
@@ -112,10 +131,10 @@ The next gap is survivability:
 
 `real PT later-field selectors -> fast diagnosis -> fast repair`
 
-The wider current UI track is the simplified Workbench UX in
-[43-simplified-ux-redesign-plan.md](./43-simplified-ux-redesign-plan.md). That
-track improves how sellers reach `Fill on Vinted`; it does not replace the
-extension hardening work.
+The wider UI track started with the simplified Workbench UX in
+[43-simplified-ux-redesign-plan.md](./43-simplified-ux-redesign-plan.md). The
+current UX priority is now the Inventory surface defined in documents `54` and
+`55`.
 
 The local CLI AI provider track is implemented for the first Codex listing
 slice. The remaining AI work is quality benchmarking and optional Claude Code
@@ -123,7 +142,47 @@ support after the `claude` CLI is installed and its image path is verified.
 
 ## Recommended Next Step
 
-Build the next hardening pass for the new dynamic fields:
+Build the Inventory management UX slice:
+
+`replace queue-first /review with a unified item/listing management surface`
+
+Scope:
+
+- change the primary nav label from `Listings` to `Inventory`
+- keep `/review` as the first route to avoid route churn
+- combine stock items and linked drafts into one table/card page
+- derive seller-facing statuses from existing stock, draft, readiness, and
+  Vinted fill state
+- use filters such as `Action needed`, `Needs listing`, `Needs review`,
+  `Ready to fill`, `Filled / fix needed`, `Listed`, and `All`
+- keep the existing listing editor and Vinted fill routes
+- do not change storage, AI generation, or cross-computer stock sync in this
+  slice
+
+First acceptance criteria:
+
+- `/review` no longer opens the first queue item automatically
+- items without generated listings appear as `Needs listing`
+- incomplete listings appear as `Needs review`
+- ready listings expose `Fill on Vinted`
+- filled listings expose `Mark listed`
+- every row has one obvious next action
+
+## Why This Next
+
+This is the best next step because:
+
+- the current naming and page split make seller work harder than the underlying
+  workflow requires
+- better AI output will be easier to judge once listings are easier to review
+- portable stock will be safer after the item/listing lifecycle is clearer
+- the first slice can reuse existing data, actions, and routes
+- it preserves the manual-submit safety boundary
+
+## Extension Hardening Next Step
+
+After the Inventory UX is stable, build the next hardening pass for the new
+dynamic fields:
 
 `live PT validation and selector maintenance`
 
@@ -135,46 +194,39 @@ Scope:
 - capture market-specific overrides only when one shared selector path fails
 - verify package size, AI-photo checkbox, and measurement controls on live PT listings
 
-First acceptance criteria:
+Extension hardening acceptance criteria:
 
 - one broken field can be diagnosed quickly from logs
 - supported-page detection failures are explicit
 - field mismatch reports name the exact failed field
 - selector changes can be repaired without changing the app payload contract
 
-## Why This Next
-
-This is the best next step because:
-
-- the MVP already proves the payload and fill loop
-- the dynamic profile model now proves the app/data contract too
-- Vinted DOM churn is now the main operational risk
-- selector maintenance is cheaper while the scope is still narrow
-- the manual-submit safety boundary stays intact
-
 ## Next Three Milestones
 
-1. Selector hardening
+1. Inventory management UX
+
+Deliverable:
+
+`/review` becomes a unified Inventory table/card surface with seller-facing
+statuses and next actions.
+
+2. Selector hardening
 
 Deliverable:
 
 Supported page detection and field-fill failures are fast to debug.
 
-2. Live smoke checklist
+3. AI quality benchmark
 
 Deliverable:
 
-One repeatable manual test path exists for title, description, price, metadata, images, and result callback.
-
-3. Market expansion only if needed
-
-Deliverable:
-
-Additional market-specific selector overrides are added only after the first flow stays stable.
+Local CLI, Ollama, and any configured API providers are compared against real
+product-photo fixtures before changing defaults.
 
 ## Current Recommendation
 
-Do not start multi-account admin, orders, profit tracking, or CSV export next.
+Do not start multi-account admin, orders, profit tracking, CSV export, or
+cross-computer stock sync next.
 
-Those matter later, but selector reliability is now the bottleneck. Harden the
-supported extension flow before widening scope.
+Those matter later, but the daily item/listing management flow needs to be
+clear before widening scope.

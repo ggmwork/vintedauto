@@ -1,6 +1,6 @@
 # Simplified UI Implementation Reference
 
-Last updated: 2026-05-11
+Last updated: 2026-05-17
 
 ## Purpose
 
@@ -17,6 +17,7 @@ Primary UI files:
 - `components/app/draft-detail-page.tsx`: listing review sequence.
 - `components/app/draft-export-panel.tsx`: Vinted fill and fallback copy actions.
 - `components/app/ai-settings-page.tsx`: provider configuration.
+- future `components/app/inventory-page.tsx`: unified item/listing management surface.
 
 Routes:
 
@@ -32,17 +33,17 @@ Routes:
 Target labels:
 
 - `Workbench`
-- `Listings`
+- `Inventory`
 - `Settings`
 
 Suggested route mapping for first pass:
 
 - `Workbench` -> `/`
-- `Listings` -> `/review`
+- `Inventory` -> `/review` for the first pass
 - `Settings` -> `/settings/ai`
 
-Keep `/stock` and `/drafts` reachable through secondary links until their useful
-parts are merged or renamed.
+Keep `/stock` and `/drafts` reachable as compatibility routes until their useful
+parts are merged, redirected, or renamed.
 
 Do not rename data types yet. UI labels can change before code nouns do.
 
@@ -112,6 +113,10 @@ Secondary actions:
 Put secondary actions in `Edit item` or `Advanced`.
 
 ## Listing Review Reference
+
+Use [54-inventory-management-ux-plan.md](./54-inventory-management-ux-plan.md)
+and [55-inventory-management-reference.md](./55-inventory-management-reference.md)
+for the Inventory page that replaces the queue-first `/review` surface.
 
 Keep existing four-step model internally:
 
@@ -217,8 +222,9 @@ Use this order:
 6. Reduce draft export panel to one primary action.
 7. Collapse draft advanced sections.
 8. Move AI label under Settings.
-9. Run lint and typecheck.
-10. Browser-smoke desktop and mobile widths.
+9. Replace queue-first `/review` with Inventory table/card management.
+10. Run lint and typecheck.
+11. Browser-smoke desktop and mobile widths.
 
 ## Verification Checklist
 

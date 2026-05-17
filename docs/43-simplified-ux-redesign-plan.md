@@ -1,6 +1,6 @@
 # Simplified UX Redesign Plan
 
-Last updated: 2026-05-11
+Last updated: 2026-05-17
 
 ## Purpose
 
@@ -51,7 +51,7 @@ The app currently overcomplicates the default flow in these ways:
 Primary navigation should become:
 
 - `Workbench`: default page for photos, items, and next listing action.
-- `Listings`: generated drafts and review queue.
+- `Inventory`: item/listing management, generated drafts, and next actions.
 - `Settings`: folder, AI, extension, and diagnostics.
 
 Internal legacy terms can stay in code for now. The UI should stop making the
@@ -124,6 +124,14 @@ Suggested files:
 Goal:
 
 Make draft review feel like one active task, not four stacked panels.
+
+Note:
+
+The first management pass should follow
+[54-inventory-management-ux-plan.md](./54-inventory-management-ux-plan.md) and
+[55-inventory-management-reference.md](./55-inventory-management-reference.md).
+That pass replaces the queue-first `/review` page with an Inventory surface
+before further polishing the draft detail editor.
 
 Scope:
 
