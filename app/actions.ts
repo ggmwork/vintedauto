@@ -319,6 +319,31 @@ function redirectToReviewQueue(
   );
 }
 
+function buildInventoryRedirectUrl(
+  query?: Record<string, string | null | undefined>
+) {
+  const nextUrl = new URL("/review", "http://localhost");
+
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (!value) {
+      continue;
+    }
+
+    nextUrl.searchParams.set(key, value);
+  }
+
+  return `${nextUrl.pathname}${nextUrl.search}`;
+}
+
+function redirectToInventory(
+  query?: Record<string, string | null | undefined>
+): never {
+  revalidatePath("/review");
+  revalidatePath("/stock");
+  revalidatePath("/drafts");
+  redirect(buildInventoryRedirectUrl(query));
+}
+
 function buildStockRedirectUrl(query?: Record<string, string | null | undefined>) {
   const nextUrl = new URL("/stock", "http://localhost");
 
@@ -392,12 +417,17 @@ function redirectToSession(
 
 function redirectAfterSessionStockAction(
   sessionId: string,
-  returnTo: "session" | "stock" | "inbox",
+  returnTo: "session" | "stock" | "inbox" | "inventory",
   query?: Record<string, string | null | undefined>
 ): never {
   if (returnTo === "inbox") {
     revalidatePath(`/sessions/${sessionId}`);
     redirectToHome(query);
+  }
+
+  if (returnTo === "inventory") {
+    revalidatePath(`/sessions/${sessionId}`);
+    redirectToInventory(query);
   }
 
   if (returnTo === "stock") {
@@ -639,7 +669,7 @@ async function generateStockItemDraft(
   return generateDraftFromStockItem(session, stockItem);
 }
 
-type StockActionReturnTo = "session" | "stock" | "inbox";
+type StockActionReturnTo = "session" | "stock" | "inbox" | "inventory";
 
 function getStockRedirectFocus(returnTo: StockActionReturnTo) {
   if (returnTo === "inbox") {
@@ -1696,6 +1726,24 @@ export async function setDraftStatusAction(
   }
 
   redirectToDraft(draftId, {
+    flash: transition.message,
+  });
+}
+
+export async function setDraftStatusFromInventoryAction(
+  draftId: string,
+  nextStatus: DraftStatus
+) {
+  const transition = await setDraftStatusInternal(draftId, nextStatus);
+
+  if (!transition.allowed) {
+    redirectToInventory({
+      error: transition.message,
+    });
+  }
+
+  revalidatePath(`/drafts/${draftId}`);
+  redirectToInventory({
     flash: transition.message,
   });
 }
