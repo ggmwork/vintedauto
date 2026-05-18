@@ -146,6 +146,9 @@ export function InboxPage({
     isQueuedStockItem(stockItem)
   );
   const clearableStockItems = stockItems.filter((stockItem) => stockItem.draftId === null);
+  const photoAssetsById = new Map(
+    (watchedSession?.photoAssets ?? []).map((photoAsset) => [photoAsset.id, photoAsset])
+  );
   const inboxSelectionFormId = "inbox-selection-form";
   const createInboxStockItemAction = watchedSession
     ? createStockItemFromSelectionAction.bind(null, watchedSession.id, "inbox")
@@ -489,7 +492,17 @@ export function InboxPage({
                   No pre-items yet.
                 </div>
               ) : (
-                stockItems.map((stockItem) => (
+                stockItems.map((stockItem) => {
+                  const previewPhotos = stockItem.photoAssetIds
+                    .map((photoAssetId) => photoAssetsById.get(photoAssetId))
+                    .filter((photoAsset): photoAsset is PhotoAsset => Boolean(photoAsset))
+                    .slice(0, 4);
+                  const extraPhotoCount = Math.max(
+                    0,
+                    stockItem.photoAssetIds.length - previewPhotos.length
+                  );
+
+                  return (
                   <div
                     key={stockItem.id}
                     className="rounded-xl border border-border bg-background px-4 py-4"
@@ -504,6 +517,30 @@ export function InboxPage({
                       </div>
                       <Badge variant="secondary">pre-item</Badge>
                     </div>
+                    {previewPhotos.length > 0 ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {previewPhotos.map((photoAsset) => (
+                          <div
+                            key={photoAsset.id}
+                            className="relative size-14 overflow-hidden rounded-lg border border-border bg-muted"
+                          >
+                            <Image
+                              src={`/api/sessions/${photoAsset.sessionId}/photos/${photoAsset.id}`}
+                              alt={photoAsset.originalFilename}
+                              fill
+                              sizes="56px"
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        ))}
+                        {extraPhotoCount > 0 ? (
+                          <div className="flex size-14 items-center justify-center rounded-lg border border-border bg-muted text-xs font-medium text-muted-foreground">
+                            +{extraPhotoCount}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <div className="mt-4 flex flex-wrap gap-3">
                       <PendingSubmitButton
                         type="submit"
@@ -535,7 +572,8 @@ export function InboxPage({
                       </PendingSubmitButton>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </CardContent>
           </Card>
