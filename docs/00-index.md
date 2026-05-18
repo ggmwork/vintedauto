@@ -1,6 +1,6 @@
 # Vinted Auto Documentation Index
 
-Last updated: 2026-05-17
+Last updated: 2026-05-18
 
 This folder captures current product context, market research, MVP scope, and technical direction for the desktop-first Vinted listing assistant.
 
@@ -18,6 +18,7 @@ Important:
 - documents `46` through `50` capture the live Vinted category resolver roadmap, phased implementation plans, and technical reference
 - documents `51` through `53` capture the local CLI provider research, implementation plan, and command reference
 - documents `54` and `55` capture the Inventory management UX plan and implementation reference
+- documents `56` through `58` capture database portability, export/import, and portable data-root planning
 - for extension/admin work, treat `22` through `25` as the source of truth
 - for AI provider routing work, treat `26` through `28` as the source of truth
 - for the implemented Vinted extension MVP and remaining hardening, treat `29` through `38` as the source of truth
@@ -25,6 +26,7 @@ Important:
 - for live Vinted category automation, start with `46`, then implement `47`
 - for local CLI AI provider work, start with `51`, then implement `52`
 - for the current Inventory management UX phase, start with `54`, then use `55`
+- for database portability and multi-computer work, start with `56`, then implement `57` using `58`
 - for broader simplified UX background, start with `43`
 
 Documents:
@@ -84,6 +86,9 @@ Documents:
 - [53-local-cli-provider-reference.md](./53-local-cli-provider-reference.md) - command contracts, env vars, safety rules, and test path for local CLI provider work
 - [54-inventory-management-ux-plan.md](./54-inventory-management-ux-plan.md) - implementation plan for replacing the review queue with an Inventory management surface
 - [55-inventory-management-reference.md](./55-inventory-management-reference.md) - concrete Inventory status, filter, route, and table-layout reference
+- [56-database-portability-plan.md](./56-database-portability-plan.md) - product and architecture plan for local database creation, export, import, and portable folders
+- [57-implementation-plan-database-portability.md](./57-implementation-plan-database-portability.md) - phased implementation plan for data-root, backup, export, import, and merge work
+- [58-database-portability-reference.md](./58-database-portability-reference.md) - archive layout, manifest schema, import rules, secret handling, and verification reference
 
 Current product decision:
 
@@ -107,3 +112,7 @@ Current product decision:
   - use official non-interactive CLI modes, not browser chat automation
   - Codex CLI listing generation is implemented behind explicit Local CLI settings
   - keep grouping on Ollama until local CLI listing quality is verified
+- Current database portability priority:
+  - treat the active database as a managed local data folder, not a hosted service yet
+  - implement data-root centralization and safe exports before destructive imports
+  - redact API keys from database exports by default
