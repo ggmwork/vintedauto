@@ -27,6 +27,7 @@ import type {
   SavePhotoAssetsInput,
   SetStockItemCoverPhotoInput,
   StudioSessionRepository,
+  MoveStockItemsToInventoryInput,
 } from "./studio-session-repository";
 import { createStockItemName } from "./stock-item-names";
 
@@ -172,6 +173,10 @@ function normalizeStockItems(
         typeof stockItem.draftId === "string" && stockItem.draftId.length > 0
           ? stockItem.draftId
           : null,
+      inventoryStatus:
+        stockItem.inventoryStatus === "inventoried" || stockItem.draftId
+          ? "inventoried"
+          : "queued",
       sourceMethod:
         stockItem.sourceMethod === "folder_rule" ||
         stockItem.sourceMethod === "auto_cluster"
@@ -733,6 +738,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         coverPhotoAssetId: selectedIds[0] ?? null,
         photoAssetIds: selectedIds,
         draftId: null,
+        inventoryStatus: "queued",
         sourceMethod: input.sourceMethod ?? "manual",
         confidence: input.confidence ?? "high",
         linkedCandidateClusterId: input.linkedCandidateClusterId ?? null,
@@ -1054,12 +1060,54 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         ...session,
         stockItems: session.stockItems.map((entry) =>
           entry.id === input.stockItemId
+          ? {
+              ...entry,
+              draftId: input.draftId,
+              inventoryStatus: "inventoried" as const,
+              updatedAt: new Date().toISOString(),
+            }
+          : entry
+        ),
+      });
+      const sessions = currentStore.sessions.slice();
+      sessions[sessionIndex] = nextSession;
+
+      return { sessions };
+    });
+
+    const session = store.sessions.find((entry) => entry.id === input.sessionId);
+
+    if (!session) {
+      throw new Error(`Studio session not found after update: ${input.sessionId}`);
+    }
+
+    return session;
+  }
+
+  async moveStockItemsToInventory(
+    input: MoveStockItemsToInventoryInput
+  ): Promise<StudioSessionDetail> {
+    const store = await mutateStudioSessionStore((currentStore) => {
+      const sessionIndex = findSessionIndex(currentStore, input.sessionId);
+
+      if (sessionIndex === -1) {
+        throw new Error(`Studio session not found: ${input.sessionId}`);
+      }
+
+      const session = currentStore.sessions[sessionIndex];
+      const now = new Date().toISOString();
+      const nextSession = updateStudioSessionTimestamp({
+        ...session,
+        stockItems: session.stockItems.map((stockItem) =>
+          stockItem.inventoryStatus === "queued" &&
+          stockItem.draftId === null &&
+          stockItem.photoAssetIds.length > 0
             ? {
-                ...entry,
-                draftId: input.draftId,
-                updatedAt: new Date().toISOString(),
+                ...stockItem,
+                inventoryStatus: "inventoried" as const,
+                updatedAt: now,
               }
-            : entry
+            : stockItem
         ),
       });
       const sessions = currentStore.sessions.slice();

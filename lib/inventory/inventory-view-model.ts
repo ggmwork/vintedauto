@@ -5,6 +5,7 @@ import {
   type InventoryNextAction,
   type InventoryStatus,
 } from "@/lib/inventory/inventory-status";
+import { isInventoryStockItem } from "@/lib/intake/stock-item-inventory";
 import type { Draft } from "@/types/draft";
 import type { PhotoAsset, StockItem, StudioSessionDetail } from "@/types/intake";
 import type { PriceSuggestion } from "@/types/pricing";
@@ -248,17 +249,19 @@ export function buildInventoryRows({
   const draftsById = new Map(drafts.map((draft) => [draft.id, draft]));
   const linkedDraftIds = new Set<string>();
   const stockRows = sessions.flatMap((session) =>
-    session.stockItems.map((stockItem) => {
-      const draft = stockItem.draftId
-        ? draftsById.get(stockItem.draftId) ?? null
-        : null;
+    session.stockItems
+      .filter((stockItem) => isInventoryStockItem(stockItem))
+      .map((stockItem) => {
+        const draft = stockItem.draftId
+          ? draftsById.get(stockItem.draftId) ?? null
+          : null;
 
-      if (draft) {
-        linkedDraftIds.add(draft.id);
-      }
+        if (draft) {
+          linkedDraftIds.add(draft.id);
+        }
 
-      return buildStockRow(session, stockItem, draft);
-    })
+        return buildStockRow(session, stockItem, draft);
+      })
   );
   const manualRows = drafts
     .filter((draft) => !linkedDraftIds.has(draft.id))

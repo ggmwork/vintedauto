@@ -29,6 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { isInventoryStockItem } from "@/lib/intake/stock-item-inventory";
 import type { PhotoAsset, StudioSessionDetail } from "@/types/intake";
 
 const inputClassName =
@@ -83,7 +84,10 @@ export function StudioSessionWorkspace({
       photoAsset.stockItemId === null && photoAsset.candidateClusterId === null
   );
   const readyStockItems = session.stockItems.filter(
-    (stockItem) => stockItem.photoAssetIds.length > 0 && stockItem.draftId === null
+    (stockItem) =>
+      isInventoryStockItem(stockItem) &&
+      stockItem.photoAssetIds.length > 0 &&
+      stockItem.draftId === null
   );
   const sessionSelectionFormId = "session-selection-form";
   const createSessionStockItemAction = createStockItemFromSelectionAction.bind(

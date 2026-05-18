@@ -1,6 +1,6 @@
 import Image from "next/image";
-import Link from "next/link";
 import {
+  ArrowRightIcon,
   BoxIcon,
   FolderSyncIcon,
   ImagesIcon,
@@ -19,7 +19,7 @@ import {
   commitCandidateClusterAction,
   createStockItemFromSelectionAction,
   dissolveCandidateClusterAction,
-  generateStockItemDraftAction,
+  moveInboxStockItemsToInventoryAction,
   removeStockItemAction,
   pauseInboxWatcherAction,
   resumeInboxWatcherAction,
@@ -30,9 +30,7 @@ import {
 } from "@/app/actions";
 import { CopyTextButton } from "@/components/app/copy-text-button";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
-import { StockItemStatusBadge } from "@/components/app/stock-item-status-badge";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -41,6 +39,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { InboxReviewCluster, InboxViewModel } from "@/lib/inbox/inbox-service";
+import { isQueuedStockItem } from "@/lib/intake/stock-item-inventory";
 import type { GroupingConfidence, PhotoAsset } from "@/types/intake";
 
 const inputClassName =
@@ -143,7 +142,9 @@ export function InboxPage({
 }) {
   const watchedSession = inbox.watchedSession;
   const latestGroupingRun = watchedSession?.groupingRuns[0] ?? null;
-  const stockItems = watchedSession?.stockItems ?? [];
+  const stockItems = (watchedSession?.stockItems ?? []).filter((stockItem) =>
+    isQueuedStockItem(stockItem)
+  );
   const clearableStockItems = stockItems.filter((stockItem) => stockItem.draftId === null);
   const inboxSelectionFormId = "inbox-selection-form";
   const createInboxStockItemAction = watchedSession
@@ -444,18 +445,41 @@ export function InboxPage({
 
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between gap-3">
-                <CardTitle>Items</CardTitle>
-                {watchedSession && clearableStockItems.length > 0 ? (
-                  <form action={clearInboxStockItemsAction.bind(null, watchedSession.id)}>
-                    <PendingSubmitButton
-                      type="submit"
-                      variant="outline"
-                      pendingLabel="Clearing items"
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <CardTitle>Pre-items</CardTitle>
+                  <CardDescription>
+                    Group photos here, then move the queue to Inventory.
+                  </CardDescription>
+                </div>
+                {watchedSession && stockItems.length > 0 ? (
+                  <div className="flex flex-wrap gap-3">
+                    <form
+                      action={moveInboxStockItemsToInventoryAction.bind(
+                        null,
+                        watchedSession.id
+                      )}
                     >
-                      Clear all
-                    </PendingSubmitButton>
-                  </form>
+                      <PendingSubmitButton
+                        type="submit"
+                        pendingLabel="Moving items"
+                      >
+                        <ArrowRightIcon data-icon="inline-start" />
+                        Move all to Inventory
+                      </PendingSubmitButton>
+                    </form>
+                    {clearableStockItems.length > 0 ? (
+                      <form action={clearInboxStockItemsAction.bind(null, watchedSession.id)}>
+                        <PendingSubmitButton
+                          type="submit"
+                          variant="outline"
+                          pendingLabel="Clearing items"
+                        >
+                          Clear all
+                        </PendingSubmitButton>
+                      </form>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
             </CardHeader>
@@ -463,7 +487,7 @@ export function InboxPage({
               {stockItems.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-background px-4 py-6 text-sm text-muted-foreground">
                   <BoxIcon className="size-4" />
-                  No items yet.
+                  No pre-items yet.
                 </div>
               ) : (
                 stockItems.map((stockItem) => (
@@ -479,65 +503,41 @@ export function InboxPage({
                           {stockItem.photoAssetIds.length === 1 ? "" : "s"}
                         </p>
                       </div>
-                      <StockItemStatusBadge stockItem={stockItem} />
+                      <Badge variant="secondary">pre-item</Badge>
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
-                      {stockItem.draftId ? (
-                        <Link
-                          href={`/drafts/${stockItem.draftId}`}
-                          className={buttonVariants({ variant: "outline" })}
+                      <PendingSubmitButton
+                        type="submit"
+                        form={inboxSelectionFormId}
+                        formAction={assignSelectedPhotoAssetsToStockItemAction.bind(
+                          null,
+                          stockItem.sessionId,
+                          stockItem.id,
+                          "inbox"
+                        )}
+                        variant="outline"
+                        disabled={inbox.loosePhotoAssets.length === 0}
+                        pendingLabel="Assigning photos"
+                      >
+                        Add selected here
+                      </PendingSubmitButton>
+                      <form
+                        action={removeStockItemAction.bind(
+                          null,
+                          stockItem.sessionId,
+                          stockItem.id,
+                          "inbox"
+                        )}
+                      >
+                        <PendingSubmitButton
+                          type="submit"
+                          variant="outline"
+                          pendingLabel="Removing item"
                         >
-                          Open listing
-                        </Link>
-                      ) : (
-                        <>
-                          <form
-                            action={generateStockItemDraftAction.bind(
-                              null,
-                              stockItem.sessionId,
-                              stockItem.id,
-                              "inbox"
-                            )}
-                          >
-                            <PendingSubmitButton type="submit" pendingLabel="Generating listing">
-                              <SparklesIcon data-icon="inline-start" />
-                              Generate listing
-                            </PendingSubmitButton>
-                          </form>
-                          <PendingSubmitButton
-                            type="submit"
-                            form={inboxSelectionFormId}
-                            formAction={assignSelectedPhotoAssetsToStockItemAction.bind(
-                              null,
-                              stockItem.sessionId,
-                              stockItem.id,
-                              "inbox"
-                            )}
-                            variant="outline"
-                            disabled={inbox.loosePhotoAssets.length === 0}
-                            pendingLabel="Assigning photos"
-                          >
-                            Add selected here
-                          </PendingSubmitButton>
-                          <form
-                            action={removeStockItemAction.bind(
-                              null,
-                              stockItem.sessionId,
-                              stockItem.id,
-                              "inbox"
-                            )}
-                          >
-                            <PendingSubmitButton
-                              type="submit"
-                              variant="outline"
-                              pendingLabel="Removing item"
-                            >
-                              <Trash2Icon data-icon="inline-start" />
-                              Remove
-                            </PendingSubmitButton>
-                          </form>
-                        </>
-                      )}
+                          <Trash2Icon data-icon="inline-start" />
+                          Remove
+                        </PendingSubmitButton>
+                      </form>
                     </div>
                   </div>
                 ))

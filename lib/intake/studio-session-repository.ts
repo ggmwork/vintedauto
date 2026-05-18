@@ -72,6 +72,10 @@ export interface AttachDraftToStockItemInput {
   draftId: string;
 }
 
+export interface MoveStockItemsToInventoryInput {
+  sessionId: string;
+}
+
 export interface StudioSessionRepository {
   list(): Promise<StudioSession[]>;
   getById(id: string): Promise<StudioSessionDetail | null>;
@@ -92,5 +96,8 @@ export interface StudioSessionRepository {
   ): Promise<StudioSessionDetail>;
   attachDraftToStockItem(
     input: AttachDraftToStockItemInput
+  ): Promise<StudioSessionDetail>;
+  moveStockItemsToInventory(
+    input: MoveStockItemsToInventoryInput
   ): Promise<StudioSessionDetail>;
 }

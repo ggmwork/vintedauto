@@ -20,6 +20,10 @@ import {
   runSessionAutoGrouping,
 } from "@/lib/grouping";
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
+import {
+  isInventoryStockItem,
+  isQueuedStockItem,
+} from "@/lib/intake/stock-item-inventory";
 import { isDefaultStockItemName } from "@/lib/intake/stock-item-names";
 import { updateStoredAiSettings } from "@/lib/settings/ai-settings";
 import { draftImageStorage } from "@/lib/storage";
@@ -662,6 +666,10 @@ async function generateStockItemDraft(
     throw new Error("This stock item already has a linked draft.");
   }
 
+  if (!isInventoryStockItem(stockItem)) {
+    throw new Error("Move this pre-item to Inventory before generating a listing.");
+  }
+
   if (stockItem.photoAssetIds.length === 0) {
     throw new Error("This stock item has no photos to generate from.");
   }
@@ -881,7 +889,7 @@ export async function clearInboxStockItemsAction(sessionId: string) {
   }
 
   const stockItemsToClear = session.stockItems.filter(
-    (stockItem) => stockItem.draftId === null
+    (stockItem) => isQueuedStockItem(stockItem)
   );
 
   if (stockItemsToClear.length === 0) {
@@ -901,6 +909,35 @@ export async function clearInboxStockItemsAction(sessionId: string) {
   redirectAfterSessionStockAction(session.id, "inbox", {
     flash: `Cleared ${stockItemsToClear.length} item${stockItemsToClear.length === 1 ? "" : "s"} back into Inbox.`,
     focus: "inbox",
+  });
+}
+
+export async function moveInboxStockItemsToInventoryAction(sessionId: string) {
+  const session = await studioSessionRepository.getById(sessionId);
+
+  if (!session) {
+    redirectToHome({
+      error: "Inbox session not found.",
+    });
+  }
+
+  const queuedStockItems = session.stockItems.filter(
+    (stockItem) =>
+      isQueuedStockItem(stockItem) && stockItem.photoAssetIds.length > 0
+  );
+
+  if (queuedStockItems.length === 0) {
+    redirectToHome({
+      flash: "No queued pre-items to move to Inventory.",
+    });
+  }
+
+  await studioSessionRepository.moveStockItemsToInventory({
+    sessionId: session.id,
+  });
+
+  redirectToInventory({
+    flash: `Moved ${queuedStockItems.length} pre-item${queuedStockItems.length === 1 ? "" : "s"} to Inventory.`,
   });
 }
 
@@ -1194,7 +1231,9 @@ export async function generateSessionStockDraftsAction(
 
   const readyStockItems = session.stockItems.filter(
     (stockItem) =>
-      stockItem.photoAssetIds.length > 0 && stockItem.draftId === null
+      isInventoryStockItem(stockItem) &&
+      stockItem.photoAssetIds.length > 0 &&
+      stockItem.draftId === null
   );
 
   if (readyStockItems.length === 0) {
@@ -1285,7 +1324,12 @@ export async function generateAllReadyStockDraftsAction() {
   ).filter((session): session is StudioSessionDetail => session !== null);
   const readyStockItems = sessionDetails.flatMap((session) =>
     session.stockItems
-      .filter((stockItem) => stockItem.photoAssetIds.length > 0 && stockItem.draftId === null)
+      .filter(
+        (stockItem) =>
+          isInventoryStockItem(stockItem) &&
+          stockItem.photoAssetIds.length > 0 &&
+          stockItem.draftId === null
+      )
       .map((stockItem) => ({
         sessionId: session.id,
         stockItemId: stockItem.id,

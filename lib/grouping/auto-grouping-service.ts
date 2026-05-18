@@ -471,6 +471,7 @@ function commitClusterToStock(
           coverPhotoAssetId: clusterDraft.photoAssetIds[0] ?? null,
           photoAssetIds: clusterDraft.photoAssetIds,
           draftId: null,
+          inventoryStatus: "queued" as const,
           sourceMethod: clusterDraft.sourceMethod,
           confidence: clusterDraft.confidence,
           linkedCandidateClusterId,

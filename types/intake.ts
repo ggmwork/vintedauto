@@ -10,6 +10,8 @@ export type GroupingConfidence = "low" | "medium" | "high";
 
 export type GroupingSourceMethod = "folder_rule" | "auto_cluster" | "manual";
 
+export type StockItemInventoryStatus = "queued" | "inventoried";
+
 export type CandidateClusterStatus =
   | "needs_review"
   | "auto_committed"
@@ -39,6 +41,7 @@ export interface StockItem {
   coverPhotoAssetId: string | null;
   photoAssetIds: string[];
   draftId: string | null;
+  inventoryStatus: StockItemInventoryStatus;
   sourceMethod: GroupingSourceMethod;
   confidence: GroupingConfidence;
   linkedCandidateClusterId: string | null;

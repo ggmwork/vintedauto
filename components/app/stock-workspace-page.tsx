@@ -38,6 +38,10 @@ import {
   hydrateDraftVintedProfileState,
   resolveVintedListingProfile,
 } from "@/lib/vinted/listing-profile";
+import {
+  isInventoryStockItem,
+  isQueuedStockItem,
+} from "@/lib/intake/stock-item-inventory";
 import type { Draft } from "@/types/draft";
 import type { PhotoAsset, StockItem, StudioSessionDetail } from "@/types/intake";
 
@@ -121,17 +125,19 @@ export function StockWorkspacePage({
   const stockEntries = useMemo<StockEntry[]>(() => {
     return sessions
       .flatMap((session) =>
-        session.stockItems.map((stockItem) => ({
-          sessionId: session.id,
-          sourceLabel: getSourceLabel(session),
-          sourceType: session.intakeConfig.sourceType,
-          loosePhotoCount: session.unassignedPhotoCount,
-          pendingReviewCount: session.pendingClusterCount,
-          stockItem,
-          photoAssets: getPhotoAssetsForStockItem(session, stockItem.id),
-          linkedDraft:
-            stockItem.draftId !== null ? draftsById[stockItem.draftId] ?? null : null,
-        }))
+        session.stockItems
+          .filter((stockItem) => isInventoryStockItem(stockItem))
+          .map((stockItem) => ({
+            sessionId: session.id,
+            sourceLabel: getSourceLabel(session),
+            sourceType: session.intakeConfig.sourceType,
+            loosePhotoCount: session.unassignedPhotoCount,
+            pendingReviewCount: session.pendingClusterCount,
+            stockItem,
+            photoAssets: getPhotoAssetsForStockItem(session, stockItem.id),
+            linkedDraft:
+              stockItem.draftId !== null ? draftsById[stockItem.draftId] ?? null : null,
+          }))
       )
       .sort(
         (left, right) =>
@@ -154,6 +160,16 @@ export function StockWorkspacePage({
   );
   const pendingReviewCount = useMemo(
     () => sessions.reduce((total, session) => total + session.pendingClusterCount, 0),
+    [sessions]
+  );
+  const queuedItemCount = useMemo(
+    () =>
+      sessions.reduce(
+        (total, session) =>
+          total +
+          session.stockItems.filter((stockItem) => isQueuedStockItem(stockItem)).length,
+        0
+      ),
     [sessions]
   );
 
@@ -213,7 +229,7 @@ export function StockWorkspacePage({
           </div>
         ) : null}
 
-        {pendingReviewCount > 0 || loosePhotoCount > 0 ? (
+        {pendingReviewCount > 0 || loosePhotoCount > 0 || queuedItemCount > 0 ? (
           <Card>
             <CardHeader>
               <CardTitle>More photos in Workbench</CardTitle>
@@ -225,6 +241,9 @@ export function StockWorkspacePage({
                 </Badge>
                 <Badge variant="outline">
                   {loosePhotoCount} photo{loosePhotoCount === 1 ? "" : "s"} to group
+                </Badge>
+                <Badge variant="outline">
+                  {queuedItemCount} pre-item{queuedItemCount === 1 ? "" : "s"}
                 </Badge>
               </div>
               <Link href="/" className={buttonVariants({ variant: "outline" })}>
@@ -240,7 +259,7 @@ export function StockWorkspacePage({
             <CardHeader>
               <CardTitle>No items yet</CardTitle>
               <CardDescription>
-                Add photos in Workbench and create the first item.
+                Move pre-items from Workbench into Inventory first.
               </CardDescription>
             </CardHeader>
           </Card>
