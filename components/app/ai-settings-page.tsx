@@ -517,6 +517,7 @@ export function AiSettingsPage({
 
               <form
                 action={replaceDatabaseFromImportAction}
+                encType="multipart/form-data"
                 className="grid gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-4"
               >
                 <div className="space-y-1">
