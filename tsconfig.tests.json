@@ -21,6 +21,10 @@
     "lib/ai/local-cli-command-runner.ts",
     "lib/ai/local-cli-codex.ts",
     "lib/ai/local-cli-output.ts",
+    "lib/data/database-root.ts",
+    "lib/data/json-store.ts",
+    "lib/data-portability/database-archive.ts",
+    "lib/data-portability/zip-archive.ts",
     "types/**/*.ts"
   ],
   "exclude": ["node_modules", ".next", ".test-build"]

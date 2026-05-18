@@ -1,14 +1,17 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { getDatabasePath } from "@/lib/data/database-root";
+import { readJsonFile, writeJsonFile } from "@/lib/data/json-store";
 import type {
   InboxWatcherSnapshot,
   InboxWatcherState,
 } from "@/types/watcher";
 
-const dataDirectory = path.join(process.cwd(), ".data");
 const defaultWatchedFolderPath = path.join(process.cwd(), "watched-inbox");
-const watcherStateFilePath = path.join(dataDirectory, "inbox-watcher.json");
+
+function getWatcherStateFilePath() {
+  return getDatabasePath("inbox-watcher.json");
+}
 
 declare global {
   var __vintedautoWatcherStateQueue: Promise<void> | undefined;
@@ -49,19 +52,6 @@ function createDefaultWatcherState(): InboxWatcherState {
     importedFileCount: 0,
     processedFingerprints: [],
   };
-}
-
-async function ensureWatcherStoreFile() {
-  await mkdir(dataDirectory, { recursive: true });
-
-  try {
-    await readFile(watcherStateFilePath, "utf8");
-  } catch {
-    await writeFile(
-      watcherStateFilePath,
-      JSON.stringify(createDefaultWatcherState(), null, 2)
-    );
-  }
 }
 
 function normalizeWatcherState(value: unknown): InboxWatcherState {
@@ -114,14 +104,15 @@ function normalizeWatcherState(value: unknown): InboxWatcherState {
 }
 
 async function readWatcherState(): Promise<InboxWatcherState> {
-  await ensureWatcherStoreFile();
-
   let attempt = 0;
 
   while (attempt < 3) {
     try {
-      const fileContents = await readFile(watcherStateFilePath, "utf8");
-      return normalizeWatcherState(JSON.parse(fileContents));
+      return readJsonFile(
+        getWatcherStateFilePath(),
+        createDefaultWatcherState,
+        normalizeWatcherState
+      );
     } catch (error) {
       attempt += 1;
 
@@ -141,7 +132,7 @@ export async function readInboxWatcherState() {
 }
 
 async function writeWatcherState(state: InboxWatcherState) {
-  await writeFile(watcherStateFilePath, JSON.stringify(state, null, 2));
+  await writeJsonFile(getWatcherStateFilePath(), state);
 }
 
 export async function getInboxWatcherStateSnapshot({

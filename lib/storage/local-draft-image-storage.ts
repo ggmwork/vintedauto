@@ -1,13 +1,16 @@
 import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { getDatabasePath } from "@/lib/data/database-root";
 import type {
   DraftImageStorage,
   StoredImageAsset,
   UploadDraftImageInput,
 } from "@/lib/storage/image-storage";
 
-const draftImagesDirectory = path.join(process.cwd(), ".data", "draft-images");
+function getDraftImagesDirectory() {
+  return getDatabasePath("draft-images");
+}
 
 const contentTypeToExtension = new Map<string, string>([
   ["image/jpeg", ".jpg"],
@@ -28,6 +31,7 @@ function getFileExtension(fileName: string, contentType: string) {
 }
 
 function resolveStoredPath(storagePath: string) {
+  const draftImagesDirectory = getDraftImagesDirectory();
   const absolutePath = path.resolve(draftImagesDirectory, storagePath);
   const normalizedRoot = path.resolve(draftImagesDirectory);
 
@@ -46,7 +50,7 @@ class LocalDraftImageStorage implements DraftImageStorage {
       relativeDirectory,
       `${input.imageId}${extension}`
     );
-    const absoluteDirectory = path.join(draftImagesDirectory, input.draftId);
+    const absoluteDirectory = path.join(getDraftImagesDirectory(), input.draftId);
     const absolutePath = resolveStoredPath(relativePath);
 
     await mkdir(absoluteDirectory, { recursive: true });
@@ -76,7 +80,7 @@ class LocalDraftImageStorage implements DraftImageStorage {
   }
 
   async listPaths(draftId: string): Promise<string[]> {
-    const draftDirectory = path.join(draftImagesDirectory, draftId);
+    const draftDirectory = path.join(getDraftImagesDirectory(), draftId);
 
     try {
       const entries = await readdir(draftDirectory, { withFileTypes: true });

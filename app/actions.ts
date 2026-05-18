@@ -8,6 +8,11 @@ import { redirect } from "next/navigation";
 import { getListingGenerationService } from "@/lib/ai";
 import { getRecommendedAiPreset } from "@/lib/ai/ollama-presets";
 import { testAiProviderConnection } from "@/lib/ai/provider-health";
+import {
+  createDatabaseFolder,
+  openDatabaseFolder,
+  replaceDatabaseFromArchive,
+} from "@/lib/data-portability/database-archive";
 import { draftRepository } from "@/lib/drafts";
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import {
@@ -1927,4 +1932,116 @@ export async function testAiProviderConnectionAction(provider: AiProvider) {
   redirectToAiSettings({
     error: `${provider} test failed. ${result.message}`,
   });
+}
+
+function redirectToDatabaseSettings(
+  query?: Record<string, string | null | undefined>
+): never {
+  redirectToAiSettings(query);
+}
+
+export async function createDatabaseAction(formData: FormData) {
+  const databasePath = parseStringOrNull(formData.get("databasePath"));
+  const label = parseStringOrNull(formData.get("databaseLabel"));
+
+  if (!databasePath) {
+    redirectToDatabaseSettings({
+      error: "Enter a database folder path before creating a database.",
+    });
+  }
+
+  try {
+    await stopInboxWatcher();
+    const databaseRoot = await createDatabaseFolder({
+      databaseRoot: databasePath,
+      label,
+    });
+
+    revalidatePath("/");
+    revalidatePath("/review");
+    revalidatePath("/stock");
+    redirectToDatabaseSettings({
+      flash: `Created and opened database: ${databaseRoot}`,
+    });
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
+    redirectToDatabaseSettings({
+      error:
+        error instanceof Error ? error.message : "Failed to create database.",
+    });
+  }
+}
+
+export async function openDatabaseAction(formData: FormData) {
+  const databasePath = parseStringOrNull(formData.get("databasePath"));
+
+  if (!databasePath) {
+    redirectToDatabaseSettings({
+      error: "Enter a database folder path before opening a database.",
+    });
+  }
+
+  try {
+    await stopInboxWatcher();
+    const result = await openDatabaseFolder(databasePath);
+
+    revalidatePath("/");
+    revalidatePath("/review");
+    revalidatePath("/stock");
+    redirectToDatabaseSettings({
+      flash: `Opened database ${result.manifest.databaseId} at ${result.databaseRoot}.`,
+    });
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
+    redirectToDatabaseSettings({
+      error: error instanceof Error ? error.message : "Failed to open database.",
+    });
+  }
+}
+
+export async function replaceDatabaseFromImportAction(formData: FormData) {
+  const confirmed = formData.get("confirmReplaceDatabase") === "on";
+  const archive = formData.get("databaseArchive");
+
+  if (!confirmed) {
+    redirectToDatabaseSettings({
+      error: "Confirm replacement before importing a database backup.",
+    });
+  }
+
+  if (!(archive instanceof File) || archive.size === 0) {
+    redirectToDatabaseSettings({
+      error: "Choose a Vinted Auto database backup before importing.",
+    });
+  }
+
+  try {
+    await stopInboxWatcher();
+    const result = await replaceDatabaseFromArchive({
+      archive: Buffer.from(await archive.arrayBuffer()),
+    });
+
+    revalidatePath("/");
+    revalidatePath("/review");
+    revalidatePath("/stock");
+    revalidatePath("/drafts");
+    redirectToDatabaseSettings({
+      flash: `Imported database backup. Previous database backup saved at ${result.backupPath}. Imported ${result.validation.summary.stockItems} item${result.validation.summary.stockItems === 1 ? "" : "s"} and ${result.validation.summary.drafts} draft${result.validation.summary.drafts === 1 ? "" : "s"}.`,
+    });
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
+    redirectToDatabaseSettings({
+      error:
+        error instanceof Error ? error.message : "Failed to import database backup.",
+    });
+  }
 }

@@ -1,7 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 
+import { getDatabasePath } from "@/lib/data/database-root";
+import { readJsonFile, writeJsonFile } from "@/lib/data/json-store";
 import type {
   CandidateCluster,
   CandidateClusterStatus,
@@ -35,8 +35,9 @@ interface StudioSessionStore {
   sessions: StudioSessionDetail[];
 }
 
-const dataDirectory = path.join(process.cwd(), ".data");
-const studioSessionsFilePath = path.join(dataDirectory, "studio-sessions.json");
+function getStudioSessionsFilePath() {
+  return getDatabasePath("studio-sessions.json");
+}
 
 function createDefaultIntakeConfig(
   overrides?: Partial<IntakeFolderConfig>
@@ -450,35 +451,26 @@ function toStudioSessionSummary(session: StudioSessionDetail): StudioSession {
   return syncStudioSessionState(session);
 }
 
-async function ensureStudioSessionStoreFile() {
-  await mkdir(dataDirectory, { recursive: true });
-
-  try {
-    await readFile(studioSessionsFilePath, "utf8");
-  } catch {
-    const initialStore: StudioSessionStore = { sessions: [] };
-    await writeFile(
-      studioSessionsFilePath,
-      JSON.stringify(initialStore, null, 2)
-    );
-  }
-}
-
 async function readStudioSessionStore(): Promise<StudioSessionStore> {
-  await ensureStudioSessionStoreFile();
+  return readJsonFile(
+    getStudioSessionsFilePath(),
+    () => ({ sessions: [] }),
+    (value): StudioSessionStore => {
+      const parsed = (value && typeof value === "object"
+        ? value
+        : {}) as Partial<StudioSessionStore>;
 
-  const fileContents = await readFile(studioSessionsFilePath, "utf8");
-  const parsed = JSON.parse(fileContents) as Partial<StudioSessionStore>;
-
-  return {
-    sessions: Array.isArray(parsed.sessions)
-      ? parsed.sessions.map(normalizeStudioSessionDetail)
-      : [],
-  };
+      return {
+        sessions: Array.isArray(parsed.sessions)
+          ? parsed.sessions.map(normalizeStudioSessionDetail)
+          : [],
+      };
+    }
+  );
 }
 
 async function writeStudioSessionStore(store: StudioSessionStore) {
-  await writeFile(studioSessionsFilePath, JSON.stringify(store, null, 2));
+  await writeJsonFile(getStudioSessionsFilePath(), store);
 }
 
 function normalizeStudioSessionDetail(value: unknown): StudioSessionDetail {

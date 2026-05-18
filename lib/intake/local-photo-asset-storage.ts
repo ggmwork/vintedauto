@@ -1,17 +1,16 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { getDatabasePath } from "@/lib/data/database-root";
 import type {
   PhotoAssetStorage,
   StoredPhotoAsset,
   UploadPhotoAssetInput,
 } from "@/lib/intake/photo-asset-storage";
 
-const sessionPhotoAssetsDirectory = path.join(
-  process.cwd(),
-  ".data",
-  "session-photo-assets"
-);
+function getSessionPhotoAssetsDirectory() {
+  return getDatabasePath("session-photo-assets");
+}
 
 const contentTypeToExtension = new Map<string, string>([
   ["image/jpeg", ".jpg"],
@@ -32,6 +31,7 @@ function getFileExtension(fileName: string, contentType: string) {
 }
 
 function resolveStoredPath(storagePath: string) {
+  const sessionPhotoAssetsDirectory = getSessionPhotoAssetsDirectory();
   const absolutePath = path.resolve(sessionPhotoAssetsDirectory, storagePath);
   const normalizedRoot = path.resolve(sessionPhotoAssetsDirectory);
 
@@ -51,7 +51,7 @@ class LocalPhotoAssetStorage implements PhotoAssetStorage {
       `${input.assetId}${extension}`
     );
     const absoluteDirectory = path.join(
-      sessionPhotoAssetsDirectory,
+      getSessionPhotoAssetsDirectory(),
       input.sessionId
     );
     const absolutePath = resolveStoredPath(relativePath);

@@ -1,9 +1,10 @@
 import "server-only";
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { getDatabasePath } from "@/lib/data/database-root";
+import { writeJsonFile } from "@/lib/data/json-store";
 import type {
   AiProvider,
   AiProviderTestResult,
@@ -33,8 +34,9 @@ export interface StoredAiSettings {
   updatedAt: string | null;
 }
 
-const dataDirectory = path.join(process.cwd(), ".data");
-const aiSettingsFilePath = path.join(dataDirectory, "ai-settings.json");
+function getAiSettingsFilePath() {
+  return getDatabasePath("ai-settings.json");
+}
 
 function normalizeProvider(value: unknown): AiProvider | null {
   return value === "ollama" ||
@@ -137,6 +139,9 @@ function normalizeStoredAiSettings(value: unknown): StoredAiSettings {
 }
 
 function ensureStoredAiSettingsSync() {
+  const aiSettingsFilePath = getAiSettingsFilePath();
+  const dataDirectory = path.dirname(aiSettingsFilePath);
+
   if (!existsSync(dataDirectory)) {
     mkdirSync(dataDirectory, { recursive: true });
   }
@@ -149,30 +154,35 @@ function ensureStoredAiSettingsSync() {
 
 export function readStoredAiSettingsSync(): StoredAiSettings {
   ensureStoredAiSettingsSync();
-  const raw = readFileSync(aiSettingsFilePath, "utf8");
+  const raw = readFileSync(getAiSettingsFilePath(), "utf8");
 
   return normalizeStoredAiSettings(JSON.parse(raw));
 }
 
 async function ensureStoredAiSettingsFile() {
-  await mkdir(dataDirectory, { recursive: true });
+  const aiSettingsFilePath = getAiSettingsFilePath();
+  const dataDirectory = path.dirname(aiSettingsFilePath);
+
+  if (!existsSync(dataDirectory)) {
+    mkdirSync(dataDirectory, { recursive: true });
+  }
 
   if (!existsSync(aiSettingsFilePath)) {
     const defaults = createDefaultStoredAiSettings();
-    await writeFile(aiSettingsFilePath, JSON.stringify(defaults, null, 2));
+    await writeJsonFile(aiSettingsFilePath, defaults);
   }
 }
 
 export async function readStoredAiSettings() {
   await ensureStoredAiSettingsFile();
-  const raw = readFileSync(aiSettingsFilePath, "utf8");
+  const raw = readFileSync(getAiSettingsFilePath(), "utf8");
 
   return normalizeStoredAiSettings(JSON.parse(raw));
 }
 
 export async function writeStoredAiSettings(settings: StoredAiSettings) {
   await ensureStoredAiSettingsFile();
-  await writeFile(aiSettingsFilePath, JSON.stringify(settings, null, 2));
+  await writeJsonFile(getAiSettingsFilePath(), settings);
 }
 
 export async function updateStoredAiSettings(

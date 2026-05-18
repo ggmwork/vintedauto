@@ -2,14 +2,22 @@ import {
   BotIcon,
   CheckCircle2Icon,
   CpuIcon,
+  DatabaseIcon,
+  DownloadIcon,
+  FolderOpenIcon,
   KeyRoundIcon,
+  PlusIcon,
   Settings2Icon,
   TerminalIcon,
   TriangleAlertIcon,
+  UploadIcon,
 } from "lucide-react";
 
 import {
   applyAiPresetAction,
+  createDatabaseAction,
+  openDatabaseAction,
+  replaceDatabaseFromImportAction,
   saveAiSettingsAction,
   testAiProviderConnectionAction,
 } from "@/app/actions";
@@ -21,7 +29,7 @@ import {
 } from "@/lib/ai/ollama-presets";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -275,6 +283,7 @@ function ProviderTestCard({
 
 export function AiSettingsPage({
   settings,
+  database,
   feedback,
 }: {
   settings: {
@@ -318,6 +327,23 @@ export function AiSettingsPage({
       anthropicApiKey: boolean;
     };
   };
+  database: {
+    databaseRoot: string;
+    manifest: {
+      databaseId: string;
+      schemaVersion: number;
+      label: string | null;
+      createdAt: string;
+      updatedAt: string;
+    };
+    counts: {
+      sessions: number;
+      stockItems: number;
+      drafts: number;
+      sessionPhotoFiles: number;
+      draftImageFiles: number;
+    };
+  };
   feedback: {
     flash: string | null;
     error: string | null;
@@ -352,10 +378,10 @@ export function AiSettingsPage({
           <div className="max-w-3xl space-y-2">
             <Badge variant="secondary">Settings</Badge>
             <h1 className="font-heading text-3xl font-semibold text-balance">
-              Configure AI helpers.
+              Settings
             </h1>
             <p className="text-sm leading-6 text-muted-foreground">
-              Keep daily selling in Workbench. Choose providers and model names in Task routing.
+              Configure AI helpers, database backups, and local workflow settings.
             </p>
           </div>
         </section>
@@ -377,6 +403,159 @@ export function AiSettingsPage({
             <PresetCard key={preset.id} preset={preset} />
           ))}
         </section>
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2">
+                  <DatabaseIcon className="size-4" />
+                  Database
+                </CardTitle>
+                <CardDescription>
+                  Export, import, or move the local database used by Workbench and Inventory.
+                </CardDescription>
+              </div>
+              <a
+                href="/api/database/export"
+                className={buttonVariants({ variant: "default" })}
+              >
+                <DownloadIcon data-icon="inline-start" />
+                Export backup
+              </a>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-5">
+              <div className="space-y-1 xl:col-span-2">
+                <p className="text-muted-foreground">Current database</p>
+                <p className="break-all font-medium text-foreground">
+                  {database.databaseRoot}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Database ID</p>
+                <p className="break-all font-medium text-foreground">
+                  {database.manifest.databaseId}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Schema</p>
+                <p className="font-medium text-foreground">
+                  {database.manifest.schemaVersion}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-muted-foreground">Updated</p>
+                <p className="font-medium text-foreground">
+                  {formatDate(database.manifest.updatedAt)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">{database.counts.sessions} sessions</Badge>
+              <Badge variant="outline">{database.counts.stockItems} items</Badge>
+              <Badge variant="outline">{database.counts.drafts} drafts</Badge>
+              <Badge variant="outline">
+                {database.counts.sessionPhotoFiles} product photos
+              </Badge>
+              <Badge variant="outline">
+                {database.counts.draftImageFiles} draft images
+              </Badge>
+              <Badge variant="secondary">API keys excluded from exports</Badge>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <form
+                action={createDatabaseAction}
+                className="grid gap-3 rounded-lg border border-border bg-background px-4 py-4"
+              >
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">Create or open folder</p>
+                  <p className="text-sm text-muted-foreground">
+                    Use a cloud folder or external drive when you need the same database on another computer.
+                  </p>
+                </div>
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium text-foreground">Folder path</span>
+                  <input
+                    type="text"
+                    name="databasePath"
+                    placeholder="C:\\Users\\USER\\OneDrive\\VintedAuto\\Database"
+                    className={inputClassName}
+                  />
+                </label>
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium text-foreground">Label</span>
+                  <input
+                    type="text"
+                    name="databaseLabel"
+                    placeholder="Main Vinted database"
+                    className={inputClassName}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  <PendingSubmitButton
+                    type="submit"
+                    pendingLabel="Creating database"
+                  >
+                    <PlusIcon data-icon="inline-start" />
+                    Create database
+                  </PendingSubmitButton>
+                  <PendingSubmitButton
+                    type="submit"
+                    formAction={openDatabaseAction}
+                    variant="outline"
+                    pendingLabel="Opening database"
+                  >
+                    <FolderOpenIcon data-icon="inline-start" />
+                    Open folder
+                  </PendingSubmitButton>
+                </div>
+              </form>
+
+              <form
+                action={replaceDatabaseFromImportAction}
+                className="grid gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-4"
+              >
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">Import backup</p>
+                  <p className="text-sm text-muted-foreground">
+                    Replaces current local database after validation. A backup of the current database is created first.
+                  </p>
+                </div>
+                <label className="grid gap-2 text-sm">
+                  <span className="font-medium text-foreground">Backup file</span>
+                  <input
+                    type="file"
+                    name="databaseArchive"
+                    accept=".zip,.vintedauto.zip,application/zip"
+                    className={inputClassName}
+                  />
+                </label>
+                <label className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    name="confirmReplaceDatabase"
+                    className="mt-1"
+                  />
+                  Replace current local database after creating an automatic backup.
+                </label>
+                <div>
+                  <PendingSubmitButton
+                    type="submit"
+                    variant="destructive"
+                    pendingLabel="Importing database"
+                  >
+                    <UploadIcon data-icon="inline-start" />
+                    Import and replace
+                  </PendingSubmitButton>
+                </div>
+              </form>
+            </div>
+          </CardContent>
+        </Card>
 
         <form action={saveAiSettingsAction} className="space-y-6">
           <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

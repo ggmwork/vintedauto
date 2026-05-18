@@ -1,7 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 
+import { getDatabasePath } from "@/lib/data/database-root";
+import { readJsonFile, writeJsonFile } from "@/lib/data/json-store";
 import {
   createDefaultDraftVintedProfileState,
   hydrateDraftVintedProfileState,
@@ -36,8 +36,9 @@ interface DraftStore {
   drafts: DraftDetail[];
 }
 
-const dataDirectory = path.join(process.cwd(), ".data");
-const draftsFilePath = path.join(dataDirectory, "drafts.json");
+function getDraftsFilePath() {
+  return getDatabasePath("drafts.json");
+}
 
 function createDefaultMetadata(
   overrides?: Partial<DraftMetadata>
@@ -85,32 +86,26 @@ function toDraftSummary(draft: DraftDetail): Draft {
   };
 }
 
-async function ensureDraftStoreFile() {
-  await mkdir(dataDirectory, { recursive: true });
-
-  try {
-    await readFile(draftsFilePath, "utf8");
-  } catch {
-    const initialStore: DraftStore = { drafts: [] };
-    await writeFile(draftsFilePath, JSON.stringify(initialStore, null, 2));
-  }
-}
-
 async function readDraftStore(): Promise<DraftStore> {
-  await ensureDraftStoreFile();
+  return readJsonFile(
+    getDraftsFilePath(),
+    () => ({ drafts: [] }),
+    (value): DraftStore => {
+      const parsed = (value && typeof value === "object"
+        ? value
+        : {}) as Partial<DraftStore>;
 
-  const fileContents = await readFile(draftsFilePath, "utf8");
-  const parsed = JSON.parse(fileContents) as Partial<DraftStore>;
-
-  return {
-    drafts: Array.isArray(parsed.drafts)
-      ? parsed.drafts.map(normalizeDraftDetail)
-      : [],
-  };
+      return {
+        drafts: Array.isArray(parsed.drafts)
+          ? parsed.drafts.map(normalizeDraftDetail)
+          : [],
+      };
+    }
+  );
 }
 
 async function writeDraftStore(store: DraftStore) {
-  await writeFile(draftsFilePath, JSON.stringify(store, null, 2));
+  await writeJsonFile(getDraftsFilePath(), store);
 }
 
 function mergeMetadata(
