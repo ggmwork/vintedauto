@@ -523,15 +523,18 @@ export function AiSettingsPage({
                 <div className="space-y-1">
                   <p className="font-medium text-foreground">Import backup</p>
                   <p className="text-sm text-muted-foreground">
-                    Replaces current local database after validation. A backup of the current database is created first.
+                    Choose an exported Vinted Auto ZIP, then confirm replacement. The current database is backed up first.
                   </p>
                 </div>
                 <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Backup file</span>
+                  <span className="font-medium text-foreground">
+                    Backup file <span className="text-destructive">*</span>
+                  </span>
                   <input
                     type="file"
                     name="databaseArchive"
                     accept=".zip,.vintedauto.zip,application/zip"
+                    required
                     className={inputClassName}
                   />
                 </label>
@@ -539,9 +542,10 @@ export function AiSettingsPage({
                   <input
                     type="checkbox"
                     name="confirmReplaceDatabase"
+                    required
                     className="mt-1"
                   />
-                  Replace current local database after creating an automatic backup.
+                  Required: replace current local database after creating an automatic backup.
                 </label>
                 <div>
                   <PendingSubmitButton
