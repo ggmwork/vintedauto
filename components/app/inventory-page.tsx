@@ -114,7 +114,7 @@ function getFillOnVintedHref(row: InventoryRow) {
 }
 
 function getStockItemHref(row: InventoryRow) {
-  return row.sessionId && row.stockItemId ? `/stock#stock-${row.stockItemId}` : "/stock";
+  return row.stockItemId ? `/stock/${row.stockItemId}` : "/stock";
 }
 
 function getInventoryOpenHref(row: InventoryRow) {
