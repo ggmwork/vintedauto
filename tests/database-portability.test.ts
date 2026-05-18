@@ -107,6 +107,7 @@ describe("database portability", () => {
 
     const validation = validateDatabaseArchive(archive.bytes);
 
+    assert.match(archive.fileName, /^vintedauto-backup-\d{8}-\d{6}\.vintedauto$/);
     assert.equal(validation.ok, true);
     assert.equal(validation.summary.stockItems, 1);
     assert.equal(validation.summary.drafts, 1);

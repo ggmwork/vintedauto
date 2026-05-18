@@ -4,9 +4,7 @@ import {
   CpuIcon,
   DatabaseIcon,
   DownloadIcon,
-  FolderOpenIcon,
   KeyRoundIcon,
-  PlusIcon,
   Settings2Icon,
   TerminalIcon,
   TriangleAlertIcon,
@@ -15,8 +13,6 @@ import {
 
 import {
   applyAiPresetAction,
-  createDatabaseAction,
-  openDatabaseAction,
   replaceDatabaseFromImportAction,
   saveAiSettingsAction,
   testAiProviderConnectionAction,
@@ -413,26 +409,13 @@ export function AiSettingsPage({
                   Database
                 </CardTitle>
                 <CardDescription>
-                  Export, import, or move the local database used by Workbench and Inventory.
+                  Move listings between computers with one Vinted Auto backup file.
                 </CardDescription>
               </div>
-              <a
-                href="/api/database/export"
-                className={buttonVariants({ variant: "default" })}
-              >
-                <DownloadIcon data-icon="inline-start" />
-                Export backup
-              </a>
             </div>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-5">
-              <div className="space-y-1 xl:col-span-2">
-                <p className="text-muted-foreground">Current database</p>
-                <p className="break-all font-medium text-foreground">
-                  {database.databaseRoot}
-                </p>
-              </div>
+            <div className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-1">
                 <p className="text-muted-foreground">Database ID</p>
                 <p className="break-all font-medium text-foreground">
@@ -467,53 +450,23 @@ export function AiSettingsPage({
             </div>
 
             <div className="grid gap-4 xl:grid-cols-2">
-              <form
-                action={createDatabaseAction}
-                className="grid gap-3 rounded-lg border border-border bg-background px-4 py-4"
-              >
+              <div className="grid gap-3 rounded-lg border border-border bg-background px-4 py-4">
                 <div className="space-y-1">
-                  <p className="font-medium text-foreground">Create or open folder</p>
+                  <p className="font-medium text-foreground">Export database</p>
                   <p className="text-sm text-muted-foreground">
-                    Use a cloud folder or external drive when you need the same database on another computer.
+                    Downloads one Vinted Auto backup file with listings, drafts, stock items, and images.
                   </p>
                 </div>
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Folder path</span>
-                  <input
-                    type="text"
-                    name="databasePath"
-                    placeholder="C:\\Users\\USER\\OneDrive\\VintedAuto\\Database"
-                    className={inputClassName}
-                  />
-                </label>
-                <label className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Label</span>
-                  <input
-                    type="text"
-                    name="databaseLabel"
-                    placeholder="Main Vinted database"
-                    className={inputClassName}
-                  />
-                </label>
                 <div className="flex flex-wrap gap-3">
-                  <PendingSubmitButton
-                    type="submit"
-                    pendingLabel="Creating database"
+                  <a
+                    href="/api/database/export"
+                    className={buttonVariants({ variant: "default" })}
                   >
-                    <PlusIcon data-icon="inline-start" />
-                    Create database
-                  </PendingSubmitButton>
-                  <PendingSubmitButton
-                    type="submit"
-                    formAction={openDatabaseAction}
-                    variant="outline"
-                    pendingLabel="Opening database"
-                  >
-                    <FolderOpenIcon data-icon="inline-start" />
-                    Open folder
-                  </PendingSubmitButton>
+                    <DownloadIcon data-icon="inline-start" />
+                    Export database
+                  </a>
                 </div>
-              </form>
+              </div>
 
               <form
                 action={replaceDatabaseFromImportAction}
@@ -521,19 +474,19 @@ export function AiSettingsPage({
                 className="grid gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-4"
               >
                 <div className="space-y-1">
-                  <p className="font-medium text-foreground">Import backup</p>
+                  <p className="font-medium text-foreground">Import database</p>
                   <p className="text-sm text-muted-foreground">
-                    Choose an exported Vinted Auto ZIP, then confirm replacement. The current database is backed up first.
+                    Choose a Vinted Auto backup file from another computer. Current local data is backed up first.
                   </p>
                 </div>
                 <label className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">
-                    Backup file <span className="text-destructive">*</span>
+                    Vinted Auto backup file <span className="text-destructive">*</span>
                   </span>
                   <input
                     type="file"
                     name="databaseArchive"
-                    accept=".zip,.vintedauto.zip,application/zip"
+                    accept=".vintedauto,.vintedauto.zip,.zip,application/vnd.vintedauto.backup,application/zip,application/octet-stream"
                     required
                     className={inputClassName}
                   />
@@ -545,7 +498,7 @@ export function AiSettingsPage({
                     required
                     className="mt-1"
                   />
-                  Required: replace current local database after creating an automatic backup.
+                  Required: replace current local data after creating an automatic backup.
                 </label>
                 <div>
                   <PendingSubmitButton
@@ -554,7 +507,7 @@ export function AiSettingsPage({
                     pendingLabel="Importing database"
                   >
                     <UploadIcon data-icon="inline-start" />
-                    Import and replace
+                    Import database
                   </PendingSubmitButton>
                 </div>
               </form>

@@ -351,7 +351,7 @@ export async function buildDatabaseExportArchive({
 
   return {
     bytes: createStoreOnlyZip(zipEntries),
-    fileName: `vintedauto-export-${toArchiveTimestamp()}.vintedauto.zip`,
+    fileName: `vintedauto-backup-${toArchiveTimestamp()}.vintedauto`,
     manifest: exportManifest,
     summary,
   };

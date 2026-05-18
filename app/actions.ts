@@ -2011,13 +2011,13 @@ export async function replaceDatabaseFromImportAction(formData: FormData) {
 
   if (!confirmed) {
     redirectToDatabaseSettings({
-      error: "Confirm replacement before importing a database backup.",
+      error: "Confirm replacement before importing the database backup.",
     });
   }
 
   if (!(archive instanceof File) || archive.size === 0) {
     redirectToDatabaseSettings({
-      error: "Choose a Vinted Auto database backup before importing.",
+      error: "Choose a Vinted Auto backup file before importing.",
     });
   }
 

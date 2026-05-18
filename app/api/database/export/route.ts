@@ -9,7 +9,7 @@ export async function GET() {
 
   return new NextResponse(archive.bytes, {
     headers: {
-      "Content-Type": "application/zip",
+      "Content-Type": "application/vnd.vintedauto.backup",
       "Content-Disposition": `attachment; filename="${archive.fileName}"`,
       "Cache-Control": "no-store",
     },
