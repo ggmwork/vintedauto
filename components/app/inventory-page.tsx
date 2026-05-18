@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
@@ -112,6 +113,18 @@ function getFillOnVintedHref(row: InventoryRow) {
   return row.draftId ? `/api/drafts/${row.draftId}/fill-on-vinted` : "#";
 }
 
+function getStockItemHref(row: InventoryRow) {
+  return row.sessionId && row.stockItemId ? `/stock#stock-${row.stockItemId}` : "/stock";
+}
+
+function getInventoryOpenHref(row: InventoryRow) {
+  return row.draftId ? getDraftDetailHref(row) : getStockItemHref(row);
+}
+
+function getInventoryOpenLabel(row: InventoryRow) {
+  return row.draftId ? "Open listing" : "Open item";
+}
+
 function InventoryStatusBadge({ status }: { status: InventoryStatus }) {
   return (
     <Badge variant={getStatusVariant(status)}>
@@ -142,6 +155,32 @@ function InventoryThumbnail({ row }: { row: InventoryRow }) {
   );
 }
 
+function InventoryOpenLink({ row }: { row: InventoryRow }) {
+  return (
+    <Link
+      href={getInventoryOpenHref(row)}
+      className={buttonVariants({ variant: "outline" })}
+    >
+      {getInventoryOpenLabel(row)}
+    </Link>
+  );
+}
+
+function InventoryActionGroup({
+  row,
+  children,
+}: {
+  row: InventoryRow;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+      {children}
+      <InventoryOpenLink row={row} />
+    </div>
+  );
+}
+
 function InventoryRowAction({ row }: { row: InventoryRow }) {
   switch (row.nextAction) {
     case "generate-listing":
@@ -157,48 +196,52 @@ function InventoryRowAction({ row }: { row: InventoryRow }) {
       }
 
       return (
-        <form
-          action={generateStockItemDraftAction.bind(
-            null,
-            row.sessionId,
-            row.stockItemId,
-            "inventory"
-          )}
-        >
-          <PendingSubmitButton
-            type="submit"
-            pendingLabel="Generating"
-            className="w-full"
+        <InventoryActionGroup row={row}>
+          <form
+            action={generateStockItemDraftAction.bind(
+              null,
+              row.sessionId,
+              row.stockItemId,
+              "inventory"
+            )}
           >
-            <SparklesIcon data-icon="inline-start" />
-            {inventoryNextActionLabelMap[row.nextAction]}
-          </PendingSubmitButton>
-        </form>
+            <PendingSubmitButton type="submit" pendingLabel="Generating">
+              <SparklesIcon data-icon="inline-start" />
+              {inventoryNextActionLabelMap[row.nextAction]}
+            </PendingSubmitButton>
+          </form>
+        </InventoryActionGroup>
       );
     case "review-listing":
       return (
-        <Link href={getDraftReviewHref(row)} className={buttonVariants()}>
-          {inventoryNextActionLabelMap[row.nextAction]}
-        </Link>
+        <InventoryActionGroup row={row}>
+          <Link href={getDraftReviewHref(row)} className={buttonVariants()}>
+            {inventoryNextActionLabelMap[row.nextAction]}
+          </Link>
+        </InventoryActionGroup>
       );
     case "fill-on-vinted":
       return (
-        <a
-          href={getFillOnVintedHref(row)}
-          target="_blank"
-          rel="noreferrer"
-          className={buttonVariants()}
-        >
-          <ExternalLinkIcon data-icon="inline-start" />
-          {inventoryNextActionLabelMap[row.nextAction]}
-        </a>
+        <InventoryActionGroup row={row}>
+          <a
+            href={getFillOnVintedHref(row)}
+            target="_blank"
+            rel="noreferrer"
+            className={buttonVariants()}
+          >
+            <ExternalLinkIcon data-icon="inline-start" />
+            {inventoryNextActionLabelMap[row.nextAction]}
+          </a>
+        </InventoryActionGroup>
       );
     case "fix-vinted-fill":
       return (
-        <Link href={getDraftExportHref(row)} className={buttonVariants()}>
-          <AlertTriangleIcon data-icon="inline-start" />
-          {inventoryNextActionLabelMap[row.nextAction]}
-        </Link>
+        <InventoryActionGroup row={row}>
+          <Link href={getDraftExportHref(row)} className={buttonVariants()}>
+            <AlertTriangleIcon data-icon="inline-start" />
+            {inventoryNextActionLabelMap[row.nextAction]}
+          </Link>
+        </InventoryActionGroup>
       );
     case "mark-listed":
       if (!row.draftId) {
@@ -213,32 +256,23 @@ function InventoryRowAction({ row }: { row: InventoryRow }) {
       }
 
       return (
-        <form
-          action={setDraftStatusFromInventoryAction.bind(
-            null,
-            row.draftId,
-            "listed"
-          )}
-        >
-          <PendingSubmitButton
-            type="submit"
-            pendingLabel="Marking listed"
-            className="w-full"
+        <InventoryActionGroup row={row}>
+          <form
+            action={setDraftStatusFromInventoryAction.bind(
+              null,
+              row.draftId,
+              "listed"
+            )}
           >
-            <CheckCircle2Icon data-icon="inline-start" />
-            {inventoryNextActionLabelMap[row.nextAction]}
-          </PendingSubmitButton>
-        </form>
+            <PendingSubmitButton type="submit" pendingLabel="Marking listed">
+              <CheckCircle2Icon data-icon="inline-start" />
+              {inventoryNextActionLabelMap[row.nextAction]}
+            </PendingSubmitButton>
+          </form>
+        </InventoryActionGroup>
       );
     case "open-listing":
-      return (
-        <Link
-          href={getDraftDetailHref(row)}
-          className={buttonVariants({ variant: "outline" })}
-        >
-          {inventoryNextActionLabelMap[row.nextAction]}
-        </Link>
-      );
+      return <InventoryOpenLink row={row} />;
   }
 }
 

@@ -337,7 +337,7 @@ function StockEntryCard({
   const displayTitle = linkedDraft?.title?.trim() || entry.stockItem.name;
 
   return (
-    <Card className="overflow-hidden">
+    <Card id={`stock-${entry.stockItem.id}`} className="overflow-hidden scroll-mt-6">
       {entry.stockItem.coverPhotoAssetId ? (
         <div className="relative aspect-[4/3] bg-muted">
           <Image
