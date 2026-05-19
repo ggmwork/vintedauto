@@ -6,6 +6,7 @@ import {
   parseInventoryFilter,
   parseInventorySort,
 } from "@/lib/inventory";
+import { listVisibleListingGenerationJobs } from "@/lib/listing-generation-jobs";
 
 export const dynamic = "force-dynamic";
 
@@ -25,13 +26,15 @@ export default async function InventoryRoute({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedSearchParams = await searchParams;
-  const [sessions, drafts] = await Promise.all([
+  const [sessions, drafts, generationJobs] = await Promise.all([
     listAllSessionDetails(),
     draftRepository.list(),
+    listVisibleListingGenerationJobs(),
   ]);
   const rows = buildInventoryRows({
     sessions,
     drafts,
+    generationJobs,
   });
 
   return (

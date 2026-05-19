@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { DraftDetailPage } from "@/components/app/draft-detail-page";
 import { draftRepository } from "@/lib/drafts";
+import { findActiveListingGenerationJob } from "@/lib/listing-generation-jobs";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,15 @@ export default async function DraftDetailRoute({
     notFound();
   }
 
+  const activeGenerationJob = await findActiveListingGenerationJob({
+    targetType: "draft",
+    draftId,
+  });
+
   return (
     <DraftDetailPage
       draft={draft}
+      activeGenerationJob={activeGenerationJob}
       focusSection={pickSearchParam(resolvedSearchParams.focus) ?? null}
       feedback={{
         flash: pickSearchParam(resolvedSearchParams.flash) ?? null,

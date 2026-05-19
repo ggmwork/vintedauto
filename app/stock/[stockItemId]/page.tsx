@@ -18,8 +18,10 @@ import {
 } from "@/components/ui/card";
 import { draftRepository } from "@/lib/drafts";
 import { listAllSessionDetails } from "@/lib/inbox/inbox-service";
+import { findActiveListingGenerationJob } from "@/lib/listing-generation-jobs";
 import type { DraftDetail } from "@/types/draft";
 import type { PhotoAsset, StockItem, StudioSessionDetail } from "@/types/intake";
+import type { ListingGenerationJob } from "@/types/listing-generation-job";
 
 export const dynamic = "force-dynamic";
 
@@ -80,9 +82,11 @@ function getCoverPhotoAsset(
 function StockItemActions({
   detail,
   draft,
+  activeJob,
 }: {
   detail: StockItemDetail;
   draft: DraftDetail | null;
+  activeJob: ListingGenerationJob | null;
 }) {
   if (draft) {
     return (
@@ -103,11 +107,11 @@ function StockItemActions({
     >
       <PendingSubmitButton
         type="submit"
-        disabled={detail.photoAssets.length === 0}
+        disabled={detail.photoAssets.length === 0 || Boolean(activeJob)}
         pendingLabel="Generating listing"
       >
         <SparklesIcon data-icon="inline-start" />
-        Generate listing
+        {activeJob ? "Generating listing" : "Generate listing"}
       </PendingSubmitButton>
     </form>
   );
@@ -131,6 +135,11 @@ export default async function StockItemRoute({
   const draft = detail.stockItem.draftId
     ? await draftRepository.getById(detail.stockItem.draftId)
     : null;
+  const activeJob = await findActiveListingGenerationJob({
+    targetType: "stock-item",
+    sessionId: detail.session.id,
+    stockItemId: detail.stockItem.id,
+  });
   const coverPhotoAsset = getCoverPhotoAsset(detail.stockItem, detail.photoAssets);
   const title = draft?.title?.trim() || detail.stockItem.name;
   const flash = pickSearchParam(resolvedSearchParams.flash) ?? null;
@@ -160,7 +169,7 @@ export default async function StockItemRoute({
             <Link href="/review" className={buttonVariants({ variant: "outline" })}>
               Back to Inventory
             </Link>
-            <StockItemActions detail={detail} draft={draft} />
+            <StockItemActions detail={detail} draft={draft} activeJob={activeJob} />
           </div>
         </section>
 
@@ -205,6 +214,8 @@ export default async function StockItemRoute({
               </Badge>
               {draft ? (
                 <Badge variant="outline">listing linked</Badge>
+              ) : activeJob ? (
+                <Badge variant="secondary">generating listing</Badge>
               ) : (
                 <Badge variant="outline">no listing yet</Badge>
               )}
@@ -241,7 +252,7 @@ export default async function StockItemRoute({
             >
               Open source session
             </Link>
-            <StockItemActions detail={detail} draft={draft} />
+            <StockItemActions detail={detail} draft={draft} activeJob={activeJob} />
           </CardFooter>
         </Card>
       </div>

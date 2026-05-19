@@ -31,6 +31,12 @@ import {
   isQueuedStockItem,
 } from "@/lib/intake/stock-item-inventory";
 import { isDefaultStockItemName } from "@/lib/intake/stock-item-names";
+import {
+  completeListingGenerationJob,
+  createListingGenerationJob,
+  failListingGenerationJob,
+  findActiveListingGenerationJob,
+} from "@/lib/listing-generation-jobs";
 import { updateStoredAiSettings } from "@/lib/settings/ai-settings";
 import { draftImageStorage } from "@/lib/storage";
 import {
@@ -664,6 +670,8 @@ async function generateDraftFromStockItem(
       draftId: draft.id,
       generated: true,
       errorMessage: null,
+      provider: generation.provider,
+      model: generation.model,
     };
   } catch (error) {
     return {
@@ -671,6 +679,8 @@ async function generateDraftFromStockItem(
       generated: false,
       errorMessage:
         error instanceof Error ? error.message : "Unknown generation failure.",
+      provider: null,
+      model: null,
     };
   }
 }
@@ -703,7 +713,55 @@ async function generateStockItemDraft(
     throw new Error("This stock item has no photos to generate from.");
   }
 
-  return generateDraftFromStockItem(session, stockItem);
+  const activeJob = await findActiveListingGenerationJob({
+    targetType: "stock-item",
+    sessionId,
+    stockItemId,
+  });
+
+  if (activeJob) {
+    return {
+      draftId: null,
+      generated: false,
+      errorMessage: "Listing generation is already running for this item.",
+      provider: null,
+      model: null,
+    };
+  }
+
+  const job = await createListingGenerationJob({
+    targetType: "stock-item",
+    sessionId,
+    stockItemId,
+    label: stockItem.name,
+    message: `Generating listing for ${stockItem.name}.`,
+  });
+
+  try {
+    const result = await generateDraftFromStockItem(session, stockItem);
+
+    if (result.generated) {
+      await completeListingGenerationJob(job.id, {
+        message: `Generated listing for ${stockItem.name}.`,
+        resultDraftId: result.draftId,
+        provider: result.provider,
+        model: result.model,
+      });
+    } else {
+      await failListingGenerationJob(
+        job.id,
+        result.errorMessage ?? "Draft generation failed."
+      );
+    }
+
+    return result;
+  } catch (error) {
+    await failListingGenerationJob(
+      job.id,
+      error instanceof Error ? error.message : "Failed to generate listing."
+    );
+    throw error;
+  }
 }
 
 type StockActionReturnTo = "session" | "stock" | "inbox" | "inventory";
@@ -1588,6 +1646,25 @@ export async function generateDraftListingAction(draftId: string) {
     });
   }
 
+  const activeJob = await findActiveListingGenerationJob({
+    targetType: "draft",
+    draftId,
+  });
+
+  if (activeJob) {
+    redirectToDraft(draftId, {
+      flash: "Listing generation is already running for this draft.",
+      focus: "generate",
+    });
+  }
+
+  const job = await createListingGenerationJob({
+    targetType: "draft",
+    draftId,
+    label: draft.title?.trim() || "Draft listing",
+    message: `Generating listing for ${draft.title?.trim() || "draft"}.`,
+  });
+
   try {
     const images = await Promise.all(
       draft.images.map(async (image) => ({
@@ -1612,15 +1689,28 @@ export async function generateDraftListingAction(draftId: string) {
       generation,
     });
 
+    await completeListingGenerationJob(job.id, {
+      message: `Generated listing with ${generation.provider}:${generation.model}.`,
+      resultDraftId: draftId,
+      provider: generation.provider,
+      model: generation.model,
+    });
+
     redirectToDraft(draftId, {
       flash: `Generated listing with ${generation.provider}:${generation.model}. Manual edits were preserved where they already differed from the last model output.`,
       focus: "review",
     });
   } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
     const message =
       error instanceof Error
         ? error.message
         : "Generation failed for an unknown reason.";
+
+    await failListingGenerationJob(job.id, message);
 
     redirectToDraft(draftId, {
       error: message,

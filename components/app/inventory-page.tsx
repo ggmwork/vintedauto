@@ -6,6 +6,7 @@ import {
   CheckCircle2Icon,
   ExternalLinkIcon,
   ImageIcon,
+  LoaderCircleIcon,
   PackageIcon,
   SearchIcon,
   SparklesIcon,
@@ -132,6 +133,40 @@ function InventoryStatusBadge({ status }: { status: InventoryStatus }) {
     </Badge>
   );
 }
+
+function InventoryGenerationJobBadge({ row }: { row: InventoryRow }) {
+  if (!row.generationJob) {
+    return null;
+  }
+
+  if (row.generationJob.status === "running") {
+    return (
+      <Badge variant="secondary">
+        <LoaderCircleIcon className="size-3 animate-spin" data-icon="inline-start" />
+        Generating
+      </Badge>
+    );
+  }
+
+  if (row.generationJob.status === "failed") {
+    return <Badge variant="destructive">Generation failed</Badge>;
+  }
+
+  return null;
+}
+
+function getInventoryStatusDetail(row: InventoryRow) {
+  if (row.generationJob?.status === "running") {
+    return row.generationJob.message;
+  }
+
+  if (row.generationJob?.status === "failed") {
+    return row.generationJob.error ?? row.generationJob.message;
+  }
+
+  return row.statusDetail;
+}
+
 function InventoryThumbnail({ row }: { row: InventoryRow }) {
   if (!row.coverImageHref) {
     return (
@@ -182,6 +217,17 @@ function InventoryActionGroup({
 }
 
 function InventoryRowAction({ row }: { row: InventoryRow }) {
+  if (row.generationJob?.status === "running") {
+    return (
+      <InventoryActionGroup row={row}>
+        <Button disabled>
+          <LoaderCircleIcon className="animate-spin" data-icon="inline-start" />
+          Generating
+        </Button>
+      </InventoryActionGroup>
+    );
+  }
+
   switch (row.nextAction) {
     case "generate-listing":
       if (!row.sessionId || !row.stockItemId) {
@@ -207,7 +253,9 @@ function InventoryRowAction({ row }: { row: InventoryRow }) {
           >
             <PendingSubmitButton type="submit" pendingLabel="Generating">
               <SparklesIcon data-icon="inline-start" />
-              {inventoryNextActionLabelMap[row.nextAction]}
+              {row.generationJob?.status === "failed"
+                ? "Retry generation"
+                : inventoryNextActionLabelMap[row.nextAction]}
             </PendingSubmitButton>
           </form>
         </InventoryActionGroup>
@@ -339,11 +387,16 @@ function InventoryMobileCard({ row }: { row: InventoryRow }) {
               <h3 className="truncate font-medium text-foreground">{row.title}</h3>
               <p className="text-sm text-muted-foreground">{row.subtitle}</p>
             </div>
-            <InventoryStatusBadge status={row.status} />
+            <div className="flex flex-wrap gap-2">
+              <InventoryStatusBadge status={row.status} />
+              <InventoryGenerationJobBadge row={row} />
+            </div>
           </div>
         </div>
 
-        <p className="text-sm text-muted-foreground">{row.statusDetail}</p>
+        <p className="text-sm text-muted-foreground">
+          {getInventoryStatusDetail(row)}
+        </p>
 
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div className="space-y-1">
@@ -404,9 +457,12 @@ function InventoryTable({ rows }: { rows: InventoryRow[] }) {
               </td>
               <td className="max-w-72 px-4 py-4">
                 <div className="space-y-2">
-                  <InventoryStatusBadge status={row.status} />
+                  <div className="flex flex-wrap gap-2">
+                    <InventoryStatusBadge status={row.status} />
+                    <InventoryGenerationJobBadge row={row} />
+                  </div>
                   <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">
-                    {row.statusDetail}
+                    {getInventoryStatusDetail(row)}
                   </p>
                 </div>
               </td>

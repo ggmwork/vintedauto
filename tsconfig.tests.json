@@ -24,6 +24,7 @@
     "lib/ai/local-model-discovery.ts",
     "lib/data/database-root.ts",
     "lib/data/json-store.ts",
+    "lib/listing-generation-jobs.ts",
     "lib/data-portability/database-archive.ts",
     "lib/data-portability/zip-archive.ts",
     "types/**/*.ts"

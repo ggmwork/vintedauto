@@ -10,6 +10,7 @@ import {
   HistoryIcon,
   ImageIcon,
   ListChecksIcon,
+  LoaderCircleIcon,
   PackageCheckIcon,
   SparklesIcon,
   Trash2Icon,
@@ -44,6 +45,7 @@ import { getChangedFieldsFromGeneration } from "@/lib/drafts/draft-generation-di
 import { getDraftReadiness } from "@/lib/drafts/draft-readiness";
 import type { ReviewQueueState } from "@/lib/drafts/review-queue";
 import type { DraftDetail } from "@/types/draft";
+import type { ListingGenerationJob } from "@/types/listing-generation-job";
 import type { PriceSuggestion } from "@/types/pricing";
 
 const inputClassName =
@@ -187,11 +189,13 @@ interface DraftQueueContext {
 
 export function DraftDetailPage({
   draft,
+  activeGenerationJob,
   feedback,
   focusSection,
   queueContext,
 }: {
   draft: DraftDetail;
+  activeGenerationJob: ListingGenerationJob | null;
   feedback: DraftDetailPageFeedback;
   focusSection: string | null;
   queueContext?: DraftQueueContext;
@@ -496,9 +500,11 @@ export function DraftDetailPage({
                 <CardHeader>
                   <CardTitle>AI generation</CardTitle>
                   <CardDescription>
-                    {draft.imageCount === 0
-                      ? "Upload at least one image first."
-                      : "Create or refresh the title, description, fields, and price."}
+                    {activeGenerationJob
+                      ? activeGenerationJob.message
+                      : draft.imageCount === 0
+                        ? "Upload at least one image first."
+                        : "Create or refresh the title, description, fields, and price."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-3">
@@ -533,16 +539,29 @@ export function DraftDetailPage({
                 </CardContent>
                 <CardFooter className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-muted-foreground">
-                    Regeneration keeps fields you already edited.
+                    {activeGenerationJob
+                      ? "Generation is running. You can keep this page open."
+                      : "Regeneration keeps fields you already edited."}
                   </p>
                   <form action={generateAction}>
                     <PendingSubmitButton
                       type="submit"
-                      disabled={draft.imageCount === 0}
+                      disabled={draft.imageCount === 0 || Boolean(activeGenerationJob)}
                       pendingLabel={draft.generation ? "Regenerating" : "Generating"}
                     >
-                      <SparklesIcon data-icon="inline-start" />
-                      {draft.generation ? "Regenerate listing" : "Generate listing"}
+                      {activeGenerationJob ? (
+                        <LoaderCircleIcon
+                          className="animate-spin"
+                          data-icon="inline-start"
+                        />
+                      ) : (
+                        <SparklesIcon data-icon="inline-start" />
+                      )}
+                      {activeGenerationJob
+                        ? "Generating listing"
+                        : draft.generation
+                          ? "Regenerate listing"
+                          : "Generate listing"}
                     </PendingSubmitButton>
                   </form>
                 </CardFooter>

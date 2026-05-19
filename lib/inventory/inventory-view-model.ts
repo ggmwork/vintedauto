@@ -8,6 +8,10 @@ import {
 import { isInventoryStockItem } from "@/lib/intake/stock-item-inventory";
 import type { Draft } from "@/types/draft";
 import type { PhotoAsset, StockItem, StudioSessionDetail } from "@/types/intake";
+import type {
+  ListingGenerationJob,
+  ListingGenerationJobTarget,
+} from "@/types/listing-generation-job";
 import type { PriceSuggestion } from "@/types/pricing";
 
 export type InventorySourceType = "stock-item" | "manual-draft";
@@ -31,6 +35,7 @@ export interface InventoryRow {
   updatedAt: string;
   createdAt: string;
   searchText: string;
+  generationJob: ListingGenerationJob | null;
 }
 
 export type InventorySort =
@@ -137,6 +142,43 @@ function buildSearchText(values: Array<string | null | undefined>) {
     .toLowerCase();
 }
 
+function jobMatchesTarget(
+  job: ListingGenerationJob,
+  target: ListingGenerationJobTarget
+) {
+  if (job.targetType !== target.targetType) {
+    return false;
+  }
+
+  if (target.targetType === "stock-item") {
+    return (
+      job.sessionId === (target.sessionId ?? null) &&
+      job.stockItemId === (target.stockItemId ?? null)
+    );
+  }
+
+  return job.draftId === (target.draftId ?? null);
+}
+
+function getVisibleGenerationJob(
+  jobs: ListingGenerationJob[],
+  target: ListingGenerationJobTarget
+) {
+  const targetJobs = jobs
+    .filter((job) => jobMatchesTarget(job, target))
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+    );
+  const activeJob = targetJobs.find((job) => job.status === "running");
+
+  if (activeJob) {
+    return activeJob;
+  }
+
+  return targetJobs[0]?.status === "failed" ? targetJobs[0] : null;
+}
+
 function buildDraftSearchValues(draft: Draft | null) {
   if (!draft) {
     return [];
@@ -173,7 +215,8 @@ function getRowUpdatedAt(stockItem: StockItem | null, draft: Draft | null) {
 function buildStockRow(
   session: StudioSessionDetail,
   stockItem: StockItem,
-  draft: Draft | null
+  draft: Draft | null,
+  generationJobs: ListingGenerationJob[]
 ): InventoryRow {
   const photoAssets = getPhotoAssetsForStockItem(session, stockItem);
   const status = deriveInventoryStatus(draft);
@@ -183,6 +226,16 @@ function buildStockRow(
     : `${getSourceLabel(session)} / ${photoAssets.length} photo${
         photoAssets.length === 1 ? "" : "s"
       } grouped`;
+  const generationJob = draft
+    ? getVisibleGenerationJob(generationJobs, {
+        targetType: "draft",
+        draftId: draft.id,
+      })
+    : getVisibleGenerationJob(generationJobs, {
+        targetType: "stock-item",
+        sessionId: session.id,
+        stockItemId: stockItem.id,
+      });
 
   return {
     id: `stock:${stockItem.id}`,
@@ -202,6 +255,7 @@ function buildStockRow(
     sizeLabel: draft?.metadata.size?.trim() || "No size",
     updatedAt: getRowUpdatedAt(stockItem, draft),
     createdAt: stockItem.createdAt,
+    generationJob,
     searchText: buildSearchText([
       stockItem.id,
       stockItem.name,
@@ -213,7 +267,10 @@ function buildStockRow(
   };
 }
 
-function buildManualDraftRow(draft: Draft): InventoryRow {
+function buildManualDraftRow(
+  draft: Draft,
+  generationJobs: ListingGenerationJob[]
+): InventoryRow {
   const status = deriveInventoryStatus(draft);
   const title = draft.title?.trim() || "Untitled listing";
 
@@ -235,6 +292,10 @@ function buildManualDraftRow(draft: Draft): InventoryRow {
     sizeLabel: draft.metadata.size?.trim() || "No size",
     updatedAt: draft.updatedAt,
     createdAt: draft.createdAt,
+    generationJob: getVisibleGenerationJob(generationJobs, {
+      targetType: "draft",
+      draftId: draft.id,
+    }),
     searchText: buildSearchText(buildDraftSearchValues(draft)),
   };
 }
@@ -242,9 +303,11 @@ function buildManualDraftRow(draft: Draft): InventoryRow {
 export function buildInventoryRows({
   sessions,
   drafts,
+  generationJobs = [],
 }: {
   sessions: StudioSessionDetail[];
   drafts: Draft[];
+  generationJobs?: ListingGenerationJob[];
 }) {
   const draftsById = new Map(drafts.map((draft) => [draft.id, draft]));
   const linkedDraftIds = new Set<string>();
@@ -260,12 +323,12 @@ export function buildInventoryRows({
           linkedDraftIds.add(draft.id);
         }
 
-        return buildStockRow(session, stockItem, draft);
+        return buildStockRow(session, stockItem, draft, generationJobs);
       })
   );
   const manualRows = drafts
     .filter((draft) => !linkedDraftIds.has(draft.id))
-    .map(buildManualDraftRow);
+    .map((draft) => buildManualDraftRow(draft, generationJobs));
 
   return [...stockRows, ...manualRows];
 }
