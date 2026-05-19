@@ -40,54 +40,6 @@ const TOOL_LABELS: Record<LocalModelToolId, string> = {
 
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 
-const KNOWN_CODEX_MODELS: DiscoveredLocalModel[] = [
-  {
-    id: "default",
-    label: "Codex CLI default",
-    source: "known",
-    note: "Let installed Codex CLI choose its configured default.",
-  },
-  {
-    id: "gpt-5.3-codex",
-    label: "GPT-5.3-Codex",
-    source: "known",
-    note: "Codex-optimized model alias.",
-  },
-  {
-    id: "gpt-5.4",
-    label: "GPT-5.4",
-    source: "known",
-    note: "General OpenAI model usable by Codex CLI when available.",
-  },
-  {
-    id: "gpt-5.4-mini",
-    label: "GPT-5.4 mini",
-    source: "known",
-    note: "Faster OpenAI model usable by Codex CLI when available.",
-  },
-];
-
-const KNOWN_CLAUDE_MODELS: DiscoveredLocalModel[] = [
-  {
-    id: "default",
-    label: "Claude Code default",
-    source: "known",
-    note: "Let installed Claude Code choose its configured default.",
-  },
-  {
-    id: "sonnet",
-    label: "Sonnet",
-    source: "known",
-    note: "Claude Code model alias when supported by installed CLI.",
-  },
-  {
-    id: "opus",
-    label: "Opus",
-    source: "known",
-    note: "Claude Code model alias when supported by installed CLI.",
-  },
-];
-
 function getCacheFilePath() {
   return getDatabasePath("local-ai-model-cache.json");
 }
@@ -380,9 +332,9 @@ async function discoverCodexTool(): Promise<LocalModelDiscoveryTool> {
   return createTool("codex", {
     available: true,
     version,
-    models: KNOWN_CODEX_MODELS,
+    models: [],
     message: supportsModelFlag
-      ? "Codex CLI detected. CLI does not expose a model list, so known aliases are shown."
+      ? "Codex CLI detected. It does not expose a model list, so normal routing needs manual override."
       : "Codex CLI detected, but model flag was not found in help output.",
   });
 }
@@ -401,9 +353,9 @@ async function discoverClaudeTool(): Promise<LocalModelDiscoveryTool> {
   return createTool("claude", {
     available: true,
     version,
-    models: KNOWN_CLAUDE_MODELS,
+    models: [],
     message:
-      "Claude Code CLI detected. CLI model list is not exposed, so known aliases are shown.",
+      "Claude Code CLI detected. It does not expose a model list, so normal routing needs manual override.",
   });
 }
 

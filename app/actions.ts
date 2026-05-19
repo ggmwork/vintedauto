@@ -145,6 +145,29 @@ function parseAiRouterMode(value: FormDataEntryValue | null): AiRouterMode | nul
   return value === "manual" || value === "fallback" ? value : null;
 }
 
+function parseAiTaskRoute(value: FormDataEntryValue | null) {
+  const text = parseStringOrNull(value);
+
+  if (!text) {
+    return null;
+  }
+
+  const separatorIndex = text.indexOf("|");
+
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  const provider = parseAiProvider(text.slice(0, separatorIndex));
+  const model = text.slice(separatorIndex + 1).trim();
+
+  if (!provider || !model) {
+    return null;
+  }
+
+  return { provider, model };
+}
+
 function parseConfidence(value: FormDataEntryValue | null): PriceConfidence {
   return value === "high" || value === "low" ? value : "medium";
 }
@@ -1853,14 +1876,29 @@ export async function saveAiSettingsAction(formData: FormData) {
   await updateStoredAiSettings((current) => {
     const nextOpenAiApiKey = parseStringOrNull(formData.get("openAiApiKey"));
     const nextAnthropicApiKey = parseStringOrNull(formData.get("anthropicApiKey"));
+    const useAdvancedRouting = formData.get("useAdvancedRouting") === "on";
+    const listingRoute = parseAiTaskRoute(formData.get("listingRoute"));
+    const groupingRoute = parseAiTaskRoute(formData.get("groupingRoute"));
+    const listingProvider = useAdvancedRouting
+      ? parseAiProvider(formData.get("advancedListingProvider"))
+      : listingRoute?.provider ?? parseAiProvider(formData.get("listingProvider"));
+    const groupingProvider = useAdvancedRouting
+      ? parseAiProvider(formData.get("advancedGroupingProvider"))
+      : groupingRoute?.provider ?? parseAiProvider(formData.get("groupingProvider"));
+    const listingModel = useAdvancedRouting
+      ? parseStringOrNull(formData.get("advancedListingModel"))
+      : listingRoute?.model ?? parseStringOrNull(formData.get("listingModel"));
+    const groupingModel = useAdvancedRouting
+      ? parseStringOrNull(formData.get("advancedGroupingModel"))
+      : groupingRoute?.model ?? parseStringOrNull(formData.get("groupingModel"));
 
     return {
       ...current,
-      routerMode: parseAiRouterMode(formData.get("routerMode")),
-      listingProvider: parseAiProvider(formData.get("listingProvider")),
-      listingModel: parseStringOrNull(formData.get("listingModel")),
-      groupingProvider: parseAiProvider(formData.get("groupingProvider")),
-      groupingModel: parseStringOrNull(formData.get("groupingModel")),
+      routerMode: parseAiRouterMode(formData.get("routerMode")) ?? current.routerMode,
+      listingProvider: listingProvider ?? current.listingProvider,
+      listingModel: listingModel ?? current.listingModel,
+      groupingProvider: groupingProvider ?? current.groupingProvider,
+      groupingModel: groupingModel ?? current.groupingModel,
       listingMaxImages: parseOptionalInteger(formData.get("listingMaxImages")),
       ollamaBaseUrl: parseStringOrNull(formData.get("ollamaBaseUrl")),
       openAiBaseUrl: parseStringOrNull(formData.get("openAiBaseUrl")),

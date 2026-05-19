@@ -13,17 +13,12 @@ import {
 } from "lucide-react";
 
 import {
-  applyAiPresetAction,
   replaceDatabaseFromImportAction,
   refreshLocalAiModelsAction,
   saveAiSettingsAction,
   testAiProviderConnectionAction,
 } from "@/app/actions";
-import {
-  getRecommendedOllamaModelProfile,
-  recommendedAiPresets,
-  recommendedOllamaModelProfiles,
-} from "@/lib/ai/ollama-presets";
+import { getRecommendedOllamaModelProfile } from "@/lib/ai/ollama-presets";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -50,42 +45,6 @@ type ChoiceOption = {
   description?: string;
   disabled?: boolean;
 };
-
-const sharedOpenAiModelOptions: ChoiceOption[] = [
-  {
-    value: "gpt-5.5",
-    label: "GPT-5.5",
-    description: "Best OpenAI quality for image reading and reasoning.",
-  },
-  {
-    value: "gpt-5.4",
-    label: "GPT-5.4",
-    description: "Strong OpenAI vision model with lower cost than GPT-5.5.",
-  },
-  {
-    value: "gpt-5.4-mini",
-    label: "GPT-5.4 mini",
-    description: "Faster OpenAI option for lower-latency runs.",
-  },
-  {
-    value: "gpt-5.4-nano",
-    label: "GPT-5.4 nano",
-    description: "Cheapest OpenAI option for simple extraction.",
-  },
-];
-
-const codexCliModelOptions: ChoiceOption[] = [
-  {
-    value: "default",
-    label: "Codex CLI default",
-    description: "Let your installed Codex CLI choose the default model.",
-  },
-  {
-    value: "gpt-5.3-codex",
-    label: "GPT-5.3-Codex",
-    description: "Current Codex-optimized model for agentic CLI work.",
-  },
-];
 
 function ChoiceGroup({
   name,
@@ -139,29 +98,6 @@ function ChoiceGroup({
   );
 }
 
-function buildModelOptions(currentModel: string | null, options: ChoiceOption[]) {
-  const trimmed = currentModel?.trim();
-
-  if (!trimmed) {
-    return options;
-  }
-
-  if (
-    options.some((option) => option.value.toLowerCase() === trimmed.toLowerCase())
-  ) {
-    return options;
-  }
-
-  return [
-    {
-      value: trimmed,
-      label: `Current custom: ${trimmed}`,
-      description: "Saved model not in the built-in list. Pick another option to replace it.",
-    },
-    ...options,
-  ];
-}
-
 function formatDate(value: string | null) {
   if (!value) {
     return "Not yet";
@@ -187,50 +123,6 @@ function getKeyStatusLabel(hasKey: boolean, stored: boolean) {
   }
 
   return stored ? "stored" : "env only";
-}
-
-function PresetCard({
-  preset,
-}: {
-  preset: (typeof recommendedAiPresets)[number];
-}) {
-  const action = applyAiPresetAction.bind(null, preset.id);
-
-  return (
-    <Card>
-      <CardHeader className="gap-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle className="text-base">{preset.label}</CardTitle>
-            <CardDescription>{preset.description}</CardDescription>
-          </div>
-          <Badge variant={preset.badge === "Local CLI" ? "default" : "outline"}>
-            {preset.badge}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        <div className="space-y-2">
-          <p className="text-foreground">
-            Listing: <span className="text-muted-foreground">{preset.listingModel}</span>
-          </p>
-          <p className="text-foreground">
-            Grouping: <span className="text-muted-foreground">{preset.groupingModel}</span>
-          </p>
-          <p className="text-foreground">
-            Listing images:{" "}
-            <span className="text-muted-foreground">{preset.listingMaxImages}</span>
-          </p>
-        </div>
-        <form action={action}>
-          <PendingSubmitButton type="submit" pendingLabel={`Applying ${preset.label}`}>
-            <Settings2Icon data-icon="inline-start" />
-            Apply preset
-          </PendingSubmitButton>
-        </form>
-      </CardContent>
-    </Card>
-  );
 }
 
 function ProviderTestCard({
@@ -283,24 +175,58 @@ function ProviderTestCard({
   );
 }
 
-function localModelToOption(
-  model: DiscoveredLocalModel,
-  providerLabel: string
+function buildRouteValue(provider: AiProvider, model: string) {
+  return `${provider}|${model}`;
+}
+
+function detectedModels(tool: LocalModelDiscoveryTool) {
+  return tool.available
+    ? tool.models.filter((model) => model.source === "detected")
+    : [];
+}
+
+function routeOption(
+  provider: Extract<AiProvider, "ollama" | "local-cli">,
+  providerLabel: string,
+  model: DiscoveredLocalModel
 ): ChoiceOption {
   return {
-    value: model.id,
+    value: buildRouteValue(provider, model.id),
     label: `${providerLabel}: ${model.label}`,
     description:
       model.note ??
-      `${model.source === "detected" ? "Detected" : "Known"} ${providerLabel} model option.`,
+      `Detected ${providerLabel} model from this machine.`,
   };
 }
 
-function localModelsToOptions(tool: LocalModelDiscoveryTool) {
-  return tool.models.map((model) => localModelToOption(model, tool.label));
+function selectedRouteValue(
+  provider: AiProvider,
+  model: string | null,
+  options: ChoiceOption[]
+) {
+  const currentValue = model ? buildRouteValue(provider, model) : null;
+
+  if (currentValue && options.some((option) => option.value === currentValue)) {
+    return currentValue;
+  }
+
+  return options[0]?.value ?? "";
+}
+
+function hasCurrentRoute(
+  provider: AiProvider,
+  model: string | null,
+  options: ChoiceOption[]
+) {
+  return Boolean(
+    model &&
+      options.some((option) => option.value === buildRouteValue(provider, model))
+  );
 }
 
 function ToolStatusCard({ tool }: { tool: LocalModelDiscoveryTool }) {
+  const visibleModels = detectedModels(tool);
+
   return (
     <div className="rounded-lg border border-border bg-background px-4 py-4 text-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -315,12 +241,12 @@ function ToolStatusCard({ tool }: { tool: LocalModelDiscoveryTool }) {
         </Badge>
       </div>
       <p className="mt-3 text-muted-foreground">{tool.message}</p>
-      {tool.models.length > 0 ? (
+      {visibleModels.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-2">
-          {tool.models.map((model) => (
+          {visibleModels.map((model) => (
             <Badge
               key={`${tool.id}-${model.id}`}
-              variant={model.source === "detected" ? "default" : "outline"}
+              variant="default"
             >
               {model.id}
             </Badge>
@@ -367,9 +293,8 @@ function LocalModelDiscoveryCard({
           <ToolStatusCard tool={localModels.tools.claude} />
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          Codex and Claude CLIs may not expose a real model list. When that happens,
-          Settings shows known aliases and keeps manual model entry through the saved
-          current value.
+          Task routing uses only detected model IDs from this scan. Use Advanced
+          manual routing only when a CLI or API model cannot be detected.
         </p>
       </CardContent>
     </Card>
@@ -447,36 +372,39 @@ export function AiSettingsPage({
 }) {
   const listingProfile = getRecommendedOllamaModelProfile(settings.tasks.listing.model);
   const groupingProfile = getRecommendedOllamaModelProfile(settings.tasks.grouping.model);
-  const detectedOllamaModelOptions = localModelsToOptions(
-    settings.localModels.tools.ollama
+  const detectedOllamaModels = detectedModels(settings.localModels.tools.ollama);
+  const detectedCodexModels = detectedModels(settings.localModels.tools.codex);
+  const listingRouteOptions: ChoiceOption[] = [
+    ...detectedOllamaModels.map((model) =>
+      routeOption("ollama", "Ollama", model)
+    ),
+    ...detectedCodexModels.map((model) =>
+      routeOption("local-cli", "Codex CLI", model)
+    ),
+  ];
+  const groupingRouteOptions: ChoiceOption[] = detectedOllamaModels.map((model) =>
+    routeOption("ollama", "Ollama", model)
   );
-  const fallbackOllamaModelOptions: ChoiceOption[] = recommendedOllamaModelProfiles.map(
-    (profile) => ({
-      value: profile.id,
-      label: `${profile.label} (${profile.id})`,
-      description: `${profile.vision ? "Vision" : "Text only"} fallback Ollama option. ${profile.note}`,
-    })
+  const selectedListingRoute = selectedRouteValue(
+    settings.tasks.listing.provider,
+    settings.tasks.listing.model,
+    listingRouteOptions
   );
-  const ollamaModelOptions =
-    detectedOllamaModelOptions.length > 0
-      ? detectedOllamaModelOptions
-      : fallbackOllamaModelOptions;
-  const detectedCodexModelOptions = localModelsToOptions(
-    settings.localModels.tools.codex
+  const selectedGroupingRoute = selectedRouteValue(
+    settings.tasks.grouping.provider,
+    settings.tasks.grouping.model,
+    groupingRouteOptions
   );
-  const codexModelOptions =
-    detectedCodexModelOptions.length > 0
-      ? detectedCodexModelOptions
-      : codexCliModelOptions;
-  const listingModelOptions = buildModelOptions(settings.tasks.listing.model, [
-    ...codexModelOptions,
-    ...sharedOpenAiModelOptions,
-    ...ollamaModelOptions,
-  ]);
-  const groupingModelOptions = buildModelOptions(settings.tasks.grouping.model, [
-    ...sharedOpenAiModelOptions,
-    ...ollamaModelOptions,
-  ]);
+  const listingRouteAvailable = hasCurrentRoute(
+    settings.tasks.listing.provider,
+    settings.tasks.listing.model,
+    listingRouteOptions
+  );
+  const groupingRouteAvailable = hasCurrentRoute(
+    settings.tasks.grouping.provider,
+    settings.tasks.grouping.model,
+    groupingRouteOptions
+  );
 
   return (
     <main className="flex-1 bg-muted/20">
@@ -504,12 +432,6 @@ export function AiSettingsPage({
             {feedback.flash}
           </div>
         ) : null}
-
-        <section className="grid gap-6 xl:grid-cols-3">
-          {recommendedAiPresets.map((preset) => (
-            <PresetCard key={preset.id} preset={preset} />
-          ))}
-        </section>
 
         <Card>
           <CardHeader>
@@ -636,10 +558,18 @@ export function AiSettingsPage({
                   Task routing
                 </CardTitle>
                 <CardDescription>
-                  Choose which provider and model each task uses.
+                  Normal routing uses only models detected on this machine.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-4 sm:grid-cols-2">
+              <CardContent className="space-y-5">
+                {!settings.localModels.scannedAt ? (
+                  <div className="rounded-lg border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                    Refresh models first so routing can use this machine&apos;s real
+                    local options.
+                  </div>
+                ) : null}
+
+                <div className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2 text-sm">
                   <span className="font-medium text-foreground">Router mode</span>
                   <ChoiceGroup
@@ -671,68 +601,56 @@ export function AiSettingsPage({
                     className={inputClassName}
                   />
                 </label>
-
-                <div className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Listing provider</span>
-                  <ChoiceGroup
-                    name="listingProvider"
-                    value={settings.tasks.listing.provider}
-                    options={[
-                      { value: "ollama", label: "Ollama" },
-                      { value: "openai", label: "OpenAI" },
-                      { value: "anthropic", label: "Anthropic" },
-                      {
-                        value: "local-cli",
-                        label: "Local CLI",
-                        description: "Use Codex CLI for listing generation.",
-                      },
-                    ]}
-                  />
                 </div>
 
                 <div className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Listing model</span>
-                  <ChoiceGroup
-                    name="listingModel"
-                    value={settings.tasks.listing.model ?? ""}
-                    options={listingModelOptions}
-                    dense
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    Uses detected local models plus known API/CLI aliases.
-                  </span>
+                  <span className="font-medium text-foreground">Listing route</span>
+                  {listingRouteOptions.length > 0 ? (
+                    <>
+                      <ChoiceGroup
+                        name="listingRoute"
+                        value={selectedListingRoute}
+                        options={listingRouteOptions}
+                        dense
+                      />
+                      {!listingRouteAvailable && settings.tasks.listing.model ? (
+                        <span className="text-xs leading-5 text-muted-foreground">
+                          Saved listing route is not detected now. Saving will use
+                          selected detected route.
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="rounded-lg border border-border bg-background px-3 py-3 text-sm text-muted-foreground">
+                      No detected listing models. Refresh models or use Advanced
+                      manual routing.
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Grouping provider</span>
-                  <ChoiceGroup
-                    name="groupingProvider"
-                    value={settings.tasks.grouping.provider}
-                    options={[
-                      { value: "ollama", label: "Ollama" },
-                      { value: "openai", label: "OpenAI" },
-                      { value: "anthropic", label: "Anthropic" },
-                      {
-                        value: "local-cli",
-                        label: "Local CLI",
-                        description: "Listing only. Keep grouping on another provider.",
-                        disabled: true,
-                      },
-                    ]}
-                  />
-                </div>
-
-                <div className="grid gap-2 text-sm">
-                  <span className="font-medium text-foreground">Grouping model</span>
-                  <ChoiceGroup
-                    name="groupingModel"
-                    value={settings.tasks.grouping.model ?? ""}
-                    options={groupingModelOptions}
-                    dense
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    Uses detected Ollama models plus known API aliases.
-                  </span>
+                  <span className="font-medium text-foreground">Grouping route</span>
+                  {groupingRouteOptions.length > 0 ? (
+                    <>
+                      <ChoiceGroup
+                        name="groupingRoute"
+                        value={selectedGroupingRoute}
+                        options={groupingRouteOptions}
+                        dense
+                      />
+                      {!groupingRouteAvailable && settings.tasks.grouping.model ? (
+                        <span className="text-xs leading-5 text-muted-foreground">
+                          Saved grouping route is not detected now. Saving will use
+                          selected detected route.
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="rounded-lg border border-border bg-background px-3 py-3 text-sm text-muted-foreground">
+                      No detected grouping models. Refresh models or use Advanced
+                      manual routing.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -779,6 +697,82 @@ export function AiSettingsPage({
               </CardContent>
             </Card>
           </section>
+
+          <details className="rounded-xl border border-border bg-card">
+            <summary className="cursor-pointer px-4 py-4 text-sm font-medium text-foreground">
+              Advanced manual routing
+            </summary>
+            <section className="grid gap-5 border-t border-border px-4 py-4">
+              <label className="flex items-start gap-2 text-sm text-muted-foreground">
+                <input type="checkbox" name="useAdvancedRouting" className="mt-1" />
+                Save provider and model values below instead of detected route
+                choices.
+              </label>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-3 text-sm">
+                  <span className="font-medium text-foreground">
+                    Listing provider
+                  </span>
+                  <ChoiceGroup
+                    name="advancedListingProvider"
+                    value={settings.tasks.listing.provider}
+                    options={[
+                      { value: "ollama", label: "Ollama" },
+                      { value: "openai", label: "OpenAI" },
+                      { value: "anthropic", label: "Anthropic" },
+                      {
+                        value: "local-cli",
+                        label: "Local CLI",
+                        description: "Codex CLI listing generation.",
+                      },
+                    ]}
+                  />
+                  <label className="grid gap-2">
+                    <span className="font-medium text-foreground">Listing model</span>
+                    <input
+                      type="text"
+                      name="advancedListingModel"
+                      defaultValue={settings.tasks.listing.model ?? ""}
+                      placeholder="qwen3-vl:8b, default, gpt-5.3-codex..."
+                      className={inputClassName}
+                    />
+                  </label>
+                </div>
+
+                <div className="grid gap-3 text-sm">
+                  <span className="font-medium text-foreground">
+                    Grouping provider
+                  </span>
+                  <ChoiceGroup
+                    name="advancedGroupingProvider"
+                    value={settings.tasks.grouping.provider}
+                    options={[
+                      { value: "ollama", label: "Ollama" },
+                      { value: "openai", label: "OpenAI" },
+                      { value: "anthropic", label: "Anthropic" },
+                      {
+                        value: "local-cli",
+                        label: "Local CLI",
+                        description: "Grouping is not implemented for local CLI.",
+                        disabled: true,
+                      },
+                    ]}
+                  />
+                  <label className="grid gap-2">
+                    <span className="font-medium text-foreground">Grouping model</span>
+                    <input
+                      type="text"
+                      name="advancedGroupingModel"
+                      defaultValue={settings.tasks.grouping.model ?? ""}
+                      placeholder="qwen3-vl:8b"
+                      className={inputClassName}
+                    />
+                  </label>
+                </div>
+              </div>
+            </section>
+          </details>
 
           <details className="rounded-xl border border-border bg-card">
             <summary className="cursor-pointer px-4 py-4 text-sm font-medium text-foreground">
@@ -986,8 +980,8 @@ export function AiSettingsPage({
                     />
                   </label>
                   <p className="text-xs leading-5 text-muted-foreground">
-                    Listing model above controls <code>codex exec --model</code>.
-                    Leave it as <code>default</code> to use the CLI default.
+                    Normal routing only shows detected CLI model IDs. Use
+                    Advanced manual routing for CLI default aliases.
                   </p>
                 </CardContent>
               </Card>
