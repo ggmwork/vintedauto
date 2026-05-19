@@ -26,6 +26,57 @@ interface OllamaChatResponse {
   };
 }
 
+interface OllamaTagsResponse {
+  models?: Array<{
+    name?: string;
+  }>;
+}
+
+async function assertOllamaModelAvailable(model: string) {
+  const baseUrl = getOllamaBaseUrl();
+  let response: Response;
+
+  try {
+    response = await fetch(`${baseUrl}/api/tags`, {
+      signal: AbortSignal.timeout(15_000),
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === "AbortError" || error.name === "TimeoutError")
+    ) {
+      throw new Error(
+        `Ollama model check timed out at ${baseUrl}. Start Ollama or check OLLAMA_BASE_URL.`
+      );
+    }
+
+    throw new Error(
+      `Cannot reach Ollama at ${baseUrl}. Start Ollama, then run ollama pull ${model}.`
+    );
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+
+    throw new Error(
+      `Ollama model check failed (${response.status}): ${errorText || "unknown error"}`
+    );
+  }
+
+  const payload = (await response.json()) as OllamaTagsResponse;
+  const availableModels = new Set(
+    (payload.models ?? [])
+      .map((entry) => entry.name?.trim())
+      .filter((value): value is string => Boolean(value))
+  );
+
+  if (!availableModels.has(model)) {
+    throw new Error(
+      `Ollama model "${model}" is not installed. Run ollama pull ${model}, then try again.`
+    );
+  }
+}
+
 class OllamaListingGenerationService implements ListingGenerationService {
   async generate(input: ListingGenerationInput) {
     if (input.images.length === 0) {
@@ -36,6 +87,8 @@ class OllamaListingGenerationService implements ListingGenerationService {
       getListingProviderConfig().provider === "ollama"
         ? requireProviderModel("listing", "ollama")
         : getListingProviderConfig().model ?? requireProviderModel("listing", "ollama");
+    await assertOllamaModelAvailable(model);
+
     const selectedImages = selectRepresentativeImages(
       input.images,
       getListingMaxImages()
