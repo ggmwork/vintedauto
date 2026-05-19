@@ -131,6 +131,14 @@ function getStockRowTitle(item) {
   return item.draftTitle?.trim() || item.stockItemName || `Draft ${item.draftId}`;
 }
 
+function getConfiguredAppOrigin() {
+  return (
+    currentPopupState?.config?.appOrigin ??
+    elements.appOrigin?.value ??
+    "http://127.0.0.1:3000"
+  );
+}
+
 function formatMissingFieldLabel(value) {
   switch (value) {
     case "vinted:logistics.packageSize":
@@ -163,10 +171,7 @@ async function handleLoadAppStockItem(item) {
     type: "vinted-auto:load-app-stock-item",
     context: {
       draftId: item.draftId,
-      appOrigin:
-        currentPopupState?.config?.appOrigin ??
-        elements.appOrigin?.value ??
-        "http://127.0.0.1:3000",
+      appOrigin: getConfiguredAppOrigin(),
     },
   });
 
@@ -179,6 +184,26 @@ async function handleLoadAppStockItem(item) {
   await refreshPopupState();
 }
 
+async function handleFillSpecificAppStockItem(item) {
+  setActionStatus("Filling current Vinted page...");
+
+  const response = await chrome.runtime.sendMessage({
+    type: "vinted-auto:fill-current-page",
+    context: {
+      draftId: item.draftId,
+      appOrigin: getConfiguredAppOrigin(),
+    },
+  });
+
+  if (!response?.ok) {
+    setActionStatus(response?.message ?? "Fill request failed.", true);
+    return;
+  }
+
+  setActionStatus(response.result?.message ?? "Fill request sent.");
+  await refreshPopupState();
+}
+
 async function handleOpenSpecificAppStockItem(item) {
   setActionStatus("Opening Vinted for the selected app item...");
 
@@ -186,10 +211,7 @@ async function handleOpenSpecificAppStockItem(item) {
     type: "vinted-auto:open-vinted-and-fill",
     context: {
       draftId: item.draftId,
-      appOrigin:
-        currentPopupState?.config?.appOrigin ??
-        elements.appOrigin?.value ??
-        "http://127.0.0.1:3000",
+      appOrigin: getConfiguredAppOrigin(),
     },
   });
 
@@ -254,6 +276,19 @@ function renderAppStockItems(state) {
     const actions = document.createElement("div");
     actions.className = "stock-actions";
 
+    const fillButton = document.createElement("button");
+    fillButton.type = "button";
+    fillButton.textContent = "Fill this";
+    fillButton.disabled = !item.ready;
+    fillButton.addEventListener("click", () => {
+      handleFillSpecificAppStockItem(item).catch((error) => {
+        setActionStatus(
+          error instanceof Error ? error.message : "Failed to fill the app item.",
+          true
+        );
+      });
+    });
+
     const loadButton = document.createElement("button");
     loadButton.type = "button";
     loadButton.className =
@@ -283,7 +318,7 @@ function renderAppStockItems(state) {
       });
     });
 
-    actions.append(loadButton, openButton);
+    actions.append(fillButton, openButton, loadButton);
     row.append(title, meta, stateCopy, categoryPath, actions);
 
     return row;

@@ -34,6 +34,7 @@ Optional app-side bridge setting:
 - keep `NEXT_PUBLIC_VINTED_EXTENSION_ID` only if you want to override that ID
 - the app button now keeps the simple `/api/drafts/:draftId/fill-on-vinted` launch route
 - the popup can also browse drafted stock items from the app and open one directly
+- the Chrome side panel can stay open beside Vinted and fill one queued item at a time
 
 Default values assume:
 
@@ -52,6 +53,9 @@ From a ready draft in the app:
 - popup path:
   the extension popup lists drafted stock items from the app, lets you load one,
   and can open a clean Vinted tab for that chosen item
+- side panel path:
+  open Vinted create listing, open the extension side panel, click `Fill this`
+  on one ready app item, review the page, then submit manually on Vinted
 - the extension service worker fetches `/api/drafts/:draftId/vinted-handoff`
 - the extension service worker also fetches the draft images from the app and
   relays them to the content script as prepared upload files
@@ -81,10 +85,12 @@ Important:
 - images upload before field fill so Vinted can generate category suggestions
 - PT category fill now uses live option scoring plus visible breadcrumb-path matching
 - popup can save the current Vinted category back to the loaded app draft
+- side panel exposes the same drafted-stock queue and per-item `Fill this` action
 - later fields now come from `listing.profile`, not only flat metadata
 - app tracks `handed off`, `filled on Vinted`, `needs manual fix`, and `fill failed`
 - popup exposes page diagnostics and last fill diagnostics for selector debugging
 - manual final submit remains required
+- no iframe is used; Vinted stays in the main tab and the extension is only the assistant panel
 
 ## Debug workflow
 

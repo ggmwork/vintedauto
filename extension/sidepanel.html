@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vinted Auto Queue</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body class="sidepanel-body">
+    <main class="popup">
+      <header class="section">
+        <p class="eyebrow">Vinted Auto</p>
+        <h1>Filling queue</h1>
+        <p class="muted">
+          Keep Vinted open. Pick one ready item, fill this page, then submit
+          manually on Vinted.
+        </p>
+      </header>
+
+      <section class="section">
+        <div class="status-card">
+          <div class="list-header">
+            <div>
+              <p class="label">Ready app items</p>
+              <p class="muted">
+                Draft-backed stock from the local app. Use one item per fill.
+              </p>
+            </div>
+            <button id="refresh-app-stock" type="button" class="ghost-button">
+              Refresh
+            </button>
+          </div>
+          <p id="app-stock-status" class="muted">Loading app stock...</p>
+          <div id="app-stock-list" class="stock-list"></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="status-card">
+          <p class="label">Current Vinted page</p>
+          <p id="page-status" class="value">Checking...</p>
+          <p id="page-detail" class="muted"></p>
+          <details class="diagnostic-block">
+            <summary>Page diagnostics</summary>
+            <pre id="page-debug" class="debug-output">Waiting for page details...</pre>
+          </details>
+        </div>
+
+        <div class="status-card">
+          <p class="label">Last fill</p>
+          <p id="draft-status" class="value">No item loaded yet.</p>
+          <p id="fill-status" class="muted"></p>
+          <details class="diagnostic-block">
+            <summary>Last fill diagnostics</summary>
+            <pre id="fill-debug" class="debug-output">No fill attempt yet.</pre>
+          </details>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="button-row">
+          <button id="fill-current-page" type="button">Fill loaded item</button>
+          <button id="open-vinted-and-fill" type="button" class="secondary">
+            Open Vinted
+          </button>
+        </div>
+        <button id="save-current-category" type="button" class="wide-secondary">
+          Save current Vinted category to app
+        </button>
+        <p id="action-status" class="muted"></p>
+      </section>
+
+      <section class="section">
+        <details class="diagnostic-block">
+          <summary>Settings</summary>
+          <form id="config-form" class="config-form">
+            <label>
+              <span>Local app origin</span>
+              <input
+                id="app-origin"
+                name="appOrigin"
+                type="url"
+                placeholder="http://127.0.0.1:3000"
+                required
+              />
+            </label>
+
+            <label>
+              <span>Vinted create-listing URL</span>
+              <input
+                id="create-listing-url"
+                name="createListingUrl"
+                type="url"
+                placeholder="https://www.vinted.pt/items/new"
+                required
+              />
+            </label>
+
+            <button type="submit">Save settings</button>
+          </form>
+        </details>
+      </section>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
