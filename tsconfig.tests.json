@@ -21,6 +21,7 @@
     "lib/ai/local-cli-command-runner.ts",
     "lib/ai/local-cli-codex.ts",
     "lib/ai/local-cli-output.ts",
+    "lib/ai/local-model-discovery.ts",
     "lib/data/database-root.ts",
     "lib/data/json-store.ts",
     "lib/data-portability/database-archive.ts",

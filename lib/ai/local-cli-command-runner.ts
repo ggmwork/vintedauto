@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 
-const ALLOWED_LOCAL_CLI_EXECUTABLES = new Set(["codex", "claude"]);
+const ALLOWED_LOCAL_CLI_EXECUTABLES = new Set(["codex", "claude", "ollama"]);
 const DEFAULT_OUTPUT_LIMIT_BYTES = 64 * 1024;
 
 const SAFE_ENV_KEYS = [

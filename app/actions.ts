@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getListingGenerationService } from "@/lib/ai";
+import { refreshLocalModelDiscovery } from "@/lib/ai/local-model-discovery";
 import { getRecommendedAiPreset } from "@/lib/ai/ollama-presets";
 import { testAiProviderConnection } from "@/lib/ai/provider-health";
 import {
@@ -1931,6 +1932,19 @@ export async function testAiProviderConnectionAction(provider: AiProvider) {
 
   redirectToAiSettings({
     error: `${provider} test failed. ${result.message}`,
+  });
+}
+
+export async function refreshLocalAiModelsAction() {
+  const discovery = await refreshLocalModelDiscovery();
+  const toolSummaries = Object.values(discovery.tools).map((tool) =>
+    tool.available
+      ? `${tool.label}: ${tool.models.length} model${tool.models.length === 1 ? "" : "s"}`
+      : `${tool.label}: not found`
+  );
+
+  redirectToAiSettings({
+    flash: `Scanned local AI tools. ${toolSummaries.join(". ")}.`,
   });
 }
 

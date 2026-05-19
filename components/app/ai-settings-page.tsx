@@ -5,6 +5,7 @@ import {
   DatabaseIcon,
   DownloadIcon,
   KeyRoundIcon,
+  RefreshCwIcon,
   Settings2Icon,
   TerminalIcon,
   TriangleAlertIcon,
@@ -14,11 +15,11 @@ import {
 import {
   applyAiPresetAction,
   replaceDatabaseFromImportAction,
+  refreshLocalAiModelsAction,
   saveAiSettingsAction,
   testAiProviderConnectionAction,
 } from "@/app/actions";
 import {
-  buildOllamaPullCommand,
   getRecommendedOllamaModelProfile,
   recommendedAiPresets,
   recommendedOllamaModelProfiles,
@@ -34,6 +35,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { AiProvider, AiProviderTestResult } from "@/types/ai";
+import type {
+  DiscoveredLocalModel,
+  LocalModelDiscoveryCache,
+  LocalModelDiscoveryTool,
+} from "@/lib/ai/local-model-discovery";
 
 const inputClassName =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -277,6 +283,99 @@ function ProviderTestCard({
   );
 }
 
+function localModelToOption(
+  model: DiscoveredLocalModel,
+  providerLabel: string
+): ChoiceOption {
+  return {
+    value: model.id,
+    label: `${providerLabel}: ${model.label}`,
+    description:
+      model.note ??
+      `${model.source === "detected" ? "Detected" : "Known"} ${providerLabel} model option.`,
+  };
+}
+
+function localModelsToOptions(tool: LocalModelDiscoveryTool) {
+  return tool.models.map((model) => localModelToOption(model, tool.label));
+}
+
+function ToolStatusCard({ tool }: { tool: LocalModelDiscoveryTool }) {
+  return (
+    <div className="rounded-lg border border-border bg-background px-4 py-4 text-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="font-medium text-foreground">{tool.label}</p>
+          <p className="text-xs text-muted-foreground">
+            {tool.version ?? "No version detected"}
+          </p>
+        </div>
+        <Badge variant={tool.available ? "default" : "outline"}>
+          {tool.available ? "detected" : "missing"}
+        </Badge>
+      </div>
+      <p className="mt-3 text-muted-foreground">{tool.message}</p>
+      {tool.models.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {tool.models.map((model) => (
+            <Badge
+              key={`${tool.id}-${model.id}`}
+              variant={model.source === "detected" ? "default" : "outline"}
+            >
+              {model.id}
+            </Badge>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function LocalModelDiscoveryCard({
+  localModels,
+}: {
+  localModels: LocalModelDiscoveryCache;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2">
+              <TerminalIcon className="size-4" />
+              Detected local models
+            </CardTitle>
+            <CardDescription>
+              Scan this PC for Ollama, Codex CLI, and Claude Code model options.
+            </CardDescription>
+          </div>
+          <form action={refreshLocalAiModelsAction}>
+            <PendingSubmitButton type="submit" pendingLabel="Scanning models">
+              <RefreshCwIcon data-icon="inline-start" />
+              Refresh models
+            </PendingSubmitButton>
+          </form>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Last scan: {formatDate(localModels.scannedAt)}
+        </p>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <ToolStatusCard tool={localModels.tools.ollama} />
+          <ToolStatusCard tool={localModels.tools.codex} />
+          <ToolStatusCard tool={localModels.tools.claude} />
+        </div>
+        <p className="text-xs leading-5 text-muted-foreground">
+          Codex and Claude CLIs may not expose a real model list. When that happens,
+          Settings shows known aliases and keeps manual model entry through the saved
+          current value.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AiSettingsPage({
   settings,
   database,
@@ -317,6 +416,7 @@ export function AiSettingsPage({
       };
     };
     lastTests: Partial<Record<AiProvider, AiProviderTestResult>>;
+    localModels: LocalModelDiscoveryCache;
     updatedAt: string | null;
     storedFlags: {
       openAiApiKey: boolean;
@@ -347,24 +447,35 @@ export function AiSettingsPage({
 }) {
   const listingProfile = getRecommendedOllamaModelProfile(settings.tasks.listing.model);
   const groupingProfile = getRecommendedOllamaModelProfile(settings.tasks.grouping.model);
-  const localOllamaModelIds = recommendedOllamaModelProfiles.map(
-    (profile) => profile.id
+  const detectedOllamaModelOptions = localModelsToOptions(
+    settings.localModels.tools.ollama
   );
-  const localOllamaModelOptions: ChoiceOption[] = recommendedOllamaModelProfiles.map(
+  const fallbackOllamaModelOptions: ChoiceOption[] = recommendedOllamaModelProfiles.map(
     (profile) => ({
       value: profile.id,
       label: `${profile.label} (${profile.id})`,
-      description: `${profile.vision ? "Vision" : "Text only"} local Ollama model. ${profile.note}`,
+      description: `${profile.vision ? "Vision" : "Text only"} fallback Ollama option. ${profile.note}`,
     })
   );
+  const ollamaModelOptions =
+    detectedOllamaModelOptions.length > 0
+      ? detectedOllamaModelOptions
+      : fallbackOllamaModelOptions;
+  const detectedCodexModelOptions = localModelsToOptions(
+    settings.localModels.tools.codex
+  );
+  const codexModelOptions =
+    detectedCodexModelOptions.length > 0
+      ? detectedCodexModelOptions
+      : codexCliModelOptions;
   const listingModelOptions = buildModelOptions(settings.tasks.listing.model, [
-    ...codexCliModelOptions,
+    ...codexModelOptions,
     ...sharedOpenAiModelOptions,
-    ...localOllamaModelOptions,
+    ...ollamaModelOptions,
   ]);
   const groupingModelOptions = buildModelOptions(settings.tasks.grouping.model, [
     ...sharedOpenAiModelOptions,
-    ...localOllamaModelOptions,
+    ...ollamaModelOptions,
   ]);
 
   return (
@@ -470,7 +581,6 @@ export function AiSettingsPage({
 
               <form
                 action={replaceDatabaseFromImportAction}
-                encType="multipart/form-data"
                 className="grid gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-4"
               >
                 <div className="space-y-1">
@@ -514,6 +624,8 @@ export function AiSettingsPage({
             </div>
           </CardContent>
         </Card>
+
+        <LocalModelDiscoveryCard localModels={settings.localModels} />
 
         <form action={saveAiSettingsAction} className="space-y-6">
           <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -587,15 +699,7 @@ export function AiSettingsPage({
                     dense
                   />
                   <span className="text-xs text-muted-foreground">
-                    Codex CLI options:{" "}
-                    <code>{codexCliModelOptions.map((option) => option.value).join(", ")}</code>
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    OpenAI/Codex shared options:{" "}
-                    <code>{sharedOpenAiModelOptions.map((option) => option.value).join(", ")}</code>
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    Ollama options: <code>{localOllamaModelIds.join(", ")}</code>
+                    Uses detected local models plus known API/CLI aliases.
                   </span>
                 </div>
 
@@ -627,11 +731,7 @@ export function AiSettingsPage({
                     dense
                   />
                   <span className="text-xs text-muted-foreground">
-                    OpenAI options:{" "}
-                    <code>{sharedOpenAiModelOptions.map((option) => option.value).join(", ")}</code>
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    Ollama options: <code>{localOllamaModelIds.join(", ")}</code>
+                    Uses detected Ollama models plus known API aliases.
                   </span>
                 </div>
               </CardContent>
@@ -904,81 +1004,6 @@ export function AiSettingsPage({
             </Button>
           </div>
         </form>
-
-        <details className="rounded-xl border border-border bg-card">
-          <summary className="cursor-pointer px-4 py-4 text-sm font-medium text-foreground">
-            Model guidance
-          </summary>
-        <section className="grid gap-6 border-t border-border px-4 py-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CpuIcon className="size-4" />
-                Local model guidance
-              </CardTitle>
-              <CardDescription>
-                Listing and grouping are image tasks. Use the installed multimodal
-                models there and keep the text-only local model for future non-image work.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {recommendedOllamaModelProfiles.map((profile) => (
-                <div
-                  key={profile.id}
-                  className="rounded-lg border border-border bg-background px-4 py-3 text-sm"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-foreground">{profile.label}</p>
-                    <Badge variant="outline">{profile.sizeLabel}</Badge>
-                    <Badge variant={profile.vision ? "default" : "secondary"}>
-                      {profile.vision ? "vision" : "text only"}
-                    </Badge>
-                    {profile.recommendedFor.length > 0 ? (
-                      <Badge variant="outline">
-                        good for {profile.recommendedFor.join(" + ")}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <p className="mt-2 text-muted-foreground">{profile.note}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BotIcon className="size-4" />
-                Ollama model commands
-              </CardTitle>
-              <CardDescription>
-                Use these exact model ids when you pull or switch local Ollama models.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              {recommendedOllamaModelProfiles.map((profile) => (
-                <div
-                  key={profile.id}
-                  className="rounded-lg border border-border bg-background px-4 py-3"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-foreground">{profile.label}</p>
-                    <Badge variant={profile.vision ? "default" : "secondary"}>
-                      {profile.vision ? "vision" : "text only"}
-                    </Badge>
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    <p className="font-mono text-xs text-muted-foreground">
-                      {buildOllamaPullCommand(profile.id)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{profile.note}</p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </section>
-        </details>
 
         <details className="rounded-xl border border-border bg-card">
           <summary className="cursor-pointer px-4 py-4 text-sm font-medium text-foreground">

@@ -13,11 +13,13 @@ import {
   getProviderTimeoutMs,
   getStoredAiSettingsSnapshot,
 } from "@/lib/ai/provider-config";
+import { readLocalModelDiscoveryCacheSync } from "@/lib/ai/local-model-discovery";
 
 export function getAiSettingsViewModel() {
   const stored = getStoredAiSettingsSnapshot();
   const listing = getListingProviderConfig();
   const grouping = getGroupingProviderConfig();
+  const localModels = readLocalModelDiscoveryCacheSync();
 
   return {
     routerMode: getAiRouterMode(),
@@ -50,6 +52,7 @@ export function getAiSettingsViewModel() {
       },
     },
     lastTests: stored.lastTests,
+    localModels,
     updatedAt: stored.updatedAt,
     storedFlags: {
       openAiApiKey: Boolean(stored.openAiApiKey),
