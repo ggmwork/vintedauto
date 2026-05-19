@@ -140,6 +140,87 @@ function buildExtensionStockUrl(appOrigin) {
   return `${normalizeAppOrigin(appOrigin)}/api/vinted/extension-stock`;
 }
 
+function getLoopbackCandidateOrigins(appOrigin) {
+  const primaryOrigin = normalizeAppOrigin(appOrigin);
+  const candidates = [primaryOrigin];
+
+  try {
+    const url = new URL(primaryOrigin);
+
+    if (url.hostname === "localhost") {
+      url.hostname = "127.0.0.1";
+      candidates.push(url.origin);
+    } else if (url.hostname === "127.0.0.1") {
+      url.hostname = "localhost";
+      candidates.push(url.origin);
+    }
+  } catch {
+    // Keep only the normalized primary origin.
+  }
+
+  return [...new Set(candidates)];
+}
+
+function summarizeAppEndpointFailure(response, responseText, label) {
+  const origin = new URL(response.url).origin;
+  const trimmedText = responseText.trim();
+  const returnedHtml =
+    trimmedText.startsWith("<!DOCTYPE") || trimmedText.startsWith("<html");
+
+  if (returnedHtml) {
+    return `${label} endpoint returned ${response.status} HTML from ${origin}. Check Local app origin points to the Vinted Auto app, then restart the dev server if the route was added recently.`;
+  }
+
+  return (
+    trimmedText.slice(0, 240) ||
+    `${label} endpoint returned ${response.status} from ${origin}.`
+  );
+}
+
+async function fetchJsonWithLoopbackFallback(options) {
+  const failures = [];
+
+  for (const appOrigin of getLoopbackCandidateOrigins(options.appOrigin)) {
+    try {
+      const response = await fetch(options.buildUrl(appOrigin), {
+        cache: "no-store",
+      });
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        throw new Error(
+          summarizeAppEndpointFailure(response, responseText, options.label)
+        );
+      }
+
+      let payload = null;
+
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        throw new Error(
+          summarizeAppEndpointFailure(response, responseText, options.label)
+        );
+      }
+
+      if (!options.validate(payload)) {
+        throw new Error(`${options.label} endpoint returned invalid JSON.`);
+      }
+
+      return {
+        appOrigin,
+        payload,
+      };
+    } catch (error) {
+      failures.push(
+        `${appOrigin}: ${toMessage(error, `${options.label} request failed.`)}`
+      );
+    }
+  }
+
+  throw new Error(`${options.label} request failed. ${failures.join(" | ")}`);
+}
+
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   const chunkSize = 0x8000;
@@ -382,24 +463,12 @@ async function setLastFillResult(result) {
 }
 
 async function fetchHandoffPayload(context) {
-  const response = await fetch(buildHandoffUrl(context), {
-    cache: "no-store",
+  return fetchJsonWithLoopbackFallback({
+    appOrigin: context.appOrigin,
+    buildUrl: (appOrigin) => buildHandoffUrl({ ...context, appOrigin }),
+    label: "Vinted handoff",
+    validate: isValidPayload,
   });
-
-  if (!response.ok) {
-    const responseText = await response.text();
-    throw new Error(
-      responseText || `App returned ${response.status} for the handoff request.`
-    );
-  }
-
-  const payload = await response.json();
-
-  if (!isValidPayload(payload)) {
-    throw new Error("App returned an invalid handoff payload.");
-  }
-
-  return payload;
 }
 
 function normalizeExtensionStockItem(value) {
@@ -445,24 +514,20 @@ function normalizeExtensionStockItem(value) {
 }
 
 async function fetchExtensionStockItems(appOrigin) {
-  const response = await fetch(buildExtensionStockUrl(appOrigin), {
-    cache: "no-store",
+  const result = await fetchJsonWithLoopbackFallback({
+    appOrigin,
+    buildUrl: buildExtensionStockUrl,
+    label: "Extension stock",
+    validate: (payload) =>
+      Boolean(
+        payload && typeof payload === "object" && Array.isArray(payload.items)
+      ),
   });
 
-  if (!response.ok) {
-    const responseText = await response.text();
-    throw new Error(
-      responseText || `App returned ${response.status} for the extension stock list.`
-    );
-  }
-
-  const payload = await response.json();
-
-  if (!payload || typeof payload !== "object" || !Array.isArray(payload.items)) {
-    throw new Error("App returned an invalid extension stock response.");
-  }
-
-  return payload.items.map(normalizeExtensionStockItem);
+  return {
+    appOrigin: result.appOrigin,
+    items: result.payload.items.map(normalizeExtensionStockItem),
+  };
 }
 
 async function prepareImageFiles(payload, context) {
@@ -629,8 +694,17 @@ async function waitForSupportedPage(tabId, timeoutMs = 8000) {
 }
 
 async function fillTabFromContext(tabId, context) {
-  const normalizedContext = await setLastContext(context);
-  const payload = await fetchHandoffPayload(normalizedContext);
+  let normalizedContext = await setLastContext(context);
+  const handoff = await fetchHandoffPayload(normalizedContext);
+  const payload = handoff.payload;
+
+  if (handoff.appOrigin !== normalizedContext.appOrigin) {
+    normalizedContext = await setLastContext({
+      ...normalizedContext,
+      appOrigin: handoff.appOrigin,
+    });
+  }
+
   let fieldResult = null;
   let imageResult = null;
   let preparedImages = [];
@@ -761,7 +835,7 @@ async function processPendingLaunchForTab(tabId) {
 }
 
 async function getPopupState() {
-  const [config, lastContext, lastFillResult, pendingLaunch, activeTab] =
+  const [storedConfig, lastContext, lastFillResult, pendingLaunch, activeTab] =
     await Promise.all([
       loadConfig(),
       getLastContext(),
@@ -769,14 +843,25 @@ async function getPopupState() {
       getPendingLaunch(),
       getActiveTab(),
     ]);
+  let config = storedConfig;
 
   const pageState =
     activeTab?.id !== undefined ? await requestPageState(activeTab.id) : null;
   let appStockItems = [];
   let appStockError = null;
+  let appStockWarning = null;
 
   try {
-    appStockItems = await fetchExtensionStockItems(config.appOrigin);
+    const stockResult = await fetchExtensionStockItems(config.appOrigin);
+    appStockItems = stockResult.items;
+
+    if (stockResult.appOrigin !== config.appOrigin) {
+      config = await saveConfig({
+        ...config,
+        appOrigin: stockResult.appOrigin,
+      });
+      appStockWarning = `Switched local app origin to ${stockResult.appOrigin}.`;
+    }
   } catch (error) {
     appStockError = toMessage(
       error,
@@ -799,6 +884,7 @@ async function getPopupState() {
     pageState,
     appStockItems,
     appStockError,
+    appStockWarning,
   };
 }
 

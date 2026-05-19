@@ -245,7 +245,12 @@ function renderAppStockItems(state) {
     return;
   }
 
-  elements.appStockStatus.textContent = `${items.length} app item${items.length === 1 ? "" : "s"} available.`;
+  elements.appStockStatus.textContent = [
+    `${items.length} app item${items.length === 1 ? "" : "s"} available.`,
+    state.appStockWarning,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const rows = items.map((item) => {
     const row = document.createElement("article");
