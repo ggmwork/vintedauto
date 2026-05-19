@@ -6,8 +6,8 @@
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvesWxoJlhkAJWCWN/rYdoJtw4OgTzw+pScR4QbFWj/7O2ufRnhASz2koSWHZ+MLMkOf7BMs8KgCpXPGOS6KvKb9zOOnfvB+U5nW5JYgGMw6XDZMBnqAl/RD3d2eXsnbM7U3WKkQ/03RE3gsWVLTd2I4WnOcDU6lhwrjl55cI9ex8FH+gzHmziJQzP/QkwJK2A3dQUQd1MGvLhN2cA7i8osTkDeb658vPva+/m1FsT91GDEhAZtotvBhWzY2w1bRq0W2dgj6SoD0JWlCqMa8CsyufR3eIboLb3UiJjdvOHM+7c3X4Yu+waCSbtHCcB1gQ5NFBAV0ixTxm3UG/mXnG+QIDAQAB",
   "permissions": ["storage", "tabs", "sidePanel"],
   "host_permissions": [
-    "http://127.0.0.1:3000/*",
-    "http://localhost:3000/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*",
     "https://www.vinted.pt/*",
     "https://www.vinted.es/*",
     "https://www.vinted.fr/*",
@@ -23,8 +23,7 @@
     "matches": ["http://127.0.0.1/*", "http://localhost/*"]
   },
   "action": {
-    "default_title": "Vinted Auto",
-    "default_popup": "popup.html"
+    "default_title": "Vinted Auto"
   },
   "side_panel": {
     "default_path": "sidepanel.html"

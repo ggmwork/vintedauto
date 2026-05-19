@@ -17,13 +17,16 @@ Unpacked Chrome Manifest V3 extension for the Vinted autofill MVP.
 3. Click `Load unpacked`
 4. Select the repo `extension/` folder
 
+After code changes, click `Reload` on the unpacked extension card so Chrome
+uses the latest manifest and service worker.
+
 Expected stable ID for this repo extension:
 
 - `jjlanfbmjhiodmoamflpjclhfcjhcemb`
 
 ## First-run settings
 
-Open the extension popup and confirm:
+Open the extension side panel and confirm:
 
 - `Local app origin`
 - `Vinted create-listing URL`
@@ -33,8 +36,8 @@ Optional app-side bridge setting:
 - the app now defaults to the stable repo extension ID
 - keep `NEXT_PUBLIC_VINTED_EXTENSION_ID` only if you want to override that ID
 - the app button now keeps the simple `/api/drafts/:draftId/fill-on-vinted` launch route
-- the popup can also browse drafted stock items from the app and open one directly
-- the Chrome side panel can stay open beside Vinted and fill one queued item at a time
+- clicking the extension toolbar icon opens the Chrome side panel
+- the side panel can stay open beside Vinted and fill one queued item at a time
 
 Default values assume:
 
@@ -50,9 +53,6 @@ From a ready draft in the app:
 - app path:
   the app opens `/api/drafts/:draftId/fill-on-vinted`, which redirects to Vinted
   with query params for content-script priming
-- popup path:
-  the extension popup lists drafted stock items from the app, lets you load one,
-  and can open a clean Vinted tab for that chosen item
 - side panel path:
   open Vinted create listing, open the extension side panel, click `Fill this`
   on one ready app item, review the page, then submit manually on Vinted
@@ -84,18 +84,18 @@ Important:
 - PT price fill now uses masked-input typing with post-fill numeric verification
 - images upload before field fill so Vinted can generate category suggestions
 - PT category fill now uses live option scoring plus visible breadcrumb-path matching
-- popup can save the current Vinted category back to the loaded app draft
+- side panel can save the current Vinted category back to the loaded app draft
 - side panel exposes the same drafted-stock queue and per-item `Fill this` action
 - later fields now come from `listing.profile`, not only flat metadata
 - app tracks `handed off`, `filled on Vinted`, `needs manual fix`, and `fill failed`
-- popup exposes page diagnostics and last fill diagnostics for selector debugging
+- side panel exposes page diagnostics and last fill diagnostics for selector debugging
 - manual final submit remains required
 - no iframe is used; Vinted stays in the main tab and the extension is only the assistant panel
 
 ## Debug workflow
 
-- use the popup `Page diagnostics` block when the page is unsupported or not ready
-- use the popup `Last fill diagnostics` block when a field fill partially fails
+- use the side panel `Page diagnostics` block when the page is unsupported or not ready
+- use the side panel `Last fill diagnostics` block when a field fill partially fails
 - use the app draft `Selector diagnostics` block to compare the latest persisted callback result
 - use [docs/34-vinted-extension-dom-smoke-test.md](../docs/34-vinted-extension-dom-smoke-test.md) as the repeatable repair checklist
 - use [docs/39-vinted-dynamic-fields-research.md](../docs/39-vinted-dynamic-fields-research.md),

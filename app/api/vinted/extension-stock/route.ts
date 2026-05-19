@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 
+import {
+  applyVintedExtensionCors,
+  createVintedExtensionCorsOptionsResponse,
+} from "@/lib/vinted/extension-cors";
 import { listVintedExtensionStockItems } from "@/lib/vinted/extension-stock";
+
+export function OPTIONS() {
+  return createVintedExtensionCorsOptionsResponse();
+}
 
 export async function GET() {
   const response = NextResponse.json({
@@ -9,5 +17,5 @@ export async function GET() {
 
   response.headers.set("cache-control", "no-store");
 
-  return response;
+  return applyVintedExtensionCors(response);
 }

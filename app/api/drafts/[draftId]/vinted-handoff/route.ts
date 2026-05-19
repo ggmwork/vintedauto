@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 
 import { draftRepository } from "@/lib/drafts";
+import {
+  applyVintedExtensionCors,
+  createVintedExtensionCorsOptionsResponse,
+} from "@/lib/vinted/extension-cors";
 import { createVintedHandoffPayload } from "@/lib/vinted/handoff";
+
+export function OPTIONS() {
+  return createVintedExtensionCorsOptionsResponse();
+}
 
 export async function GET(
   request: Request,
@@ -15,16 +23,18 @@ export async function GET(
   const draft = await draftRepository.getById(draftId);
 
   if (!draft) {
-    return NextResponse.json(
-      {
-        error: "Draft not found.",
-      },
-      {
-        status: 404,
-        headers: {
-          "cache-control": "no-store",
+    return applyVintedExtensionCors(
+      NextResponse.json(
+        {
+          error: "Draft not found.",
         },
-      }
+        {
+          status: 404,
+          headers: {
+            "cache-control": "no-store",
+          },
+        }
+      )
     );
   }
 
@@ -33,9 +43,11 @@ export async function GET(
     origin,
   });
 
-  return NextResponse.json(payload, {
-    headers: {
-      "cache-control": "no-store",
-    },
-  });
+  return applyVintedExtensionCors(
+    NextResponse.json(payload, {
+      headers: {
+        "cache-control": "no-store",
+      },
+    })
+  );
 }

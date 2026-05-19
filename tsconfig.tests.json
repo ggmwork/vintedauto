@@ -17,6 +17,7 @@
     "lib/intake/stock-item-names.ts",
     "lib/vinted/listing-profile.ts",
     "lib/vinted/handoff.ts",
+    "lib/vinted/extension-cors.ts",
     "lib/drafts/draft-readiness.ts",
     "lib/ai/local-cli-command-runner.ts",
     "lib/ai/local-cli-codex.ts",

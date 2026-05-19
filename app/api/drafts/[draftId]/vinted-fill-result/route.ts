@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { draftRepository } from "@/lib/drafts";
+import {
+  applyVintedExtensionCors,
+  createVintedExtensionCorsOptionsResponse,
+} from "@/lib/vinted/extension-cors";
 import { hydrateDraftVintedProfileState } from "@/lib/vinted/listing-profile";
 import type { DraftVintedHandoffState } from "@/types/draft";
 import type {
@@ -150,6 +154,10 @@ function buildCategoryPlanFromSnapshot(snapshot: VintedCategorySnapshotPayload) 
   };
 }
 
+export function OPTIONS() {
+  return createVintedExtensionCorsOptionsResponse();
+}
+
 export async function POST(
   request: Request,
   {
@@ -162,16 +170,18 @@ export async function POST(
   const draft = await draftRepository.getById(draftId);
 
   if (!draft) {
-    return NextResponse.json(
-      {
-        error: "Draft not found.",
-      },
-      {
-        status: 404,
-        headers: {
-          "cache-control": "no-store",
+    return applyVintedExtensionCors(
+      NextResponse.json(
+        {
+          error: "Draft not found.",
         },
-      }
+        {
+          status: 404,
+          headers: {
+            "cache-control": "no-store",
+          },
+        }
+      )
     );
   }
 
@@ -180,32 +190,36 @@ export async function POST(
   try {
     requestBody = await request.json();
   } catch {
-    return NextResponse.json(
-      {
-        error: "Request body must be valid JSON.",
-      },
-      {
-        status: 400,
-        headers: {
-          "cache-control": "no-store",
+    return applyVintedExtensionCors(
+      NextResponse.json(
+        {
+          error: "Request body must be valid JSON.",
         },
-      }
+        {
+          status: 400,
+          headers: {
+            "cache-control": "no-store",
+          },
+        }
+      )
     );
   }
 
   const result = parseFillResultPayload(requestBody);
 
   if (!result) {
-    return NextResponse.json(
-      {
-        error: "Invalid Vinted fill result payload.",
-      },
-      {
-        status: 400,
-        headers: {
-          "cache-control": "no-store",
+    return applyVintedExtensionCors(
+      NextResponse.json(
+        {
+          error: "Invalid Vinted fill result payload.",
         },
-      }
+        {
+          status: 400,
+          headers: {
+            "cache-control": "no-store",
+          },
+        }
+      )
     );
   }
 
@@ -229,16 +243,18 @@ export async function POST(
     },
   });
 
-  return NextResponse.json(
-    {
-      ok: true,
-      draftId: updatedDraft.id,
-      vintedHandoff: updatedDraft.vintedHandoff,
-    },
-    {
-      headers: {
-        "cache-control": "no-store",
+  return applyVintedExtensionCors(
+    NextResponse.json(
+      {
+        ok: true,
+        draftId: updatedDraft.id,
+        vintedHandoff: updatedDraft.vintedHandoff,
       },
-    }
+      {
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    )
   );
 }

@@ -286,6 +286,18 @@ async function ensureDefaultConfig() {
   });
 }
 
+function configureSidePanel() {
+  if (!chrome.sidePanel?.setPanelBehavior) {
+    return;
+  }
+
+  chrome.sidePanel
+    .setPanelBehavior({
+      openPanelOnActionClick: true,
+    })
+    .catch(() => {});
+}
+
 async function loadConfig() {
   await ensureDefaultConfig();
   const stored = await chrome.storage.local.get(STORAGE_KEYS.config);
@@ -1072,11 +1084,15 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 chrome.runtime.onInstalled.addListener(() => {
   ensureDefaultConfig().catch(() => {});
+  configureSidePanel();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   ensureDefaultConfig().catch(() => {});
+  configureSidePanel();
 });
+
+configureSidePanel();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
