@@ -332,9 +332,18 @@ async function discoverCodexTool(): Promise<LocalModelDiscoveryTool> {
   return createTool("codex", {
     available: true,
     version,
-    models: [],
+    models: supportsModelFlag
+      ? [
+          {
+            id: "default",
+            label: "Default",
+            source: "known" as const,
+            note: "Uses the signed-in Codex CLI default model.",
+          },
+        ]
+      : [],
     message: supportsModelFlag
-      ? "Codex CLI detected. It does not expose a model list, so normal routing needs manual override."
+      ? "Codex CLI detected. It does not expose a model list, so default routing is available."
       : "Codex CLI detected, but model flag was not found in help output.",
   });
 }

@@ -5,6 +5,7 @@ import {
   assertAllowedLocalCliExecutable,
   createLocalCliEnvironment,
   LocalCliCommandError,
+  resolveLocalCliCommand,
 } from "@/lib/ai/local-cli-command-runner";
 import { buildCodexListingArgs } from "@/lib/ai/local-cli-codex";
 import { parseLocalCliJsonPayload } from "@/lib/ai/local-cli-output";
@@ -28,6 +29,77 @@ describe("local CLI provider", () => {
     assert.throws(
       () => assertAllowedLocalCliExecutable("powershell"),
       LocalCliCommandError
+    );
+  });
+
+  it("uses the npm Codex launcher on Windows", () => {
+    const command = resolveLocalCliCommand({
+      executable: "codex",
+      args: ["--version"],
+      env: {
+        APPDATA: "C:\\Users\\Seller\\AppData\\Roaming",
+      },
+      fileExists: (filePath) =>
+        filePath.endsWith(
+          "AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\bin\\codex.js"
+        ),
+      nodePath: "C:\\Program Files\\nodejs\\node.exe",
+      platform: "win32",
+    });
+
+    assert.equal(command.executable, "C:\\Program Files\\nodejs\\node.exe");
+    assert.deepEqual(command.args, [
+      "C:\\Users\\Seller\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\bin\\codex.js",
+      "--version",
+    ]);
+  });
+
+  it("finds Codex from USERPROFILE when APPDATA points elsewhere", () => {
+    const command = resolveLocalCliCommand({
+      executable: "codex",
+      args: ["exec", "--help"],
+      env: {
+        APPDATA: "C:\\Users\\Sandbox\\AppData\\Roaming",
+        USERPROFILE: "C:\\Users\\Seller",
+      },
+      fileExists: (filePath) =>
+        filePath ===
+        "C:\\Users\\Seller\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\bin\\codex.js",
+      nodePath: "node.exe",
+      platform: "win32",
+    });
+
+    assert.deepEqual(command, {
+      executable: "node.exe",
+      args: [
+        "C:\\Users\\Seller\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\bin\\codex.js",
+        "exec",
+        "--help",
+      ],
+    });
+  });
+
+  it("finds Codex from PATH npm roots on Windows", () => {
+    const command = resolveLocalCliCommand({
+      executable: "codex",
+      args: ["--version"],
+      env: {
+        Path: [
+          "C:\\Windows\\System32",
+          "C:\\Users\\Seller\\AppData\\Roaming\\npm",
+        ].join(";"),
+      },
+      fileExists: (filePath) =>
+        filePath ===
+        "C:\\Users\\Seller\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\bin\\codex.js",
+      nodePath: "node.exe",
+      platform: "win32",
+    });
+
+    assert.equal(command.executable, "node.exe");
+    assert.equal(
+      command.args[0],
+      "C:\\Users\\Seller\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\bin\\codex.js"
     );
   });
 

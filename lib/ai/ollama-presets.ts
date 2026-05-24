@@ -101,7 +101,7 @@ export const recommendedAiPresets: AiPreset[] = [
     description: "Use Codex CLI for listing generation and keep grouping local.",
     listingProvider: "local-cli",
     groupingProvider: "ollama",
-    listingModel: "gpt-5.3-codex",
+    listingModel: "default",
     groupingModel: "qwen3-vl:8b",
     listingMaxImages: 4,
     badge: "Local CLI",

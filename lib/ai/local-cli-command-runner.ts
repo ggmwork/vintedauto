@@ -1,4 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
 const ALLOWED_LOCAL_CLI_EXECUTABLES = new Set(["codex", "claude", "ollama"]);
 const DEFAULT_OUTPUT_LIMIT_BYTES = 64 * 1024;
@@ -88,15 +90,81 @@ export function assertAllowedLocalCliExecutable(executable: string) {
   }
 }
 
+function unique(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function getCodexNpmLauncherCandidates(env: Record<string, string | undefined>) {
+  const pathEntries = unique(
+    [env.PATH, env.Path]
+      .filter((value): value is string => typeof value === "string")
+      .flatMap((value) => value.split(path.delimiter))
+  );
+  const npmRoots = unique([
+    env.APPDATA ? path.join(env.APPDATA, "npm") : "",
+    env.USERPROFILE ? path.join(env.USERPROFILE, "AppData", "Roaming", "npm") : "",
+    ...pathEntries,
+  ]);
+
+  return npmRoots.map((npmRoot) =>
+    path.join(
+      npmRoot,
+      "node_modules",
+      "@openai",
+      "codex",
+      "bin",
+      "codex.js"
+    )
+  );
+}
+
+interface ResolveLocalCliCommandInput {
+  executable: string;
+  args: string[];
+  env?: Record<string, string | undefined>;
+  fileExists?: (filePath: string) => boolean;
+  nodePath?: string;
+  platform?: NodeJS.Platform;
+}
+
+export function resolveLocalCliCommand(input: ResolveLocalCliCommandInput) {
+  assertAllowedLocalCliExecutable(input.executable);
+
+  const platform = input.platform ?? process.platform;
+  const env = input.env ?? process.env;
+  const fileExists = input.fileExists ?? existsSync;
+
+  if (input.executable === "codex" && platform === "win32") {
+    for (const npmCodexLauncher of getCodexNpmLauncherCandidates(env)) {
+      if (!fileExists(npmCodexLauncher)) {
+        continue;
+      }
+
+      return {
+        executable: input.nodePath ?? process.execPath,
+        args: [npmCodexLauncher, ...input.args],
+      };
+    }
+  }
+
+  return {
+    executable: input.executable,
+    args: input.args,
+  };
+}
+
 export function runLocalCliCommand(
   input: LocalCliCommandInput
 ): Promise<LocalCliCommandResult> {
-  assertAllowedLocalCliExecutable(input.executable);
+  const command = resolveLocalCliCommand({
+    executable: input.executable,
+    args: input.args,
+  });
 
   const outputLimitBytes = input.outputLimitBytes ?? DEFAULT_OUTPUT_LIMIT_BYTES;
 
   return new Promise((resolve, reject) => {
-    const child = spawn(input.executable, input.args, {
+    const child = spawn(command.executable, command.args, {
       cwd: input.cwd,
       env: createLocalCliEnvironment() as NodeJS.ProcessEnv,
       shell: false,

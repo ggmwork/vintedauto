@@ -558,7 +558,7 @@ export function AiSettingsPage({
                   Task routing
                 </CardTitle>
                 <CardDescription>
-                  Normal routing uses only models detected on this machine.
+                  Normal routing uses detected local models and known CLI defaults.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -980,8 +980,8 @@ export function AiSettingsPage({
                     />
                   </label>
                   <p className="text-xs leading-5 text-muted-foreground">
-                    Normal routing only shows detected CLI model IDs. Use
-                    Advanced manual routing for CLI default aliases.
+                    Normal routing shows the Codex Default option after scan. Use
+                    Advanced manual routing only for custom model aliases.
                   </p>
                 </CardContent>
               </Card>

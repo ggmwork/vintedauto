@@ -53,4 +53,8 @@ qwen3-vl:8b       abc123   6.1 GB    2 days ago
   it("allows ollama model discovery command", () => {
     assert.doesNotThrow(() => assertAllowedLocalCliExecutable("ollama"));
   });
+
+  it("allows codex model discovery command", () => {
+    assert.doesNotThrow(() => assertAllowedLocalCliExecutable("codex"));
+  });
 });
