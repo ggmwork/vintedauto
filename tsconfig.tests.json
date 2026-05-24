@@ -23,6 +23,7 @@
     "lib/ai/local-cli-codex.ts",
     "lib/ai/local-cli-output.ts",
     "lib/ai/local-model-discovery.ts",
+    "lib/ai/listing-generation-shared.ts",
     "lib/data/database-root.ts",
     "lib/data/json-store.ts",
     "lib/listing-generation-jobs.ts",

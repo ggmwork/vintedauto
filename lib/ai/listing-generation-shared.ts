@@ -326,18 +326,31 @@ export function buildListingPrompt(
     totalImageCount > input.images.length
       ? `You are seeing ${input.images.length} representative photos selected from ${totalImageCount} total item photos.`
       : `You are seeing ${input.images.length} item photos.`;
+  const languageInstruction =
+    input.preferredLanguage === "pt"
+      ? "Write in Portuguese from Portugal (PT-PT)."
+      : input.preferredLanguage === "bilingual"
+        ? "Write in Portuguese from Portugal first, then add concise English buyer-search terms where useful."
+        : "Write in English.";
 
   return [
     "You generate Vinted listing drafts from product photos.",
     "Return only JSON that matches the supplied schema.",
-    "Be concrete and concise.",
+    "Be concrete, concise, and buyer-friendly.",
     "Always return non-empty title and description fields.",
     "Use the photos as the primary source of truth.",
-    `Write the listing in ${input.preferredLanguage}.`,
+    languageInstruction,
     "Do not invent brand, material, or size unless reasonably visible.",
+    "Do not invent web research, URLs, citations, model years, exact product names, or market facts.",
     "Do not return top-level brand, category, size, condition, color, material, notes, or price fields. Put metadata under suggestedMetadata and pricing under priceSuggestion.",
     "If uncertain, leave metadata fields null and explain uncertainty in conditionNotes or rationale.",
+    "Title: one line, optimized for buyer search, format like \"Brand - item type color/style/material\"; omit brand if uncertain.",
+    "Description: Vinted-ready copy, 2 short paragraphs maximum. Cover item identity, visible style/colors/materials, practical features, use case, and honest visible condition. Mention defects instead of hiding them.",
+    "End the description with 7-12 relevant hashtags on one line. Use brand, category, style, decade, color, and second-hand search terms when visible or safe.",
+    "Keywords: return the same search concepts as plain terms without #, 7-12 items.",
     `Pricing must be a realistic ${input.currency} suggestion or range for a second-hand ${input.marketplace} listing.`,
+    "Price rationale: brief estimate from visible condition, brand confidence, category, and likely resale speed. Do not cite fake sources.",
+    "Suggested Vinted category should go under suggestedMetadata.category when confident; use a simple path if useful.",
     imageContextLine,
     `Known draft metadata: ${JSON.stringify(input.metadata)}`,
   ].join("\n");

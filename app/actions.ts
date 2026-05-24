@@ -610,7 +610,7 @@ async function generateDraftFromStockItem(
         material: null,
         notes: null,
       },
-      preferredLanguage: "en",
+      preferredLanguage: "pt",
       currency: "EUR",
       marketplace: "vinted",
     });
@@ -1679,7 +1679,7 @@ export async function generateDraftListingAction(draftId: string) {
       draftId,
       images,
       metadata: draft.metadata,
-      preferredLanguage: "en",
+      preferredLanguage: "pt",
       currency: "EUR",
       marketplace: "vinted",
     });
