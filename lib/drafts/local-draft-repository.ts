@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { getDatabasePath } from "@/lib/data/database-root";
-import { readJsonFile, writeJsonFile } from "@/lib/data/json-store";
+import { mutateJsonFile, readJsonFile } from "@/lib/data/json-store";
 import {
   createDefaultDraftVintedProfileState,
   hydrateDraftVintedProfileState,
@@ -90,22 +90,20 @@ async function readDraftStore(): Promise<DraftStore> {
   return readJsonFile(
     getDraftsFilePath(),
     () => ({ drafts: [] }),
-    (value): DraftStore => {
-      const parsed = (value && typeof value === "object"
-        ? value
-        : {}) as Partial<DraftStore>;
-
-      return {
-        drafts: Array.isArray(parsed.drafts)
-          ? parsed.drafts.map(normalizeDraftDetail)
-          : [],
-      };
-    }
+    normalizeDraftStore
   );
 }
 
-async function writeDraftStore(store: DraftStore) {
-  await writeJsonFile(getDraftsFilePath(), store);
+function normalizeDraftStore(value: unknown): DraftStore {
+  const parsed = (value && typeof value === "object"
+    ? value
+    : {}) as Partial<DraftStore>;
+
+  return {
+    drafts: Array.isArray(parsed.drafts)
+      ? parsed.drafts.map(normalizeDraftDetail)
+      : [],
+  };
 }
 
 function mergeMetadata(
@@ -675,10 +673,12 @@ function applyDraftUpdate(
 async function mutateDraftStore(
   mutator: (store: DraftStore) => DraftStore | Promise<DraftStore>
 ) {
-  const currentStore = await readDraftStore();
-  const nextStore = await mutator(currentStore);
-  await writeDraftStore(nextStore);
-  return nextStore;
+  return mutateJsonFile(
+    getDraftsFilePath(),
+    () => ({ drafts: [] }),
+    normalizeDraftStore,
+    mutator
+  );
 }
 
 class LocalDraftRepository implements DraftRepository {
@@ -752,6 +752,12 @@ class LocalDraftRepository implements DraftRepository {
     }
 
     return toDraftSummary(draft);
+  }
+
+  async delete(id: string): Promise<void> {
+    await mutateDraftStore((currentStore) => ({
+      drafts: currentStore.drafts.filter((draft) => draft.id !== id),
+    }));
   }
 
   async attachImages(input: SaveDraftImagesInput): Promise<DraftDetail> {

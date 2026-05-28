@@ -593,6 +593,9 @@ async function generateDraftFromStockItem(
   );
 
   const generationService = getListingGenerationService();
+  let createdDraftId: string | null = null;
+  const uploadedDraftImages: DraftImage[] = [];
+
   try {
     const generation = await generationService.generate({
       draftId: stockItem.id,
@@ -615,30 +618,33 @@ async function generateDraftFromStockItem(
       marketplace: "vinted",
     });
     const draft = await draftRepository.create({});
-    const draftImages = await Promise.all(
-      generationImages.map(async ({ photoAsset, bytes }, index) => {
-        const imageId = randomUUID();
-        const storedImage = await draftImageStorage.upload({
-          draftId: draft.id,
-          imageId,
-          fileName: photoAsset.originalFilename,
-          contentType: photoAsset.contentType || "application/octet-stream",
-          bytes: toArrayBuffer(bytes),
-        });
+    const draftImages: DraftImage[] = [];
+    createdDraftId = draft.id;
 
-        return {
-          id: imageId,
-          draftId: draft.id,
-          storagePath: storedImage.storagePath,
-          originalFilename: photoAsset.originalFilename || `image-${index + 1}`,
-          sortOrder: index,
-          contentType: photoAsset.contentType,
-          sizeBytes: storedImage.sizeBytes,
-          width: storedImage.width,
-          height: storedImage.height,
-        } satisfies DraftImage;
-      })
-    );
+    for (const [index, { photoAsset, bytes }] of generationImages.entries()) {
+      const imageId = randomUUID();
+      const storedImage = await draftImageStorage.upload({
+        draftId: draft.id,
+        imageId,
+        fileName: photoAsset.originalFilename,
+        contentType: photoAsset.contentType || "application/octet-stream",
+        bytes: toArrayBuffer(bytes),
+      });
+      const draftImage = {
+        id: imageId,
+        draftId: draft.id,
+        storagePath: storedImage.storagePath,
+        originalFilename: photoAsset.originalFilename || `image-${index + 1}`,
+        sortOrder: index,
+        contentType: photoAsset.contentType,
+        sizeBytes: storedImage.sizeBytes,
+        width: storedImage.width,
+        height: storedImage.height,
+      } satisfies DraftImage;
+
+      draftImages.push(draftImage);
+      uploadedDraftImages.push(draftImage);
+    }
 
     await draftRepository.attachImages({
       draftId: draft.id,
@@ -674,6 +680,15 @@ async function generateDraftFromStockItem(
       model: generation.model,
     };
   } catch (error) {
+    if (createdDraftId) {
+      await Promise.allSettled(
+        uploadedDraftImages.map((image) =>
+          draftImageStorage.remove(image.storagePath)
+        )
+      );
+      await draftRepository.delete(createdDraftId).catch(() => undefined);
+    }
+
     return {
       draftId: null,
       generated: false,
@@ -729,13 +744,24 @@ async function generateStockItemDraft(
     };
   }
 
-  const job = await createListingGenerationJob({
+  const jobStart = await createListingGenerationJob({
     targetType: "stock-item",
     sessionId,
     stockItemId,
     label: stockItem.name,
     message: `Generating listing for ${stockItem.name}.`,
   });
+  const job = jobStart.job;
+
+  if (!jobStart.created) {
+    return {
+      draftId: null,
+      generated: false,
+      errorMessage: "Listing generation is already running for this item.",
+      provider: null,
+      model: null,
+    };
+  }
 
   try {
     const result = await generateDraftFromStockItem(session, stockItem);
@@ -1658,12 +1684,20 @@ export async function generateDraftListingAction(draftId: string) {
     });
   }
 
-  const job = await createListingGenerationJob({
+  const jobStart = await createListingGenerationJob({
     targetType: "draft",
     draftId,
     label: draft.title?.trim() || "Draft listing",
     message: `Generating listing for ${draft.title?.trim() || "draft"}.`,
   });
+  const job = jobStart.job;
+
+  if (!jobStart.created) {
+    redirectToDraft(draftId, {
+      flash: "Listing generation is already running for this draft.",
+      focus: "generate",
+    });
+  }
 
   try {
     const images = await Promise.all(

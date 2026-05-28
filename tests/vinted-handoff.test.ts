@@ -163,7 +163,7 @@ describe("Vinted handoff payload", () => {
     assert.equal(payload.images[0].sizeBytes, null);
   });
 
-  it("keeps handoff ready when optional Vinted profile fields are missing", () => {
+  it("blocks handoff when required Vinted profile fields are missing", () => {
     const payload = createVintedHandoffPayload(
       createDraft({
         vintedProfile: {
@@ -177,12 +177,30 @@ describe("Vinted handoff payload", () => {
       })
     );
 
-    assert.equal(payload.handoff.ready, true);
-    assert.deepEqual(payload.handoff.missingFields, []);
+    assert.equal(payload.handoff.ready, false);
+    assert.deepEqual(payload.handoff.missingFields, ["logistics.packageSize"]);
     assert.deepEqual(payload.listing.profile?.missingRequiredFieldKeys, [
       "logistics.packageSize",
     ]);
     assert.equal(payload.images[0].apiUrl, null);
+  });
+
+  it("requires a concrete price amount before handoff", () => {
+    const payload = createVintedHandoffPayload(
+      createDraft({
+        priceSuggestion: {
+          amount: null,
+          minAmount: 15,
+          maxAmount: 25,
+          currency: "EUR",
+          rationale: "Range needs a selected amount before Vinted autofill.",
+          confidence: "medium",
+        },
+      })
+    );
+
+    assert.equal(payload.handoff.ready, false);
+    assert.deepEqual(payload.handoff.missingFields, ["price"]);
   });
 
   it("keeps a manually captured Vinted category path in the handoff", () => {
@@ -256,6 +274,7 @@ describe("Vinted handoff payload", () => {
       "price",
       "category",
       "condition",
+      "logistics.packageSize",
     ]);
     assert.deepEqual(payload.images, []);
     assert.equal(payload.listing.profile?.profileKey, "generic_apparel_pt");

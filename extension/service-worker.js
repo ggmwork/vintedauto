@@ -68,6 +68,19 @@ function normalizeAppOrigin(value) {
   }
 }
 
+function isAllowedLoopbackAppOrigin(value) {
+  try {
+    const url = new URL(normalizeAppOrigin(value));
+
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      (url.hostname === "localhost" || url.hostname === "127.0.0.1")
+    );
+  } catch {
+    return false;
+  }
+}
+
 function normalizeCreateListingUrl(value) {
   try {
     return new URL(String(value || DEFAULT_CONFIG.createListingUrl)).toString();
@@ -96,7 +109,7 @@ function normalizePendingLaunch(value) {
 }
 
 function isAllowedExternalSender(senderUrl, appOrigin) {
-  if (!senderUrl) {
+  if (!senderUrl || !isAllowedLoopbackAppOrigin(appOrigin)) {
     return false;
   }
 
@@ -1088,10 +1101,17 @@ async function handlePrimeFromPage(message, sender) {
     };
   }
 
+  if (!isAllowedLoopbackAppOrigin(message.appOrigin)) {
+    return {
+      ok: false,
+      message: "The app origin in the Vinted page URL is not allowed.",
+    };
+  }
+
   try {
     const result = await fillTabFromContext(tabId, {
       draftId: message.draftId,
-      appOrigin: message.appOrigin,
+      appOrigin: normalizeAppOrigin(message.appOrigin),
     });
 
     return {
@@ -1141,7 +1161,7 @@ async function handleExternalLaunch(message, sender) {
     const launch = await openListingTabForContext(
       {
         draftId: message.draftId,
-        appOrigin: message.appOrigin,
+        appOrigin: normalizeAppOrigin(message.appOrigin),
       },
       PROTOCOL.launchSources.external
     );

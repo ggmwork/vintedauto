@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { getDatabasePath } from "@/lib/data/database-root";
-import { readJsonFile, writeJsonFile } from "@/lib/data/json-store";
+import { mutateJsonFile, readJsonFile } from "@/lib/data/json-store";
 import type {
   ListingGenerationJob,
   ListingGenerationJobTarget,
@@ -21,6 +21,11 @@ interface CompleteListingGenerationJobInput {
   resultDraftId?: string | null;
   provider?: string | null;
   model?: string | null;
+}
+
+interface CreateListingGenerationJobResult {
+  job: ListingGenerationJob;
+  created: boolean;
 }
 
 const MAX_STORED_JOBS = 100;
@@ -131,10 +136,23 @@ function pruneJobs(jobs: ListingGenerationJob[]) {
   return sortNewestFirst([...activeJobs, ...completedJobs]);
 }
 
-async function writeStore(store: ListingGenerationJobStore) {
-  await writeJsonFile(getJobsFilePath(), {
-    jobs: pruneJobs(store.jobs),
-  } satisfies ListingGenerationJobStore);
+async function mutateStore(
+  mutator: (
+    store: ListingGenerationJobStore
+  ) => ListingGenerationJobStore | Promise<ListingGenerationJobStore>
+) {
+  return mutateJsonFile(
+    getJobsFilePath(),
+    () => ({ jobs: [] }),
+    normalizeStore,
+    async (store) => {
+      const nextStore = await mutator(store);
+
+      return {
+        jobs: pruneJobs(nextStore.jobs),
+      } satisfies ListingGenerationJobStore;
+    }
+  );
 }
 
 function jobMatchesTarget(
@@ -178,7 +196,7 @@ export async function findActiveListingGenerationJob(
 
 export async function createListingGenerationJob(
   input: CreateListingGenerationJobInput
-) {
+): Promise<CreateListingGenerationJobResult> {
   const now = new Date().toISOString();
   const job: ListingGenerationJob = {
     id: randomUUID(),
@@ -198,32 +216,56 @@ export async function createListingGenerationJob(
     updatedAt: now,
     finishedAt: null,
   };
-  const store = await readStore();
+  let created = false;
+  let selectedJob: ListingGenerationJob = job;
 
-  store.jobs = [job, ...store.jobs];
-  await writeStore(store);
+  await mutateStore((store) => {
+    const activeJob = store.jobs.find(
+      (entry) =>
+        entry.status === "running" &&
+        jobMatchesTarget(entry, {
+          targetType: input.targetType,
+          sessionId: input.sessionId,
+          stockItemId: input.stockItemId,
+          draftId: input.draftId,
+        })
+    );
 
-  return job;
+    if (activeJob) {
+      selectedJob = activeJob;
+      return store;
+    }
+
+    created = true;
+    selectedJob = job;
+    return {
+      jobs: [job, ...store.jobs],
+    };
+  });
+
+  return {
+    job: selectedJob,
+    created,
+  };
 }
 
 async function updateListingGenerationJob(
   jobId: string,
   updater: (job: ListingGenerationJob, now: string) => ListingGenerationJob
 ) {
-  const store = await readStore();
   const now = new Date().toISOString();
   let updatedJob: ListingGenerationJob | null = null;
 
-  store.jobs = store.jobs.map((job) => {
-    if (job.id !== jobId) {
-      return job;
-    }
+  await mutateStore((store) => ({
+    jobs: store.jobs.map((job) => {
+      if (job.id !== jobId) {
+        return job;
+      }
 
-    updatedJob = updater(job, now);
-    return updatedJob;
-  });
-
-  await writeStore(store);
+      updatedJob = updater(job, now);
+      return updatedJob;
+    }),
+  }));
   return updatedJob;
 }
 

@@ -45,6 +45,7 @@ export interface DraftRepository {
   getById(id: string): Promise<DraftDetail | null>;
   create(input: CreateDraftInput): Promise<Draft>;
   update(id: string, input: UpdateDraftInput): Promise<Draft>;
+  delete(id: string): Promise<void>;
   attachImages(input: SaveDraftImagesInput): Promise<DraftDetail>;
   saveGeneration(input: SaveGenerationResultInput): Promise<DraftDetail>;
   restoreGeneration(input: RestoreGenerationInput): Promise<DraftDetail>;

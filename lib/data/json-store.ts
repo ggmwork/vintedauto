@@ -3,19 +3,22 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 declare global {
-  var __vintedautoJsonWriteQueues: Map<string, Promise<void>> | undefined;
+  var __vintedautoJsonFileQueues: Map<string, Promise<void>> | undefined;
 }
 
-function getWriteQueues() {
-  if (!globalThis.__vintedautoJsonWriteQueues) {
-    globalThis.__vintedautoJsonWriteQueues = new Map();
+function getFileQueues() {
+  if (!globalThis.__vintedautoJsonFileQueues) {
+    globalThis.__vintedautoJsonFileQueues = new Map();
   }
 
-  return globalThis.__vintedautoJsonWriteQueues;
+  return globalThis.__vintedautoJsonFileQueues;
 }
 
-function queueJsonWrite<T>(filePath: string, operation: () => Promise<T>) {
-  const queues = getWriteQueues();
+function queueJsonFileOperation<T>(
+  filePath: string,
+  operation: () => Promise<T>
+) {
+  const queues = getFileQueues();
   const key = path.resolve(filePath);
   const current = queues.get(key) ?? Promise.resolve();
   const next = current.then(operation, operation);
@@ -59,6 +62,33 @@ async function writeFileAtomically(filePath: string, contents: string) {
   }
 }
 
+function isFileNotFoundError(error: unknown) {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
+}
+
+async function readJsonFileFromDisk<T>(
+  filePath: string,
+  createFallback: () => T,
+  normalize: (value: unknown) => T
+) {
+  await mkdir(path.dirname(filePath), { recursive: true });
+
+  try {
+    const raw = await readFile(filePath, "utf8");
+    return normalize(JSON.parse(raw));
+  } catch (error) {
+    if (isFileNotFoundError(error)) {
+      return createFallback();
+    }
+
+    throw error;
+  }
+}
+
 export async function readJsonFile<T>(
   filePath: string,
   createFallback: () => T,
@@ -70,22 +100,48 @@ export async function readJsonFile<T>(
     const raw = await readFile(filePath, "utf8");
     return normalize(JSON.parse(raw));
   } catch (error) {
-    if (
-      error instanceof Error &&
-      "code" in error &&
-      error.code === "ENOENT"
-    ) {
-      const fallback = createFallback();
-      await writeJsonFile(filePath, fallback);
-      return fallback;
+    if (!isFileNotFoundError(error)) {
+      throw error;
+    }
+  }
+
+  return queueJsonFileOperation(filePath, async () => {
+    try {
+      const raw = await readFile(filePath, "utf8");
+      return normalize(JSON.parse(raw));
+    } catch (error) {
+      if (!isFileNotFoundError(error)) {
+        throw error;
+      }
     }
 
-    throw error;
-  }
+    const fallback = createFallback();
+    await writeFileAtomically(filePath, JSON.stringify(fallback, null, 2));
+    return fallback;
+  });
 }
 
 export async function writeJsonFile(filePath: string, value: unknown) {
-  return queueJsonWrite(filePath, () =>
+  return queueJsonFileOperation(filePath, () =>
     writeFileAtomically(filePath, JSON.stringify(value, null, 2))
   );
+}
+
+export async function mutateJsonFile<T>(
+  filePath: string,
+  createFallback: () => T,
+  normalize: (value: unknown) => T,
+  mutator: (value: T) => T | Promise<T>
+) {
+  return queueJsonFileOperation(filePath, async () => {
+    const current = await readJsonFileFromDisk(
+      filePath,
+      createFallback,
+      normalize
+    );
+    const next = await mutator(current);
+
+    await writeFileAtomically(filePath, JSON.stringify(next, null, 2));
+    return next;
+  });
 }

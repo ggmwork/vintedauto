@@ -156,7 +156,11 @@ function validatePayload(payload, options) {
     );
   }
 
-  return missing;
+  if (Array.isArray(payload?.listing?.profile?.missingRequiredFieldKeys)) {
+    missing.push(...payload.listing.profile.missingRequiredFieldKeys);
+  }
+
+  return Array.from(new Set(missing));
 }
 
 function isPayloadValueEmpty(value) {
@@ -438,6 +442,22 @@ async function fillDynamicProfileFields(result, profile) {
   for (const fieldDefinition of profile.fields) {
     const resolution = adapter.resolveDynamicField(fieldDefinition.key);
 
+    if (fieldDefinition.required && isPayloadValueEmpty(fieldDefinition.value)) {
+      recordField(result, "failedFields", fieldDefinition.key);
+      setFieldDiagnostic(
+        result,
+        fieldDefinition.key,
+        resolution,
+        "Failed because this required Vinted field is missing from the payload."
+      );
+      logDebug(
+        result,
+        `Failed ${fieldDefinition.key}: required payload value is empty.`,
+        "warn"
+      );
+      continue;
+    }
+
     if (fieldDefinition.valueType === "boolean") {
       await fillBooleanField(
         result,
@@ -648,19 +668,32 @@ function stripLaunchParamsFromUrl() {
   }
 }
 
+function isAllowedLaunchAppOrigin(value) {
+  try {
+    const url = new URL(value);
+
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      (url.hostname === "localhost" || url.hostname === "127.0.0.1")
+    );
+  } catch {
+    return false;
+  }
+}
+
 function readLaunchContextFromUrl() {
   const url = new URL(window.location.href);
   const shouldFill = url.searchParams.get("vinted_auto_fill");
   const draftId = url.searchParams.get("vinted_auto_draft_id");
   const appOrigin = url.searchParams.get("vinted_auto_app_origin");
 
-  if (!shouldFill || !draftId || !appOrigin) {
+  if (!shouldFill || !draftId || !appOrigin || !isAllowedLaunchAppOrigin(appOrigin)) {
     return null;
   }
 
   return {
     draftId,
-    appOrigin,
+    appOrigin: new URL(appOrigin).origin,
   };
 }
 

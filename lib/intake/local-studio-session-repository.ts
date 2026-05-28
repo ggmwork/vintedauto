@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { getDatabasePath } from "@/lib/data/database-root";
-import { readJsonFile, writeJsonFile } from "@/lib/data/json-store";
+import { mutateJsonFile, readJsonFile } from "@/lib/data/json-store";
 import type {
   CandidateCluster,
   CandidateClusterStatus,
@@ -455,22 +455,20 @@ async function readStudioSessionStore(): Promise<StudioSessionStore> {
   return readJsonFile(
     getStudioSessionsFilePath(),
     () => ({ sessions: [] }),
-    (value): StudioSessionStore => {
-      const parsed = (value && typeof value === "object"
-        ? value
-        : {}) as Partial<StudioSessionStore>;
-
-      return {
-        sessions: Array.isArray(parsed.sessions)
-          ? parsed.sessions.map(normalizeStudioSessionDetail)
-          : [],
-      };
-    }
+    normalizeStudioSessionStore
   );
 }
 
-async function writeStudioSessionStore(store: StudioSessionStore) {
-  await writeJsonFile(getStudioSessionsFilePath(), store);
+function normalizeStudioSessionStore(value: unknown): StudioSessionStore {
+  const parsed = (value && typeof value === "object"
+    ? value
+    : {}) as Partial<StudioSessionStore>;
+
+  return {
+    sessions: Array.isArray(parsed.sessions)
+      ? parsed.sessions.map(normalizeStudioSessionDetail)
+      : [],
+  };
 }
 
 function normalizeStudioSessionDetail(value: unknown): StudioSessionDetail {
@@ -599,10 +597,12 @@ async function mutateStudioSessionStore(
     store: StudioSessionStore
   ) => StudioSessionStore | Promise<StudioSessionStore>
 ) {
-  const currentStore = await readStudioSessionStore();
-  const nextStore = await mutator(currentStore);
-  await writeStudioSessionStore(nextStore);
-  return nextStore;
+  return mutateJsonFile(
+    getStudioSessionsFilePath(),
+    () => ({ sessions: [] }),
+    normalizeStudioSessionStore,
+    mutator
+  );
 }
 
 function findSessionIndex(store: StudioSessionStore, sessionId: string) {
@@ -628,7 +628,6 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   }
 
   async create(input: CreateStudioSessionInput): Promise<StudioSessionDetail> {
-    const store = await readStudioSessionStore();
     const now = new Date().toISOString();
     const nextSession: StudioSessionDetail = {
       id: randomUUID(),
@@ -648,8 +647,9 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       groupingRuns: [],
     };
 
-    store.sessions.unshift(nextSession);
-    await writeStudioSessionStore(store);
+    await mutateStudioSessionStore((store) => ({
+      sessions: [nextSession, ...store.sessions],
+    }));
 
     return nextSession;
   }
@@ -657,22 +657,30 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   async attachPhotoAssets(
     input: SavePhotoAssetsInput
   ): Promise<StudioSessionDetail> {
-    const store = await readStudioSessionStore();
-    const sessionIndex = findSessionIndex(store, input.sessionId);
+    const store = await mutateStudioSessionStore((currentStore) => {
+      const sessionIndex = findSessionIndex(currentStore, input.sessionId);
 
-    if (sessionIndex === -1) {
-      throw new Error(`Studio session not found: ${input.sessionId}`);
-    }
+      if (sessionIndex === -1) {
+        throw new Error(`Studio session not found: ${input.sessionId}`);
+      }
 
-    const currentSession = store.sessions[sessionIndex];
-    const nextSession = updateStudioSessionTimestamp({
-      ...currentSession,
-      photoAssets: input.photoAssets,
-      stockItems: currentSession.stockItems,
+      const currentSession = currentStore.sessions[sessionIndex];
+      const nextSession = updateStudioSessionTimestamp({
+        ...currentSession,
+        photoAssets: input.photoAssets,
+        stockItems: currentSession.stockItems,
+      });
+      const sessions = currentStore.sessions.slice();
+      sessions[sessionIndex] = nextSession;
+
+      return { sessions };
     });
 
-    store.sessions[sessionIndex] = nextSession;
-    await writeStudioSessionStore(store);
+    const nextSession = store.sessions.find((entry) => entry.id === input.sessionId);
+
+    if (!nextSession) {
+      throw new Error(`Studio session not found after update: ${input.sessionId}`);
+    }
 
     return nextSession;
   }
@@ -680,24 +688,32 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   async saveGroupingState(
     input: SaveGroupingStateInput
   ): Promise<StudioSessionDetail> {
-    const store = await readStudioSessionStore();
-    const sessionIndex = findSessionIndex(store, input.sessionId);
+    const store = await mutateStudioSessionStore((currentStore) => {
+      const sessionIndex = findSessionIndex(currentStore, input.sessionId);
 
-    if (sessionIndex === -1) {
-      throw new Error(`Studio session not found: ${input.sessionId}`);
-    }
+      if (sessionIndex === -1) {
+        throw new Error(`Studio session not found: ${input.sessionId}`);
+      }
 
-    const currentSession = store.sessions[sessionIndex];
-    const nextSession = updateStudioSessionTimestamp({
-      ...currentSession,
-      photoAssets: input.photoAssets,
-      stockItems: input.stockItems,
-      candidateClusters: input.candidateClusters,
-      groupingRuns: input.groupingRuns,
+      const currentSession = currentStore.sessions[sessionIndex];
+      const nextSession = updateStudioSessionTimestamp({
+        ...currentSession,
+        photoAssets: input.photoAssets,
+        stockItems: input.stockItems,
+        candidateClusters: input.candidateClusters,
+        groupingRuns: input.groupingRuns,
+      });
+      const sessions = currentStore.sessions.slice();
+      sessions[sessionIndex] = nextSession;
+
+      return { sessions };
     });
 
-    store.sessions[sessionIndex] = nextSession;
-    await writeStudioSessionStore(store);
+    const nextSession = store.sessions.find((entry) => entry.id === input.sessionId);
+
+    if (!nextSession) {
+      throw new Error(`Studio session not found after update: ${input.sessionId}`);
+    }
 
     return nextSession;
   }

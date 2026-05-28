@@ -2,6 +2,7 @@ import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { getDatabasePath } from "@/lib/data/database-root";
+import { isPathInsideDirectory } from "@/lib/data/path-containment";
 import type {
   DraftImageStorage,
   StoredImageAsset,
@@ -35,7 +36,7 @@ function resolveStoredPath(storagePath: string) {
   const absolutePath = path.resolve(draftImagesDirectory, storagePath);
   const normalizedRoot = path.resolve(draftImagesDirectory);
 
-  if (!absolutePath.startsWith(normalizedRoot)) {
+  if (!isPathInsideDirectory(normalizedRoot, absolutePath)) {
     throw new Error("Invalid image storage path.");
   }
 
@@ -50,10 +51,9 @@ class LocalDraftImageStorage implements DraftImageStorage {
       relativeDirectory,
       `${input.imageId}${extension}`
     );
-    const absoluteDirectory = path.join(getDraftImagesDirectory(), input.draftId);
     const absolutePath = resolveStoredPath(relativePath);
 
-    await mkdir(absoluteDirectory, { recursive: true });
+    await mkdir(path.dirname(absolutePath), { recursive: true });
     await writeFile(absolutePath, new Uint8Array(input.bytes));
 
     return {
@@ -80,7 +80,7 @@ class LocalDraftImageStorage implements DraftImageStorage {
   }
 
   async listPaths(draftId: string): Promise<string[]> {
-    const draftDirectory = path.join(getDraftImagesDirectory(), draftId);
+    const draftDirectory = resolveStoredPath(draftId);
 
     try {
       const entries = await readdir(draftDirectory, { withFileTypes: true });

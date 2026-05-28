@@ -12,6 +12,7 @@ import {
   saveActiveDatabaseRoot,
 } from "@/lib/data/database-root";
 import { writeJsonFile } from "@/lib/data/json-store";
+import { isPathInsideDirectory } from "@/lib/data/path-containment";
 import {
   createStoreOnlyZip,
   readZipEntries,
@@ -500,7 +501,7 @@ async function extractArchiveToDatabaseRoot(entries: Map<string, Buffer>, target
     const targetPath = path.resolve(targetRoot, targetRelativePath);
     const normalizedRoot = path.resolve(targetRoot);
 
-    if (!targetPath.startsWith(normalizedRoot)) {
+    if (!isPathInsideDirectory(normalizedRoot, targetPath)) {
       throw new Error(`Archive path escapes database root: ${entryPath}`);
     }
 

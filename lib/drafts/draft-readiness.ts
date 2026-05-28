@@ -1,4 +1,9 @@
 import type { DraftDetail } from "@/types/draft";
+import {
+  getVintedProfileMissingFieldKeys,
+  hydrateDraftVintedProfileState,
+  resolveVintedListingProfile,
+} from "@/lib/vinted/listing-profile";
 
 export interface DraftReadiness {
   ready: boolean;
@@ -37,9 +42,7 @@ export function getDraftReadiness(
 
   if (
     !draft.priceSuggestion ||
-    (draft.priceSuggestion.amount === null &&
-      draft.priceSuggestion.minAmount === null &&
-      draft.priceSuggestion.maxAmount === null)
+    draft.priceSuggestion.amount === null
   ) {
     missing.push("price");
   }
@@ -51,6 +54,22 @@ export function getDraftReadiness(
   if (!draft.metadata.condition?.trim()) {
     missing.push("condition");
   }
+
+  const vintedProfileState = hydrateDraftVintedProfileState({
+    category: draft.metadata.category,
+    state: draft.vintedProfile,
+  });
+  const resolvedVintedProfile = resolveVintedListingProfile({
+    category: draft.metadata.category,
+    state: vintedProfileState,
+  });
+
+  missing.push(
+    ...getVintedProfileMissingFieldKeys(
+      resolvedVintedProfile,
+      vintedProfileState
+    )
+  );
 
   return {
     ready: missing.length === 0,

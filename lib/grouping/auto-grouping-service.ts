@@ -351,6 +351,10 @@ function buildLooseClusters(
       }
     }
 
+    if (clusterPhotoIds.length < 2) {
+      continue;
+    }
+
     const clusterPhotos = clusterPhotoIds.map((photoId) => getPhotoAsset(session, photoId));
     const clusterName = buildClusterName(clusterPhotos);
     const clusterConfidence = getClusterConfidence(clusterPhotoIds, pairScores);
@@ -360,10 +364,7 @@ function buildLooseClusters(
       photoAssetIds: clusterPhotoIds,
       name: clusterName,
       confidence: clusterConfidence,
-      reason:
-        clusterPhotoIds.length === 1
-          ? "Single image isolated from the rest of the batch."
-          : "Matched by image descriptor similarity.",
+      reason: "Matched by image descriptor similarity.",
       sourceMethod: "auto_cluster",
     });
   }
@@ -375,10 +376,6 @@ function getClusterConfidence(
   photoAssetIds: string[],
   pairScores: Map<string, number>
 ): GroupingConfidence {
-  if (photoAssetIds.length === 1) {
-    return "medium";
-  }
-
   const relevantScores: number[] = [];
 
   for (let index = 0; index < photoAssetIds.length; index += 1) {

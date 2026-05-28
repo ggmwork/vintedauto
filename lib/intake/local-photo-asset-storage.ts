@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { getDatabasePath } from "@/lib/data/database-root";
+import { isPathInsideDirectory } from "@/lib/data/path-containment";
 import type {
   PhotoAssetStorage,
   StoredPhotoAsset,
@@ -35,7 +36,7 @@ function resolveStoredPath(storagePath: string) {
   const absolutePath = path.resolve(sessionPhotoAssetsDirectory, storagePath);
   const normalizedRoot = path.resolve(sessionPhotoAssetsDirectory);
 
-  if (!absolutePath.startsWith(normalizedRoot)) {
+  if (!isPathInsideDirectory(normalizedRoot, absolutePath)) {
     throw new Error("Invalid photo asset storage path.");
   }
 
@@ -50,13 +51,9 @@ class LocalPhotoAssetStorage implements PhotoAssetStorage {
       relativeDirectory,
       `${input.assetId}${extension}`
     );
-    const absoluteDirectory = path.join(
-      getSessionPhotoAssetsDirectory(),
-      input.sessionId
-    );
     const absolutePath = resolveStoredPath(relativePath);
 
-    await mkdir(absoluteDirectory, { recursive: true });
+    await mkdir(path.dirname(absolutePath), { recursive: true });
     await writeFile(absolutePath, new Uint8Array(input.bytes));
 
     return {
