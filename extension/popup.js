@@ -139,6 +139,14 @@ function getConfiguredAppOrigin() {
   );
 }
 
+function buildPreviewImageUrl(image) {
+  try {
+    return new URL(image.apiPath, getConfiguredAppOrigin()).toString();
+  } catch {
+    return null;
+  }
+}
+
 function formatMissingFieldLabel(value) {
   switch (value) {
     case "vinted:logistics.packageSize":
@@ -162,6 +170,46 @@ function describeStockRowState(item, isLoaded) {
   }
 
   return `Not ready yet. Missing: ${item.missingFields.map(formatMissingFieldLabel).join(", ")}.`;
+}
+
+function renderPreviewImages(item) {
+  const previewImages = Array.isArray(item.previewImages)
+    ? item.previewImages.slice(0, 4)
+    : [];
+  const media = document.createElement("div");
+  media.className = previewImages.length > 0 ? "stock-media" : "stock-media empty";
+
+  if (previewImages.length === 0) {
+    const placeholder = document.createElement("span");
+    placeholder.textContent = `${item.imageCount} image${item.imageCount === 1 ? "" : "s"}`;
+    media.append(placeholder);
+    return media;
+  }
+
+  for (const previewImage of previewImages) {
+    const imageUrl = buildPreviewImageUrl(previewImage);
+    const frame = document.createElement("div");
+    frame.className = "stock-preview-frame";
+
+    if (imageUrl) {
+      const image = document.createElement("img");
+      image.src = imageUrl;
+      image.alt = previewImage.alt || getStockRowTitle(item);
+      image.loading = "lazy";
+      image.addEventListener("error", () => {
+        frame.classList.add("image-error");
+        frame.textContent = "Image unavailable";
+      });
+      frame.append(image);
+    } else {
+      frame.classList.add("image-error");
+      frame.textContent = "Image unavailable";
+    }
+
+    media.append(frame);
+  }
+
+  return media;
 }
 
 async function handleLoadAppStockItem(item) {
@@ -254,7 +302,10 @@ function renderAppStockItems(state) {
 
   const rows = items.map((item) => {
     const row = document.createElement("article");
-    row.className = "stock-row";
+    row.className = "stock-card";
+    if (!item.ready) {
+      row.classList.add("is-disabled");
+    }
 
     const title = document.createElement("p");
     title.className = "stock-title";
@@ -277,6 +328,14 @@ function renderAppStockItems(state) {
     categoryPath.textContent = item.vintedCategoryPath
       ? `Category path: ${item.vintedCategoryPath}`
       : "Category path: manual on Vinted.";
+
+    const badge = document.createElement("span");
+    badge.className = item.ready ? "stock-badge" : "stock-badge warning";
+    badge.textContent = item.ready ? "Ready" : "Needs edits";
+
+    const cardHeader = document.createElement("div");
+    cardHeader.className = "stock-card-header";
+    cardHeader.append(title, badge);
 
     const actions = document.createElement("div");
     actions.className = "stock-actions";
@@ -324,7 +383,14 @@ function renderAppStockItems(state) {
     });
 
     actions.append(fillButton, openButton, loadButton);
-    row.append(title, meta, stateCopy, categoryPath, actions);
+    row.append(
+      renderPreviewImages(item),
+      cardHeader,
+      meta,
+      stateCopy,
+      categoryPath,
+      actions
+    );
 
     return row;
   });

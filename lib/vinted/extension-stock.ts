@@ -26,6 +26,11 @@ export interface VintedExtensionStockItem {
   vintedProfileLabel: string;
   vintedCategoryPath: string | null;
   vintedMissingRequiredFieldKeys: VintedProfileFieldKey[];
+  previewImages: Array<{
+    id: string;
+    apiPath: string;
+    alt: string;
+  }>;
 }
 
 function getSourceLabel(session: StudioSessionDetail) {
@@ -103,6 +108,14 @@ export async function listVintedExtensionStockItems() {
           resolvedVintedProfile,
           vintedProfileState
         ),
+        previewImages: [...draft.images]
+          .sort((left, right) => left.sortOrder - right.sortOrder)
+          .slice(0, 4)
+          .map((image) => ({
+            id: image.id,
+            apiPath: `/api/drafts/${draft.id}/images/${image.id}`,
+            alt: image.originalFilename,
+          })),
       } satisfies VintedExtensionStockItem;
     })
     )

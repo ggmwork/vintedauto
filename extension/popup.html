@@ -7,17 +7,42 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <main class="popup">
-      <header class="section">
-        <p class="eyebrow">Vinted Auto</p>
-        <h1>Extension MVP</h1>
-        <p class="muted">
-          Connect to the local app, check page support, then fill the current
-          Vinted create-listing page.
-        </p>
+    <main class="popup extension-shell">
+      <header class="extension-header">
+        <div class="header-copy">
+          <p class="eyebrow">Vinted Auto</p>
+          <h1>Filling queue</h1>
+          <p class="muted">
+            Pick one ready item, fill the current Vinted page, then submit manually.
+          </p>
+          <p id="action-status" class="muted status-line"></p>
+        </div>
+
+        <div class="top-actions" aria-label="Extension actions">
+          <button id="refresh-app-stock" type="button" class="ghost-button">
+            Refresh
+          </button>
+          <button id="fill-current-page" type="button">Fill loaded</button>
+          <button id="open-vinted-and-fill" type="button" class="secondary">
+            Open Vinted
+          </button>
+          <button id="save-current-category" type="button" class="secondary">
+            Save category
+          </button>
+        </div>
       </header>
 
       <section class="section">
+        <div class="section-heading">
+          <div>
+            <p class="label">Ready app items</p>
+            <p id="app-stock-status" class="muted">Loading app stock...</p>
+          </div>
+        </div>
+        <div id="app-stock-list" class="stock-list"></div>
+      </section>
+
+      <section class="status-grid">
         <div class="status-card">
           <p class="label">Current page</p>
           <p id="page-status" class="value">Checking...</p>
@@ -29,74 +54,45 @@
         </div>
 
         <div class="status-card">
-          <p class="label">Last handoff</p>
-          <p id="draft-status" class="value">No handoff loaded yet.</p>
-          <p class="muted">
-            Load from the app list below, or land here from the app button.
-          </p>
+          <p class="label">Last fill</p>
+          <p id="draft-status" class="value">No item loaded yet.</p>
           <p id="fill-status" class="muted"></p>
           <details class="diagnostic-block">
             <summary>Last fill diagnostics</summary>
             <pre id="fill-debug" class="debug-output">No fill attempt yet.</pre>
           </details>
         </div>
-
-        <div class="status-card">
-          <div class="list-header">
-            <div>
-              <p class="label">App stock</p>
-              <p class="muted">
-                Draft-backed stock items from the local app. Load one, then fill.
-              </p>
-            </div>
-            <button id="refresh-app-stock" type="button" class="ghost-button">
-              Refresh
-            </button>
-          </div>
-          <p id="app-stock-status" class="muted">Loading app stock...</p>
-          <div id="app-stock-list" class="stock-list"></div>
-        </div>
       </section>
 
       <section class="section">
-        <div class="button-row">
-          <button id="fill-current-page" type="button">Fill current page</button>
-          <button id="open-vinted-and-fill" type="button" class="secondary">
-            Open Vinted and fill
-          </button>
-        </div>
-        <button id="save-current-category" type="button" class="wide-secondary">
-          Save current Vinted category to app
-        </button>
-        <p id="action-status" class="muted"></p>
-      </section>
+        <details class="diagnostic-block">
+          <summary>Settings</summary>
+          <form id="config-form" class="config-form">
+            <label>
+              <span>Local app origin</span>
+              <input
+                id="app-origin"
+                name="appOrigin"
+                type="url"
+                placeholder="http://127.0.0.1:3000"
+                required
+              />
+            </label>
 
-      <section class="section">
-        <form id="config-form" class="config-form">
-          <label>
-            <span>Local app origin</span>
-            <input
-              id="app-origin"
-              name="appOrigin"
-              type="url"
-              placeholder="http://127.0.0.1:3000"
-              required
-            />
-          </label>
+            <label>
+              <span>Vinted create-listing URL</span>
+              <input
+                id="create-listing-url"
+                name="createListingUrl"
+                type="url"
+                placeholder="https://www.vinted.pt/items/new"
+                required
+              />
+            </label>
 
-          <label>
-            <span>Vinted create-listing URL</span>
-            <input
-              id="create-listing-url"
-              name="createListingUrl"
-              type="url"
-              placeholder="https://www.vinted.pt/items/new"
-              required
-            />
-          </label>
-
-          <button type="submit">Save settings</button>
-        </form>
+            <button type="submit">Save settings</button>
+          </form>
+        </details>
       </section>
     </main>
 

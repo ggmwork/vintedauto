@@ -7,35 +7,42 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body class="sidepanel-body">
-    <main class="popup">
-      <header class="section">
-        <p class="eyebrow">Vinted Auto</p>
-        <h1>Filling queue</h1>
-        <p class="muted">
-          Keep Vinted open. Pick one ready item, fill this page, then submit
-          manually on Vinted.
-        </p>
+    <main class="popup extension-shell">
+      <header class="extension-header">
+        <div class="header-copy">
+          <p class="eyebrow">Vinted Auto</p>
+          <h1>Filling queue</h1>
+          <p class="muted">
+            Pick one ready item, fill the current Vinted page, then submit manually.
+          </p>
+          <p id="action-status" class="muted status-line"></p>
+        </div>
+
+        <div class="top-actions" aria-label="Extension actions">
+          <button id="refresh-app-stock" type="button" class="ghost-button">
+            Refresh
+          </button>
+          <button id="fill-current-page" type="button">Fill loaded</button>
+          <button id="open-vinted-and-fill" type="button" class="secondary">
+            Open Vinted
+          </button>
+          <button id="save-current-category" type="button" class="secondary">
+            Save category
+          </button>
+        </div>
       </header>
 
       <section class="section">
-        <div class="status-card">
-          <div class="list-header">
-            <div>
-              <p class="label">Ready app items</p>
-              <p class="muted">
-                Draft-backed stock from the local app. Use one item per fill.
-              </p>
-            </div>
-            <button id="refresh-app-stock" type="button" class="ghost-button">
-              Refresh
-            </button>
+        <div class="section-heading">
+          <div>
+            <p class="label">Ready app items</p>
+            <p id="app-stock-status" class="muted">Loading app stock...</p>
           </div>
-          <p id="app-stock-status" class="muted">Loading app stock...</p>
-          <div id="app-stock-list" class="stock-list"></div>
         </div>
+        <div id="app-stock-list" class="stock-list"></div>
       </section>
 
-      <section class="section">
+      <section class="status-grid">
         <div class="status-card">
           <p class="label">Current Vinted page</p>
           <p id="page-status" class="value">Checking...</p>
@@ -55,19 +62,6 @@
             <pre id="fill-debug" class="debug-output">No fill attempt yet.</pre>
           </details>
         </div>
-      </section>
-
-      <section class="section">
-        <div class="button-row">
-          <button id="fill-current-page" type="button">Fill loaded item</button>
-          <button id="open-vinted-and-fill" type="button" class="secondary">
-            Open Vinted
-          </button>
-        </div>
-        <button id="save-current-category" type="button" class="wide-secondary">
-          Save current Vinted category to app
-        </button>
-        <p id="action-status" class="muted"></p>
       </section>
 
       <section class="section">

@@ -510,6 +510,21 @@ function normalizeExtensionStockItem(value) {
           (entry) => typeof entry === "string"
         )
       : [],
+    previewImages: Array.isArray(value?.previewImages)
+      ? value.previewImages
+          .filter(
+            (entry) =>
+              entry &&
+              typeof entry === "object" &&
+              typeof entry.id === "string" &&
+              typeof entry.apiPath === "string"
+          )
+          .map((entry) => ({
+            id: entry.id,
+            apiPath: entry.apiPath,
+            alt: typeof entry.alt === "string" ? entry.alt : "Item image",
+          }))
+      : [],
   };
 }
 
