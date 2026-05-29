@@ -163,9 +163,18 @@ describe("Vinted handoff payload", () => {
     assert.equal(payload.images[0].sizeBytes, null);
   });
 
-  it("blocks handoff when required Vinted profile fields are missing", () => {
+  it("keeps handoff ready when condition and package size are blank", () => {
     const payload = createVintedHandoffPayload(
       createDraft({
+        metadata: {
+          brand: "Acme",
+          category: "Camisas",
+          size: "M",
+          condition: null,
+          color: "Blue",
+          material: "Linen",
+          notes: "No defects.",
+        },
         vintedProfile: {
           market: "vinted.pt",
           profileKey: "mens_shirts_pt",
@@ -177,11 +186,9 @@ describe("Vinted handoff payload", () => {
       })
     );
 
-    assert.equal(payload.handoff.ready, false);
-    assert.deepEqual(payload.handoff.missingFields, ["logistics.packageSize"]);
-    assert.deepEqual(payload.listing.profile?.missingRequiredFieldKeys, [
-      "logistics.packageSize",
-    ]);
+    assert.equal(payload.handoff.ready, true);
+    assert.deepEqual(payload.handoff.missingFields, []);
+    assert.deepEqual(payload.listing.profile?.missingRequiredFieldKeys, []);
     assert.equal(payload.images[0].apiUrl, null);
   });
 
@@ -273,8 +280,6 @@ describe("Vinted handoff payload", () => {
       "keywords",
       "price",
       "category",
-      "condition",
-      "logistics.packageSize",
     ]);
     assert.deepEqual(payload.images, []);
     assert.equal(payload.listing.profile?.profileKey, "generic_apparel_pt");

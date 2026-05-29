@@ -17,7 +17,7 @@ const GENERIC_APPAREL_FIELDS: VintedDynamicFieldDefinition[] = [
     valueType: "single_select",
     description:
       "Choose the Vinted shipping size so the handoff can complete the delivery step too.",
-    required: true,
+    required: false,
     recommended: true,
     options: [
       { value: "small", label: "Small" },

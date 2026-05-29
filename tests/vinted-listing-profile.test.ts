@@ -110,7 +110,7 @@ describe("Vinted listing profile", () => {
     });
   });
 
-  it("reports only required missing Vinted fields", () => {
+  it("excludes optional missing Vinted fields", () => {
     const profile = resolveVintedListingProfile({
       category: "Camisas",
     });
@@ -122,7 +122,7 @@ describe("Vinted listing profile", () => {
         categoryPlan: profile.categoryPlan,
         fieldValues: {},
       }),
-      ["logistics.packageSize"]
+      []
     );
 
     assert.deepEqual(

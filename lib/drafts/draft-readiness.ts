@@ -51,10 +51,6 @@ export function getDraftReadiness(
     missing.push("category");
   }
 
-  if (!draft.metadata.condition?.trim()) {
-    missing.push("condition");
-  }
-
   const vintedProfileState = hydrateDraftVintedProfileState({
     category: draft.metadata.category,
     state: draft.vintedProfile,
