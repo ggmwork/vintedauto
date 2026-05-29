@@ -6,7 +6,8 @@ Unpacked Chrome Manifest V3 extension for the Vinted autofill MVP.
 
 - reads a reviewed draft handoff from the local app
 - detects the supported Vinted create-listing page
-- fills title, description, price, core metadata, and ordered images
+- fills title, description, core metadata, and ordered images
+- leaves price and category for manual Vinted entry for now
 - fills the first PT later-field profile block from the app handoff
 - stops before publish
 
@@ -75,15 +76,14 @@ Important:
 ## Current scope
 
 - supported flow: create-listing page
-- supported fields: title, description, price, brand, category, size, condition, color, material, images
+- supported fields: title, description, brand, size, condition, color, material, images
+- manual fields for now: price and category
 - supported PT later fields:
   - live category suggestions, with saved category path preferred when present
   - package size
   - AI-photo checkbox
   - shirt measurements
-- PT price fill now uses masked-input typing with post-fill numeric verification
 - images upload before field fill so Vinted can generate category suggestions
-- PT category fill now uses live option scoring plus visible breadcrumb-path matching
 - side panel can save the current Vinted category back to the loaded app draft
 - side panel exposes the same drafted-stock queue and per-item `Fill this` action
 - later fields now come from `listing.profile`, not only flat metadata

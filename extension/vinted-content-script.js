@@ -24,13 +24,6 @@ function createResult() {
 }
 
 let pendingPreparedImages = [];
-const POST_CATEGORY_FIELD_DELAY_MS = 1000;
-
-function wait(ms) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
-  });
-}
 
 function logDebug(result, message, level = "info") {
   result.debug.debugLog.push(message);
@@ -271,51 +264,15 @@ async function fillTextField(result, field, resolution, value, options) {
   return true;
 }
 
-async function fillPriceField(result, resolution, amount) {
-  const adapter = getAdapter();
-  setFieldDiagnostic(result, "price", resolution);
-
-  if (amount === null || amount === undefined || amount === "") {
-    recordField(result, "skippedFields", "price");
-    setFieldDiagnostic(
-      result,
-      "price",
-      resolution,
-      "Skipped because the payload price amount is empty."
-    );
-    logDebug(result, "Skipped price: payload amount is empty.");
-    return;
-  }
-
-  if (
-    !(
-      resolution.control instanceof HTMLInputElement ||
-      resolution.control instanceof HTMLTextAreaElement
-    )
-  ) {
-    recordField(result, "failedFields", "price");
-    setFieldDiagnostic(
-      result,
-      "price",
-      resolution,
-      "Failed because no text input control was available."
-    );
-    logDebug(result, `Failed price: ${resolution.detail}`, "warn");
-    return;
-  }
-
-  const priceFill = await adapter.setPriceValue(resolution.control, amount);
-
-  if (priceFill.ok) {
-    recordField(result, "filledFields", "price");
-    setFieldDiagnostic(result, "price", resolution, priceFill.detail);
-    logDebug(result, `Filled price: ${priceFill.detail}`);
-    return;
-  }
-
-  recordField(result, "failedFields", "price");
-  setFieldDiagnostic(result, "price", resolution, priceFill.detail);
-  logDebug(result, `Failed price: ${priceFill.detail}`, "warn");
+function skipFieldByRequest(result, field, resolution) {
+  recordField(result, "skippedFields", field);
+  setFieldDiagnostic(
+    result,
+    field,
+    resolution,
+    "Skipped because this field is temporarily disabled in the extension fill flow."
+  );
+  logDebug(result, `Skipped ${field}: extension fill disabled by request.`);
 }
 
 async function fillChoiceField(result, field, resolution, value, options) {
@@ -375,12 +332,6 @@ async function fillChoiceField(result, field, resolution, value, options) {
   setFieldDiagnostic(result, field, resolution, selection.detail);
   logDebug(result, `Failed ${field}: ${selection.detail}`, "warn");
   return false;
-}
-
-async function fillCategoryField(result, resolution, value, categoryPlan) {
-  return fillChoiceField(result, "category", resolution, value, {
-    categoryPlan,
-  });
 }
 
 async function fillBooleanField(result, field, resolution, value) {
@@ -530,30 +481,14 @@ async function fillPageFieldsFromPayload(payload) {
     adapter.resolveField("description"),
     payload.listing.description
   );
-  await fillPriceField(result, adapter.resolveField("price"), payload.listing.price.amount);
+  skipFieldByRequest(result, "price", adapter.resolveField("price"));
   await fillChoiceField(
     result,
     "brand",
     adapter.resolveField("brand"),
     payload.listing.metadata.brand
   );
-  const categoryFilled = await fillCategoryField(
-    result,
-    adapter.resolveField("category"),
-    payload.listing.metadata.category,
-    payload.listing.profile?.categoryPlan ?? null
-  );
-
-  if (categoryFilled) {
-    logDebug(
-      result,
-      `Waiting ${POST_CATEGORY_FIELD_DELAY_MS}ms for category-dependent fields.`
-    );
-    await wait(POST_CATEGORY_FIELD_DELAY_MS);
-    (adapter.getPageState().debugLog ?? []).forEach((entry) => {
-      logDebug(result, entry);
-    });
-  }
+  skipFieldByRequest(result, "category", adapter.resolveField("category"));
 
   await fillChoiceField(
     result,
