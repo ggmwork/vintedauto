@@ -4,9 +4,11 @@ import {
   CpuIcon,
   DatabaseIcon,
   DownloadIcon,
+  ImageIcon,
   KeyRoundIcon,
   RefreshCwIcon,
   Settings2Icon,
+  SparklesIcon,
   TerminalIcon,
   TriangleAlertIcon,
   UploadIcon,
@@ -17,8 +19,10 @@ import {
   refreshLocalAiModelsAction,
   saveAiSettingsAction,
   testAiProviderConnectionAction,
+  testAiVisionListingAction,
 } from "@/app/actions";
 import { getRecommendedOllamaModelProfile } from "@/lib/ai/ollama-presets";
+import { AiVisionImageInput } from "@/components/app/ai-vision-image-input";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -29,7 +33,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import type { AiProvider, AiProviderTestResult } from "@/types/ai";
+import type {
+  AiProvider,
+  AiProviderTestResult,
+  AiVisionTestResult,
+} from "@/types/ai";
 import type {
   DiscoveredLocalModel,
   LocalModelDiscoveryCache,
@@ -170,6 +178,195 @@ function ProviderTestCard({
             Test {title}
           </PendingSubmitButton>
         </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function formatPriceSuggestion(result: AiVisionTestResult) {
+  const price = result.priceSuggestion;
+
+  if (!price) {
+    return "No price returned";
+  }
+
+  if (price.amount !== null) {
+    return `${price.amount.toFixed(2)} ${price.currency}`;
+  }
+
+  return `${price.minAmount?.toFixed(2) ?? "?"} - ${price.maxAmount?.toFixed(2) ?? "?"} ${price.currency}`;
+}
+
+function getVisionMetadataEntries(result: AiVisionTestResult) {
+  const metadata = result.suggestedMetadata;
+
+  return [
+    ["Brand", metadata.brand],
+    ["Category", metadata.category],
+    ["Size", metadata.size],
+    ["Condition", metadata.condition],
+    ["Color", metadata.color],
+    ["Material", metadata.material],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+}
+
+function AiVisionTestSection({
+  result,
+  modelOptions,
+  selectedModel,
+}: {
+  result: AiVisionTestResult | null;
+  modelOptions: ChoiceOption[];
+  selectedModel: string;
+}) {
+  const metadataEntries = result ? getVisionMetadataEntries(result) : [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-1">
+            <CardTitle className="flex items-center gap-2">
+              <ImageIcon className="size-4" />
+              AI image test
+            </CardTitle>
+            <CardDescription>
+              Upload product photos and run a one-off listing test.
+            </CardDescription>
+          </div>
+          {result ? (
+            <Badge variant={result.status === "success" ? "default" : "secondary"}>
+              {result.status}
+            </Badge>
+          ) : (
+            <Badge variant="outline">not tested</Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <form action={testAiVisionListingAction} className="grid gap-4">
+          {modelOptions.length > 0 ? (
+            <div className="grid gap-2 text-sm">
+              <span className="font-medium text-foreground">Test model</span>
+              <ChoiceGroup
+                name="visionTestRoute"
+                value={selectedModel}
+                options={modelOptions}
+                dense
+              />
+              <span className="text-xs text-muted-foreground">
+                This only applies to this image test. Saved routing stays unchanged.
+              </span>
+            </div>
+          ) : (
+            <p className="rounded-lg border border-border bg-background px-3 py-3 text-sm text-muted-foreground">
+              Refresh models to choose a test model. The current listing route will
+              run if no model is selected.
+            </p>
+          )}
+
+          <AiVisionImageInput inputClassName={inputClassName} />
+
+          <div className="flex flex-wrap items-center gap-3">
+            <PendingSubmitButton type="submit" pendingLabel="Testing AI vision">
+              <SparklesIcon data-icon="inline-start" />
+              Run image test
+            </PendingSubmitButton>
+            <span className="text-xs text-muted-foreground">
+              Up to 8 images, 12 MB each.
+            </span>
+          </div>
+        </form>
+
+        {result ? (
+          <div className="grid gap-4 rounded-lg border border-border bg-background px-4 py-4">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="outline">
+                {result.provider && result.model
+                  ? `${result.provider}:${result.model}`
+                  : "provider unknown"}
+              </Badge>
+              <Badge variant="outline">{result.imageCount} image(s)</Badge>
+              <span>Last run: {formatDate(result.testedAt)}</span>
+            </div>
+
+            <p className="text-sm text-muted-foreground">{result.message}</p>
+
+            {result.status === "success" ? (
+              <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Title
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {result.title ?? "No title returned"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Price
+                    </p>
+                    <p className="text-sm text-foreground">
+                      {formatPriceSuggestion(result)}
+                    </p>
+                  </div>
+
+                  {metadataEntries.length > 0 ? (
+                    <dl className="grid grid-cols-2 gap-2 text-sm">
+                      {metadataEntries.map(([label, value]) => (
+                        <div key={label} className="space-y-1">
+                          <dt className="text-xs text-muted-foreground">
+                            {label}
+                          </dt>
+                          <dd className="font-medium text-foreground">{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  ) : null}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Description
+                    </p>
+                    <p className="whitespace-pre-line text-sm leading-6 text-foreground">
+                      {result.description ?? "No description returned"}
+                    </p>
+                  </div>
+
+                  {result.keywords.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {result.keywords.map((keyword, index) => (
+                        <Badge key={`${keyword}-${index}`} variant="outline">
+                          {keyword}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {result.conditionNotes ? (
+                    <p className="text-sm text-muted-foreground">
+                      {result.conditionNotes}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {result.fileNames.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {result.fileNames.map((fileName, index) => (
+                  <Badge key={`${fileName}-${index}`} variant="secondary">
+                    {fileName}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -341,6 +538,7 @@ export function AiSettingsPage({
       };
     };
     lastTests: Partial<Record<AiProvider, AiProviderTestResult>>;
+    lastVisionTest: AiVisionTestResult | null;
     localModels: LocalModelDiscoveryCache;
     updatedAt: string | null;
     storedFlags: {
@@ -548,6 +746,12 @@ export function AiSettingsPage({
         </Card>
 
         <LocalModelDiscoveryCard localModels={settings.localModels} />
+
+        <AiVisionTestSection
+          result={settings.lastVisionTest}
+          modelOptions={listingRouteOptions}
+          selectedModel={selectedListingRoute}
+        />
 
         <form action={saveAiSettingsAction} className="space-y-6">
           <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

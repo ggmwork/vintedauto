@@ -9,8 +9,11 @@ import type {
   AiProvider,
   AiProviderTestResult,
   AiRouterMode,
+  AiVisionTestResult,
   LocalCliEngine,
 } from "@/types/ai";
+import type { DraftMetadata } from "@/types/draft";
+import type { PriceConfidence, PriceSuggestion } from "@/types/pricing";
 
 export interface StoredAiSettings {
   routerMode: AiRouterMode | null;
@@ -31,6 +34,7 @@ export interface StoredAiSettings {
   ollamaTimeoutMs: number | null;
   localCliTimeoutMs: number | null;
   lastTests: Partial<Record<AiProvider, AiProviderTestResult>>;
+  lastVisionTest: AiVisionTestResult | null;
   updatedAt: string | null;
 }
 
@@ -72,6 +76,84 @@ function normalizeBoolean(value: unknown) {
   return typeof value === "boolean" ? value : null;
 }
 
+function normalizeStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    : [];
+}
+
+function normalizePriceConfidence(value: unknown): PriceConfidence {
+  return value === "high" || value === "low" ? value : "medium";
+}
+
+function normalizeSuggestedMetadata(value: unknown): Partial<DraftMetadata> {
+  const candidate =
+    value && typeof value === "object" ? (value as Partial<DraftMetadata>) : {};
+
+  return {
+    brand: normalizeString(candidate.brand),
+    category: normalizeString(candidate.category),
+    size: normalizeString(candidate.size),
+    condition: normalizeString(candidate.condition),
+    color: normalizeString(candidate.color),
+    material: normalizeString(candidate.material),
+    notes: normalizeString(candidate.notes),
+  };
+}
+
+function normalizePriceSuggestion(value: unknown): PriceSuggestion | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<PriceSuggestion>;
+  return {
+    amount: normalizeNumber(candidate.amount),
+    minAmount: normalizeNumber(candidate.minAmount),
+    maxAmount: normalizeNumber(candidate.maxAmount),
+    currency: "EUR",
+    rationale: normalizeString(candidate.rationale) ?? "",
+    confidence: normalizePriceConfidence(candidate.confidence),
+  };
+}
+
+function normalizeAiVisionTestResult(value: unknown): AiVisionTestResult | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<AiVisionTestResult>;
+  const status =
+    candidate.status === "success" || candidate.status === "failed"
+      ? candidate.status
+      : null;
+  const message = normalizeString(candidate.message);
+  const testedAt = normalizeString(candidate.testedAt);
+
+  if (!status || !message || !testedAt) {
+    return null;
+  }
+
+  return {
+    status,
+    message,
+    testedAt,
+    provider: normalizeProvider(candidate.provider),
+    model: normalizeString(candidate.model),
+    imageCount: normalizeNumber(candidate.imageCount) ?? 0,
+    fileNames: normalizeStringArray(candidate.fileNames),
+    title: normalizeString(candidate.title),
+    description: normalizeString(candidate.description),
+    keywords: normalizeStringArray(candidate.keywords),
+    conditionNotes: normalizeString(candidate.conditionNotes),
+    suggestedMetadata: normalizeSuggestedMetadata(candidate.suggestedMetadata),
+    priceSuggestion: normalizePriceSuggestion(candidate.priceSuggestion),
+  };
+}
+
 function createDefaultStoredAiSettings(): StoredAiSettings {
   return {
     routerMode: null,
@@ -92,6 +174,7 @@ function createDefaultStoredAiSettings(): StoredAiSettings {
     ollamaTimeoutMs: null,
     localCliTimeoutMs: null,
     lastTests: {},
+    lastVisionTest: null,
     updatedAt: null,
   };
 }
@@ -134,6 +217,7 @@ function normalizeStoredAiSettings(value: unknown): StoredAiSettings {
             )
           ) as Partial<Record<AiProvider, AiProviderTestResult>>
         : defaults.lastTests,
+    lastVisionTest: normalizeAiVisionTestResult(candidate.lastVisionTest),
     updatedAt: normalizeString(candidate.updatedAt),
   };
 }

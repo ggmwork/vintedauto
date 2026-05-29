@@ -5,7 +5,10 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getListingGenerationService } from "@/lib/ai";
+import {
+  getListingGenerationService,
+  getListingGenerationServiceForProvider,
+} from "@/lib/ai";
 import { refreshLocalModelDiscovery } from "@/lib/ai/local-model-discovery";
 import { getRecommendedAiPreset } from "@/lib/ai/ollama-presets";
 import { testAiProviderConnection } from "@/lib/ai/provider-health";
@@ -53,10 +56,13 @@ import {
   stopInboxWatcher,
   updateInboxWatcherConfig,
 } from "@/lib/watcher";
-import type { AiProvider, AiRouterMode } from "@/types/ai";
+import type { AiProvider, AiRouterMode, AiVisionTestResult } from "@/types/ai";
 import type { DraftDetail, DraftImage, DraftStatus } from "@/types/draft";
 import type { PhotoAsset, StockItem, StudioSessionDetail } from "@/types/intake";
 import type { PriceConfidence, PriceSuggestion } from "@/types/pricing";
+
+const AI_VISION_TEST_MAX_IMAGES = 8;
+const AI_VISION_TEST_MAX_IMAGE_BYTES = 12 * 1024 * 1024;
 
 export async function createDraftAction() {
   const draft = await draftRepository.create({});
@@ -2108,6 +2114,145 @@ export async function refreshLocalAiModelsAction() {
   redirectToAiSettings({
     flash: `Scanned local AI tools. ${toolSummaries.join(". ")}.`,
   });
+}
+
+function isImageUpload(file: File) {
+  return (
+    file.type.startsWith("image/") ||
+    /\.(avif|gif|heic|jpeg|jpg|png|webp)$/i.test(file.name)
+  );
+}
+
+function createEmptyDraftMetadata(): DraftDetail["metadata"] {
+  return {
+    brand: null,
+    category: null,
+    size: null,
+    condition: null,
+    color: null,
+    material: null,
+    notes: null,
+  };
+}
+
+function createAiVisionFailureResult(
+  message: string,
+  files: File[]
+): AiVisionTestResult {
+  return {
+    status: "failed",
+    message,
+    testedAt: new Date().toISOString(),
+    provider: null,
+    model: null,
+    imageCount: files.length,
+    fileNames: files.map((file) => file.name || "unnamed image"),
+    title: null,
+    description: null,
+    keywords: [],
+    conditionNotes: null,
+    suggestedMetadata: {},
+    priceSuggestion: null,
+  };
+}
+
+export async function testAiVisionListingAction(formData: FormData) {
+  const files = formData
+    .getAll("visionTestImages")
+    .filter((value): value is File => value instanceof File && value.size > 0);
+
+  if (files.length === 0) {
+    redirectToAiSettings({
+      error: "Choose at least one product image before running the AI vision test.",
+    });
+  }
+
+  if (files.length > AI_VISION_TEST_MAX_IMAGES) {
+    redirectToAiSettings({
+      error: `Choose ${AI_VISION_TEST_MAX_IMAGES} images or fewer for one AI vision test.`,
+    });
+  }
+
+  const unsupportedFile = files.find((file) => !isImageUpload(file));
+
+  if (unsupportedFile) {
+    redirectToAiSettings({
+      error: `${unsupportedFile.name || "One file"} is not a supported image file.`,
+    });
+  }
+
+  const oversizedFile = files.find(
+    (file) => file.size > AI_VISION_TEST_MAX_IMAGE_BYTES
+  );
+
+  if (oversizedFile) {
+    redirectToAiSettings({
+      error: `${oversizedFile.name || "One image"} is larger than 12 MB.`,
+    });
+  }
+
+  try {
+    const testRoute = parseAiTaskRoute(formData.get("visionTestRoute"));
+    const images = await Promise.all(
+      files.map(async (file) => ({
+        originalFilename: file.name || "vision-test-image",
+        contentType: file.type || "application/octet-stream",
+        bytes: new Uint8Array(await file.arrayBuffer()),
+      }))
+    );
+    const generationService = testRoute
+      ? getListingGenerationServiceForProvider(testRoute.provider)
+      : getListingGenerationService();
+    const generation = await generationService.generate({
+      draftId: "settings-ai-vision-test",
+      images,
+      metadata: createEmptyDraftMetadata(),
+      preferredLanguage: "pt",
+      currency: "EUR",
+      marketplace: "vinted",
+      modelOverride: testRoute?.model ?? null,
+    });
+    const result: AiVisionTestResult = {
+      status: "success",
+      message: `Generated listing test with ${generation.provider}:${generation.model}.`,
+      testedAt: generation.generatedAt,
+      provider: generation.provider === "mock" ? null : generation.provider,
+      model: generation.model,
+      imageCount: files.length,
+      fileNames: files.map((file) => file.name || "unnamed image"),
+      title: generation.content.title,
+      description: generation.content.description,
+      keywords: generation.content.keywords,
+      conditionNotes: generation.content.conditionNotes,
+      suggestedMetadata: generation.content.suggestedMetadata,
+      priceSuggestion: generation.priceSuggestion,
+    };
+
+    await updateStoredAiSettings((current) => ({
+      ...current,
+      lastVisionTest: result,
+    }));
+
+    redirectToAiSettings({
+      flash: "AI vision test completed.",
+    });
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
+    const message =
+      error instanceof Error ? error.message : "AI vision test failed.";
+
+    await updateStoredAiSettings((current) => ({
+      ...current,
+      lastVisionTest: createAiVisionFailureResult(message, files),
+    }));
+
+    redirectToAiSettings({
+      error: message,
+    });
+  }
 }
 
 function redirectToDatabaseSettings(

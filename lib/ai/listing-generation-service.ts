@@ -16,6 +16,7 @@ export interface ListingGenerationInput {
   preferredLanguage: ListingLanguage;
   currency: "EUR";
   marketplace: "vinted";
+  modelOverride?: string | null;
 }
 
 export interface ListingGenerationService {

@@ -52,6 +52,7 @@ export function getAiSettingsViewModel() {
       },
     },
     lastTests: stored.lastTests,
+    lastVisionTest: stored.lastVisionTest,
     localModels,
     updatedAt: stored.updatedAt,
     storedFlags: {

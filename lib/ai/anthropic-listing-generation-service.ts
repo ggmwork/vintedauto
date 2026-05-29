@@ -57,7 +57,8 @@ class AnthropicListingGenerationService implements ListingGenerationService {
       throw new Error("At least one image is required for generation.");
     }
 
-    const model = requireProviderModel("listing", "anthropic");
+    const model =
+      input.modelOverride ?? requireProviderModel("listing", "anthropic");
     const apiKey = requireProviderApiKey("anthropic");
     const selectedImages = selectRepresentativeImages(
       input.images,

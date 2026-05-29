@@ -141,7 +141,8 @@ class LocalCliListingGenerationService implements ListingGenerationService {
       );
     }
 
-    const model = requireProviderModel("listing", "local-cli");
+    const model =
+      input.modelOverride ?? requireProviderModel("listing", "local-cli");
     const selectedImages = selectRepresentativeImages(
       input.images,
       getListingMaxImages()

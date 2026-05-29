@@ -84,9 +84,10 @@ class OllamaListingGenerationService implements ListingGenerationService {
     }
 
     const model =
-      getListingProviderConfig().provider === "ollama"
+      input.modelOverride ??
+      (getListingProviderConfig().provider === "ollama"
         ? requireProviderModel("listing", "ollama")
-        : getListingProviderConfig().model ?? requireProviderModel("listing", "ollama");
+        : getListingProviderConfig().model ?? requireProviderModel("listing", "ollama"));
     await assertOllamaModelAvailable(model);
 
     const selectedImages = selectRepresentativeImages(

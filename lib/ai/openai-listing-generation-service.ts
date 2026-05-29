@@ -56,7 +56,7 @@ class OpenAiListingGenerationService implements ListingGenerationService {
       throw new Error("At least one image is required for generation.");
     }
 
-    const model = requireProviderModel("listing", "openai");
+    const model = input.modelOverride ?? requireProviderModel("listing", "openai");
     const apiKey = requireProviderApiKey("openai");
     const selectedImages = selectRepresentativeImages(
       input.images,

@@ -13,7 +13,9 @@ import { openAiPhotoDescriptorService } from "@/lib/grouping/openai-photo-descri
 import { ollamaPhotoDescriptorService } from "@/lib/grouping/ollama-photo-descriptor-service";
 import type { AiProvider } from "@/types/ai";
 
-function getListingProviderService(provider: AiProvider): ListingGenerationService {
+export function getListingGenerationServiceForProvider(
+  provider: AiProvider
+): ListingGenerationService {
   switch (provider) {
     case "openai":
       return openAiListingGenerationService;
@@ -44,7 +46,7 @@ function getGroupingProviderService(provider: AiProvider): PhotoDescriptorServic
 }
 
 export function getListingGenerationService(): ListingGenerationService {
-  return getListingProviderService(getListingProviderConfig().provider);
+  return getListingGenerationServiceForProvider(getListingProviderConfig().provider);
 }
 
 export function getPhotoDescriptorService(): PhotoDescriptorService {
