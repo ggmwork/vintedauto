@@ -653,19 +653,6 @@ async function movePhotoAssetsToStorageTargets(
     : session;
 }
 
-async function movePhotoAssetsToOrganizationTargets(
-  session: StudioSessionDetail,
-  photoAssetIds: string[],
-  sourcePhotoAssetIds = photoAssetIds
-) {
-  const nextSession = await movePhotoAssetsToStorageTargets(session, photoAssetIds);
-
-  return moveWatchedSourceFilesToOrganizationTargets(
-    nextSession,
-    sourcePhotoAssetIds
-  );
-}
-
 async function mutateStudioSessionStore(
   mutator: (
     store: StudioSessionStore
@@ -770,7 +757,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       }
 
       const currentSession = currentStore.sessions[sessionIndex];
-      const nextSession = await movePhotoAssetsToOrganizationTargets(
+      const nextSession = await movePhotoAssetsToStorageTargets(
         updateStudioSessionTimestamp({
           ...currentSession,
           photoAssets: input.photoAssets,
@@ -780,8 +767,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         }),
         input.photoAssets
           .filter((photoAsset) => photoAsset.stockItemId !== null)
-          .map((photoAsset) => photoAsset.id),
-        input.photoAssets.map((photoAsset) => photoAsset.id)
+          .map((photoAsset) => photoAsset.id)
       );
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
@@ -835,7 +821,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       };
       createdStockItemId = stockItem.id;
 
-      const nextSession = await movePhotoAssetsToOrganizationTargets(
+      const nextSession = await movePhotoAssetsToStorageTargets(
         mutatePhotoAssignments(
           {
             ...session,
@@ -887,7 +873,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         );
       }
 
-      const nextSession = await movePhotoAssetsToOrganizationTargets(
+      const nextSession = await movePhotoAssetsToStorageTargets(
         mutatePhotoAssignments(session, input.stockItemId, input.photoAssetIds),
         input.photoAssetIds
       );
@@ -1139,7 +1125,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   async attachDraftToStockItem(
     input: AttachDraftToStockItemInput
   ): Promise<StudioSessionDetail> {
-    const store = await mutateStudioSessionStore((currentStore) => {
+    const store = await mutateStudioSessionStore(async (currentStore) => {
       const sessionIndex = findSessionIndex(currentStore, input.sessionId);
 
       if (sessionIndex === -1) {
@@ -1155,7 +1141,8 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         throw new Error(`Stock item not found: ${input.stockItemId}`);
       }
 
-      const nextSession = updateStudioSessionTimestamp({
+      const nextSession = await moveWatchedSourceFilesToOrganizationTargets(
+        updateStudioSessionTimestamp({
         ...session,
         stockItems: session.stockItems.map((entry) =>
           entry.id === input.stockItemId
@@ -1167,7 +1154,9 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
             }
           : entry
         ),
-      });
+        }),
+        stockItem.photoAssetIds
+      );
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
 
@@ -1186,7 +1175,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   async moveStockItemsToInventory(
     input: MoveStockItemsToInventoryInput
   ): Promise<StudioSessionDetail> {
-    const store = await mutateStudioSessionStore((currentStore) => {
+    const store = await mutateStudioSessionStore(async (currentStore) => {
       const sessionIndex = findSessionIndex(currentStore, input.sessionId);
 
       if (sessionIndex === -1) {
@@ -1195,20 +1184,31 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
 
       const session = currentStore.sessions[sessionIndex];
       const now = new Date().toISOString();
-      const nextSession = updateStudioSessionTimestamp({
-        ...session,
-        stockItems: session.stockItems.map((stockItem) =>
-          stockItem.inventoryStatus === "queued" &&
-          stockItem.draftId === null &&
-          stockItem.photoAssetIds.length > 0
-            ? {
-                ...stockItem,
-                inventoryStatus: "inventoried" as const,
-                updatedAt: now,
-              }
-            : stockItem
-        ),
-      });
+      const promotedPhotoAssetIds = session.stockItems
+        .filter(
+          (stockItem) =>
+            stockItem.inventoryStatus === "queued" &&
+            stockItem.draftId === null &&
+            stockItem.photoAssetIds.length > 0
+        )
+        .flatMap((stockItem) => stockItem.photoAssetIds);
+      const nextSession = await moveWatchedSourceFilesToOrganizationTargets(
+        updateStudioSessionTimestamp({
+          ...session,
+          stockItems: session.stockItems.map((stockItem) =>
+            stockItem.inventoryStatus === "queued" &&
+            stockItem.draftId === null &&
+            stockItem.photoAssetIds.length > 0
+              ? {
+                  ...stockItem,
+                  inventoryStatus: "inventoried" as const,
+                  updatedAt: now,
+                }
+              : stockItem
+          ),
+        }),
+        promotedPhotoAssetIds
+      );
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
 

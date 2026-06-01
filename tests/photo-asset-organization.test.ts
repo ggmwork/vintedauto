@@ -248,6 +248,18 @@ describe("photo asset organization", () => {
 
       assert.equal(
         photoAsset.sourceProcessedPath,
+        null
+      );
+      assert.deepEqual(Array.from(await readFile(sourcePath)), [7, 8, 9]);
+      await assert.rejects(() => readFile(stockSourcePath), /ENOENT/);
+
+      savedSession = await studioSessionRepository.moveStockItemsToInventory({
+        sessionId: session.id,
+      });
+      photoAsset = savedSession.photoAssets[0];
+
+      assert.equal(
+        photoAsset.sourceProcessedPath,
         `stock-items/${stockItem.id}/front.jpg`
       );
       await assert.rejects(() => readFile(sourcePath), /ENOENT/);
