@@ -321,6 +321,16 @@ async function importLooseAndGroupedFiles(
     }
 
     if (importedCount === 0 && !shouldRegroupExistingLoose) {
+      if (currentSession.photoAssets.length > 0) {
+        await studioSessionRepository.saveGroupingState({
+          sessionId: currentSession.id,
+          photoAssets: currentSession.photoAssets,
+          stockItems: currentSession.stockItems,
+          candidateClusters: currentSession.candidateClusters,
+          groupingRuns: currentSession.groupingRuns,
+        });
+      }
+
       await writeScanState({
         health: "watching",
         lastScanAt: scanStartedAt,

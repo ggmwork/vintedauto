@@ -30,6 +30,7 @@
 .corepack/
 .logs/
 watched-inbox/
+watched-inbox-processed/
 .tmp/
 
 # debug

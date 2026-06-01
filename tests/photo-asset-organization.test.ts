@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -177,6 +177,92 @@ describe("photo asset organization", () => {
         Array.from(await photoAssetStorage.read(secondPhoto?.storagePath ?? "")),
         [4, 5, 6]
       );
+    });
+  });
+
+  it("moves watched source files out of the watched inbox", async () => {
+    await withTempDatabase(async () => {
+      const watchedFolderPath = await mkdtemp(
+        path.join(os.tmpdir(), "vintedauto-watched-inbox-")
+      );
+      const sourcePath = path.join(watchedFolderPath, "front.jpg");
+
+      await writeFile(sourcePath, new Uint8Array([7, 8, 9]));
+
+      const session = await studioSessionRepository.create({
+        name: "Watched organization",
+        intakeConfig: {
+          sourceType: "watched-folder",
+          startMode: "automatic",
+          folderLabel: "watched",
+          folderPath: watchedFolderPath,
+        },
+      });
+      const upload = await photoAssetStorage.upload({
+        sessionId: session.id,
+        assetId: "watched-photo",
+        fileName: "front.jpg",
+        contentType: "image/jpeg",
+        bytes: new Uint8Array([7, 8, 9]).buffer,
+      });
+
+      let savedSession = await studioSessionRepository.attachPhotoAssets({
+        sessionId: session.id,
+        photoAssets: [
+          createPhotoAsset({
+            sessionId: session.id,
+            id: "watched-photo",
+            storagePath: upload.storagePath,
+            originalFilename: "front.jpg",
+            sortOrder: 0,
+            sizeBytes: upload.sizeBytes,
+          }),
+        ],
+      });
+      let photoAsset = savedSession.photoAssets[0];
+      const processedRoot = `${watchedFolderPath}-processed`;
+      const unassignedSourcePath = path.join(
+        processedRoot,
+        "unassigned",
+        "front.jpg"
+      );
+
+      assert.equal(photoAsset.sourceProcessedPath, "unassigned/front.jpg");
+      await assert.rejects(() => readFile(sourcePath), /ENOENT/);
+      assert.deepEqual(Array.from(await readFile(unassignedSourcePath)), [7, 8, 9]);
+
+      const stockItem = await studioSessionRepository.createStockItem({
+        sessionId: session.id,
+        name: "Watched item",
+        photoAssetIds: ["watched-photo"],
+      });
+
+      savedSession = (await studioSessionRepository.getById(session.id)) ?? savedSession;
+      photoAsset = savedSession.photoAssets[0];
+      const stockSourcePath = path.join(
+        processedRoot,
+        "stock-items",
+        stockItem.id,
+        "front.jpg"
+      );
+
+      assert.equal(
+        photoAsset.sourceProcessedPath,
+        `stock-items/${stockItem.id}/front.jpg`
+      );
+      await assert.rejects(() => readFile(unassignedSourcePath), /ENOENT/);
+      assert.deepEqual(Array.from(await readFile(stockSourcePath)), [7, 8, 9]);
+
+      savedSession = await studioSessionRepository.releasePhotoAssetsFromStockItem({
+        sessionId: session.id,
+        stockItemId: stockItem.id,
+        photoAssetIds: ["watched-photo"],
+      });
+      photoAsset = savedSession.photoAssets[0];
+
+      assert.equal(photoAsset.sourceProcessedPath, "unassigned/front.jpg");
+      assert.deepEqual(Array.from(await readFile(unassignedSourcePath)), [7, 8, 9]);
+      await assert.rejects(() => readFile(sourcePath), /ENOENT/);
     });
   });
 });

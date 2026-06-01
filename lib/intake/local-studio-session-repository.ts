@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getDatabasePath } from "@/lib/data/database-root";
 import { mutateJsonFile, readJsonFile } from "@/lib/data/json-store";
 import { localPhotoAssetStorage } from "@/lib/intake/local-photo-asset-storage";
+import { moveWatchedSourceFilesToOrganizationTargets } from "@/lib/intake/source-photo-file-storage";
 import type {
   CandidateCluster,
   CandidateClusterStatus,
@@ -88,6 +89,11 @@ function normalizePhotoAssets(photoAssets: PhotoAsset[]) {
       return {
         ...photoAsset,
         sortOrder: index,
+        sourceProcessedPath:
+          typeof photoAsset.sourceProcessedPath === "string" &&
+          photoAsset.sourceProcessedPath.length > 0
+            ? photoAsset.sourceProcessedPath.split(/[/\\]+/).filter(Boolean).join("/")
+            : null,
         sourceFingerprint:
           typeof photoAsset.sourceFingerprint === "string" &&
           photoAsset.sourceFingerprint.length > 0
@@ -647,6 +653,19 @@ async function movePhotoAssetsToStorageTargets(
     : session;
 }
 
+async function movePhotoAssetsToOrganizationTargets(
+  session: StudioSessionDetail,
+  photoAssetIds: string[],
+  sourcePhotoAssetIds = photoAssetIds
+) {
+  const nextSession = await movePhotoAssetsToStorageTargets(session, photoAssetIds);
+
+  return moveWatchedSourceFilesToOrganizationTargets(
+    nextSession,
+    sourcePhotoAssetIds
+  );
+}
+
 async function mutateStudioSessionStore(
   mutator: (
     store: StudioSessionStore
@@ -712,7 +731,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   async attachPhotoAssets(
     input: SavePhotoAssetsInput
   ): Promise<StudioSessionDetail> {
-    const store = await mutateStudioSessionStore((currentStore) => {
+    const store = await mutateStudioSessionStore(async (currentStore) => {
       const sessionIndex = findSessionIndex(currentStore, input.sessionId);
 
       if (sessionIndex === -1) {
@@ -720,11 +739,14 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       }
 
       const currentSession = currentStore.sessions[sessionIndex];
-      const nextSession = updateStudioSessionTimestamp({
-        ...currentSession,
-        photoAssets: input.photoAssets,
-        stockItems: currentSession.stockItems,
-      });
+      const nextSession = await moveWatchedSourceFilesToOrganizationTargets(
+        updateStudioSessionTimestamp({
+          ...currentSession,
+          photoAssets: input.photoAssets,
+          stockItems: currentSession.stockItems,
+        }),
+        input.photoAssets.map((photoAsset) => photoAsset.id)
+      );
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
 
@@ -751,7 +773,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       }
 
       const currentSession = currentStore.sessions[sessionIndex];
-      const nextSession = await movePhotoAssetsToStorageTargets(
+      const nextSession = await movePhotoAssetsToOrganizationTargets(
         updateStudioSessionTimestamp({
           ...currentSession,
           photoAssets: input.photoAssets,
@@ -761,7 +783,8 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         }),
         input.photoAssets
           .filter((photoAsset) => photoAsset.stockItemId !== null)
-          .map((photoAsset) => photoAsset.id)
+          .map((photoAsset) => photoAsset.id),
+        input.photoAssets.map((photoAsset) => photoAsset.id)
       );
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
@@ -815,7 +838,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       };
       createdStockItemId = stockItem.id;
 
-      const nextSession = await movePhotoAssetsToStorageTargets(
+      const nextSession = await movePhotoAssetsToOrganizationTargets(
         mutatePhotoAssignments(
           {
             ...session,
@@ -867,7 +890,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         );
       }
 
-      const nextSession = await movePhotoAssetsToStorageTargets(
+      const nextSession = await movePhotoAssetsToOrganizationTargets(
         mutatePhotoAssignments(session, input.stockItemId, input.photoAssetIds),
         input.photoAssetIds
       );
@@ -921,7 +944,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
             }
           : photoAsset
       );
-      const nextSession = await movePhotoAssetsToStorageTargets(
+      const nextSession = await movePhotoAssetsToOrganizationTargets(
         updateStudioSessionTimestamp({
           ...session,
           photoAssets,
@@ -1036,7 +1059,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
             }
           : photoAsset
       );
-      const nextSession = await movePhotoAssetsToStorageTargets(
+      const nextSession = await movePhotoAssetsToOrganizationTargets(
         updateStudioSessionTimestamp({
           ...session,
           photoAssets,

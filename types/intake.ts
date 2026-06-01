@@ -88,6 +88,7 @@ export interface PhotoAsset {
   storagePath: string;
   originalFilename: string;
   relativePath: string | null;
+  sourceProcessedPath?: string | null;
   sourceFingerprint: string | null;
   sortOrder: number;
   contentType: string | null;
