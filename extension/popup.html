@@ -32,42 +32,41 @@
         </div>
       </header>
 
-      <section class="section">
-        <div class="section-heading">
-          <div>
-            <p class="label">Ready app items</p>
-            <p id="app-stock-status" class="muted">Loading app stock...</p>
+      <section class="top-accordions" aria-label="Extension status">
+        <details class="top-accordion">
+          <summary>
+            <span class="label">Current page</span>
+            <span id="page-status" class="summary-value">Checking...</span>
+          </summary>
+          <div class="accordion-body">
+            <p id="page-detail" class="muted"></p>
+            <details class="diagnostic-block">
+              <summary>Page diagnostics</summary>
+              <pre id="page-debug" class="debug-output">Waiting for page details...</pre>
+            </details>
           </div>
-        </div>
-        <div id="app-stock-list" class="stock-list"></div>
-      </section>
+        </details>
 
-      <section class="status-grid">
-        <div class="status-card">
-          <p class="label">Current page</p>
-          <p id="page-status" class="value">Checking...</p>
-          <p id="page-detail" class="muted"></p>
-          <details class="diagnostic-block">
-            <summary>Page diagnostics</summary>
-            <pre id="page-debug" class="debug-output">Waiting for page details...</pre>
-          </details>
-        </div>
+        <details class="top-accordion">
+          <summary>
+            <span class="label">Last fill</span>
+            <span id="draft-status" class="summary-value">No item loaded yet.</span>
+          </summary>
+          <div class="accordion-body">
+            <p id="fill-status" class="muted"></p>
+            <details class="diagnostic-block">
+              <summary>Last fill diagnostics</summary>
+              <pre id="fill-debug" class="debug-output">No fill attempt yet.</pre>
+            </details>
+          </div>
+        </details>
 
-        <div class="status-card">
-          <p class="label">Last fill</p>
-          <p id="draft-status" class="value">No item loaded yet.</p>
-          <p id="fill-status" class="muted"></p>
-          <details class="diagnostic-block">
-            <summary>Last fill diagnostics</summary>
-            <pre id="fill-debug" class="debug-output">No fill attempt yet.</pre>
-          </details>
-        </div>
-      </section>
-
-      <section class="section">
-        <details class="diagnostic-block">
-          <summary>Settings</summary>
-          <form id="config-form" class="config-form">
+        <details class="top-accordion">
+          <summary>
+            <span class="label">Settings</span>
+            <span class="summary-value">Local app and Vinted URL</span>
+          </summary>
+          <form id="config-form" class="config-form accordion-body">
             <label>
               <span>Local app origin</span>
               <input
@@ -93,6 +92,16 @@
             <button type="submit">Save settings</button>
           </form>
         </details>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <div>
+            <p class="label">Ready app items</p>
+            <p id="app-stock-status" class="muted">Loading app stock...</p>
+          </div>
+        </div>
+        <div id="app-stock-list" class="stock-list"></div>
       </section>
     </main>
 
