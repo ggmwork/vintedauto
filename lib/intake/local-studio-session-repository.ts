@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { getDatabasePath } from "@/lib/data/database-root";
 import { mutateJsonFile, readJsonFile } from "@/lib/data/json-store";
+import { localPhotoAssetStorage } from "@/lib/intake/local-photo-asset-storage";
 import type {
   CandidateCluster,
   CandidateClusterStatus,
@@ -592,6 +593,60 @@ function mutatePhotoAssignments(
   });
 }
 
+async function movePhotoAssetsToStorageTargets(
+  session: StudioSessionDetail,
+  photoAssetIds: string[]
+) {
+  const selectedIds = new Set(uniqueStringIds(photoAssetIds));
+
+  if (selectedIds.size === 0) {
+    return session;
+  }
+
+  let moved = false;
+  const selectedPhotoAssets = session.photoAssets.filter((photoAsset) =>
+    selectedIds.has(photoAsset.id)
+  );
+
+  await Promise.all(
+    selectedPhotoAssets.map((photoAsset) =>
+      localPhotoAssetStorage.read(photoAsset.storagePath)
+    )
+  );
+
+  const photoAssets = await Promise.all(
+    session.photoAssets.map(async (photoAsset) => {
+      if (!selectedIds.has(photoAsset.id)) {
+        return photoAsset;
+      }
+
+      const storedPhotoAsset = await localPhotoAssetStorage.move({
+        sessionId: session.id,
+        assetId: photoAsset.id,
+        storagePath: photoAsset.storagePath,
+        stockItemId: photoAsset.stockItemId,
+      });
+
+      if (storedPhotoAsset.storagePath === photoAsset.storagePath) {
+        return photoAsset;
+      }
+
+      moved = true;
+      return {
+        ...photoAsset,
+        storagePath: storedPhotoAsset.storagePath,
+      };
+    })
+  );
+
+  return moved
+    ? {
+        ...session,
+        photoAssets,
+      }
+    : session;
+}
+
 async function mutateStudioSessionStore(
   mutator: (
     store: StudioSessionStore
@@ -688,7 +743,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   async saveGroupingState(
     input: SaveGroupingStateInput
   ): Promise<StudioSessionDetail> {
-    const store = await mutateStudioSessionStore((currentStore) => {
+    const store = await mutateStudioSessionStore(async (currentStore) => {
       const sessionIndex = findSessionIndex(currentStore, input.sessionId);
 
       if (sessionIndex === -1) {
@@ -696,13 +751,18 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       }
 
       const currentSession = currentStore.sessions[sessionIndex];
-      const nextSession = updateStudioSessionTimestamp({
-        ...currentSession,
-        photoAssets: input.photoAssets,
-        stockItems: input.stockItems,
-        candidateClusters: input.candidateClusters,
-        groupingRuns: input.groupingRuns,
-      });
+      const nextSession = await movePhotoAssetsToStorageTargets(
+        updateStudioSessionTimestamp({
+          ...currentSession,
+          photoAssets: input.photoAssets,
+          stockItems: input.stockItems,
+          candidateClusters: input.candidateClusters,
+          groupingRuns: input.groupingRuns,
+        }),
+        input.photoAssets
+          .filter((photoAsset) => photoAsset.stockItemId !== null)
+          .map((photoAsset) => photoAsset.id)
+      );
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
 
@@ -721,7 +781,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   async createStockItem(input: CreateStockItemInput): Promise<StockItem> {
     let createdStockItemId: string | null = null;
 
-    const store = await mutateStudioSessionStore((currentStore) => {
+    const store = await mutateStudioSessionStore(async (currentStore) => {
       const sessionIndex = findSessionIndex(currentStore, input.sessionId);
 
       if (sessionIndex === -1) {
@@ -755,12 +815,15 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       };
       createdStockItemId = stockItem.id;
 
-      const nextSession = mutatePhotoAssignments(
-        {
-          ...session,
-          stockItems: [stockItem, ...session.stockItems],
-        },
-        stockItem.id,
+      const nextSession = await movePhotoAssetsToStorageTargets(
+        mutatePhotoAssignments(
+          {
+            ...session,
+            stockItems: [stockItem, ...session.stockItems],
+          },
+          stockItem.id,
+          selectedIds
+        ),
         selectedIds
       );
       const sessions = currentStore.sessions.slice();
@@ -782,7 +845,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   async assignPhotoAssetsToStockItem(
     input: AssignPhotoAssetsToStockItemInput
   ): Promise<StudioSessionDetail> {
-    const store = await mutateStudioSessionStore((currentStore) => {
+    const store = await mutateStudioSessionStore(async (currentStore) => {
       const sessionIndex = findSessionIndex(currentStore, input.sessionId);
 
       if (sessionIndex === -1) {
@@ -804,9 +867,8 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         );
       }
 
-      const nextSession = mutatePhotoAssignments(
-        session,
-        input.stockItemId,
+      const nextSession = await movePhotoAssetsToStorageTargets(
+        mutatePhotoAssignments(session, input.stockItemId, input.photoAssetIds),
         input.photoAssetIds
       );
       const sessions = currentStore.sessions.slice();
@@ -825,7 +887,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   }
 
   async removeStockItem(input: RemoveStockItemInput): Promise<StudioSessionDetail> {
-    const store = await mutateStudioSessionStore((currentStore) => {
+    const store = await mutateStudioSessionStore(async (currentStore) => {
       const sessionIndex = findSessionIndex(currentStore, input.sessionId);
 
       if (sessionIndex === -1) {
@@ -847,6 +909,9 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         );
       }
 
+      const releasedPhotoAssetIds = session.photoAssets
+        .filter((photoAsset) => photoAsset.stockItemId === input.stockItemId)
+        .map((photoAsset) => photoAsset.id);
       const photoAssets = session.photoAssets.map((photoAsset) =>
         photoAsset.stockItemId === input.stockItemId
           ? {
@@ -856,13 +921,16 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
             }
           : photoAsset
       );
-      const nextSession = updateStudioSessionTimestamp({
-        ...session,
-        photoAssets,
-        stockItems: session.stockItems.filter(
-          (entry) => entry.id !== input.stockItemId
-        ),
-      });
+      const nextSession = await movePhotoAssetsToStorageTargets(
+        updateStudioSessionTimestamp({
+          ...session,
+          photoAssets,
+          stockItems: session.stockItems.filter(
+            (entry) => entry.id !== input.stockItemId
+          ),
+        }),
+        releasedPhotoAssetIds
+      );
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
 
@@ -931,7 +999,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
   async releasePhotoAssetsFromStockItem(
     input: ReleasePhotoAssetsFromStockItemInput
   ): Promise<StudioSessionDetail> {
-    const store = await mutateStudioSessionStore((currentStore) => {
+    const store = await mutateStudioSessionStore(async (currentStore) => {
       const sessionIndex = findSessionIndex(currentStore, input.sessionId);
 
       if (sessionIndex === -1) {
@@ -968,18 +1036,21 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
             }
           : photoAsset
       );
-      const nextSession = updateStudioSessionTimestamp({
-        ...session,
-        photoAssets,
-        stockItems: session.stockItems.map((entry) =>
-          entry.id === input.stockItemId
-            ? {
-                ...entry,
-                updatedAt: new Date().toISOString(),
-              }
-            : entry
-        ),
-      });
+      const nextSession = await movePhotoAssetsToStorageTargets(
+        updateStudioSessionTimestamp({
+          ...session,
+          photoAssets,
+          stockItems: session.stockItems.map((entry) =>
+            entry.id === input.stockItemId
+              ? {
+                  ...entry,
+                  updatedAt: new Date().toISOString(),
+                }
+              : entry
+          ),
+        }),
+        Array.from(selectedIds)
+      );
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
 

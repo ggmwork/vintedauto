@@ -6,6 +6,13 @@ export interface UploadPhotoAssetInput {
   bytes: ArrayBuffer;
 }
 
+export interface MovePhotoAssetInput {
+  sessionId: string;
+  assetId: string;
+  storagePath: string;
+  stockItemId: string | null;
+}
+
 export interface StoredPhotoAsset {
   storagePath: string;
   publicUrl: string | null;
@@ -16,5 +23,6 @@ export interface StoredPhotoAsset {
 
 export interface PhotoAssetStorage {
   upload(input: UploadPhotoAssetInput): Promise<StoredPhotoAsset>;
+  move(input: MovePhotoAssetInput): Promise<StoredPhotoAsset>;
   read(storagePath: string): Promise<Uint8Array>;
 }
