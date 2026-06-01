@@ -227,9 +227,9 @@ describe("photo asset organization", () => {
         "front.jpg"
       );
 
-      assert.equal(photoAsset.sourceProcessedPath, "unassigned/front.jpg");
-      await assert.rejects(() => readFile(sourcePath), /ENOENT/);
-      assert.deepEqual(Array.from(await readFile(unassignedSourcePath)), [7, 8, 9]);
+      assert.equal(photoAsset.sourceProcessedPath ?? null, null);
+      assert.deepEqual(Array.from(await readFile(sourcePath)), [7, 8, 9]);
+      await assert.rejects(() => readFile(unassignedSourcePath), /ENOENT/);
 
       const stockItem = await studioSessionRepository.createStockItem({
         sessionId: session.id,
@@ -250,7 +250,7 @@ describe("photo asset organization", () => {
         photoAsset.sourceProcessedPath,
         `stock-items/${stockItem.id}/front.jpg`
       );
-      await assert.rejects(() => readFile(unassignedSourcePath), /ENOENT/);
+      await assert.rejects(() => readFile(sourcePath), /ENOENT/);
       assert.deepEqual(Array.from(await readFile(stockSourcePath)), [7, 8, 9]);
 
       savedSession = await studioSessionRepository.releasePhotoAssetsFromStockItem({
@@ -260,8 +260,11 @@ describe("photo asset organization", () => {
       });
       photoAsset = savedSession.photoAssets[0];
 
-      assert.equal(photoAsset.sourceProcessedPath, "unassigned/front.jpg");
-      assert.deepEqual(Array.from(await readFile(unassignedSourcePath)), [7, 8, 9]);
+      assert.equal(
+        photoAsset.sourceProcessedPath,
+        `stock-items/${stockItem.id}/front.jpg`
+      );
+      assert.deepEqual(Array.from(await readFile(stockSourcePath)), [7, 8, 9]);
       await assert.rejects(() => readFile(sourcePath), /ENOENT/);
     });
   });

@@ -43,15 +43,17 @@ async function pathExists(filePath: string) {
 }
 
 function createTargetRelativePath(photoAsset: PhotoAsset) {
-  const sourceRelativePath = getSourceRelativePath(photoAsset);
-
-  if (photoAsset.stockItemId) {
-    return toPosixPath(
-      path.posix.join("stock-items", photoAsset.stockItemId, sourceRelativePath)
-    );
+  if (!photoAsset.stockItemId) {
+    return null;
   }
 
-  return toPosixPath(path.posix.join("unassigned", sourceRelativePath));
+  return toPosixPath(
+    path.posix.join(
+      "stock-items",
+      photoAsset.stockItemId,
+      getSourceRelativePath(photoAsset)
+    )
+  );
 }
 
 function createFallbackRelativePath(relativePath: string, photoAssetId: string) {
@@ -76,6 +78,11 @@ async function moveSourceFile(input: {
     : input.watchedFolderPath;
   const sourcePath = resolveInside(sourceRoot, currentRelativePath);
   let targetRelativePath = createTargetRelativePath(input.photoAsset);
+
+  if (!targetRelativePath) {
+    return input.photoAsset.sourceProcessedPath ?? null;
+  }
+
   let targetPath = resolveInside(input.processedRoot, targetRelativePath);
 
   if (path.resolve(sourcePath) === path.resolve(targetPath)) {

@@ -739,14 +739,11 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
       }
 
       const currentSession = currentStore.sessions[sessionIndex];
-      const nextSession = await moveWatchedSourceFilesToOrganizationTargets(
-        updateStudioSessionTimestamp({
-          ...currentSession,
-          photoAssets: input.photoAssets,
-          stockItems: currentSession.stockItems,
-        }),
-        input.photoAssets.map((photoAsset) => photoAsset.id)
-      );
+      const nextSession = updateStudioSessionTimestamp({
+        ...currentSession,
+        photoAssets: input.photoAssets,
+        stockItems: currentSession.stockItems,
+      });
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
 
@@ -944,7 +941,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
             }
           : photoAsset
       );
-      const nextSession = await movePhotoAssetsToOrganizationTargets(
+      const nextSession = await movePhotoAssetsToStorageTargets(
         updateStudioSessionTimestamp({
           ...session,
           photoAssets,
@@ -1059,7 +1056,7 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
             }
           : photoAsset
       );
-      const nextSession = await movePhotoAssetsToOrganizationTargets(
+      const nextSession = await movePhotoAssetsToStorageTargets(
         updateStudioSessionTimestamp({
           ...session,
           photoAssets,
