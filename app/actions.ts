@@ -1232,6 +1232,89 @@ export async function assignSelectedPhotoAssetsToStockItemAction(
   }
 }
 
+export async function assignSelectedInboxPhotoAssetsToInventoryItemAction(
+  sessionId: string,
+  formData: FormData
+) {
+  const targetStockItemId = parseStringOrNull(formData.get("targetStockItemId"));
+  const photoAssetIds = parseStringArray(formData.getAll("photoAssetIds"));
+
+  if (!targetStockItemId) {
+    redirectToHome({
+      error: "Choose an inventory item before adding photos.",
+      focus: "inbox",
+    });
+  }
+
+  try {
+    const session = await studioSessionRepository.getById(sessionId);
+
+    if (!session) {
+      throw new Error(`Studio session not found: ${sessionId}`);
+    }
+
+    const targetStockItem = session.stockItems.find(
+      (stockItem) => stockItem.id === targetStockItemId
+    );
+
+    if (!targetStockItem || !isInventoryStockItem(targetStockItem)) {
+      throw new Error("Choose an existing inventory item before adding photos.");
+    }
+
+    if (targetStockItem.draftId) {
+      throw new Error(
+        "This inventory item already has a draft. Open the draft before changing its photos."
+      );
+    }
+
+    const loosePhotoAssetIds = new Set(
+      session.photoAssets
+        .filter(
+          (photoAsset) =>
+            photoAsset.stockItemId === null && photoAsset.candidateClusterId === null
+        )
+        .map((photoAsset) => photoAsset.id)
+    );
+    const selectedLoosePhotoAssetIds = photoAssetIds.filter((photoAssetId) =>
+      loosePhotoAssetIds.has(photoAssetId)
+    );
+
+    if (selectedLoosePhotoAssetIds.length === 0) {
+      throw new Error("Select at least one loose photo before adding it to an item.");
+    }
+
+    if (selectedLoosePhotoAssetIds.length !== photoAssetIds.length) {
+      throw new Error("Only loose inbox photos can be added from Workbench.");
+    }
+
+    const nextSession = await studioSessionRepository.assignPhotoAssetsToStockItem({
+      sessionId,
+      stockItemId: targetStockItem.id,
+      photoAssetIds: selectedLoosePhotoAssetIds,
+    });
+    const nextStockItem =
+      nextSession.stockItems.find((stockItem) => stockItem.id === targetStockItem.id) ??
+      targetStockItem;
+
+    redirectToHome({
+      flash: `Added ${selectedLoosePhotoAssetIds.length} photo${selectedLoosePhotoAssetIds.length === 1 ? "" : "s"} to ${nextStockItem.name}.`,
+      focus: "inbox",
+    });
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
+    redirectToHome({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to add the selected photos to the item.",
+      focus: "inbox",
+    });
+  }
+}
+
 export async function removeStockItemAction(
   sessionId: string,
   stockItemId: string,

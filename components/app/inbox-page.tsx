@@ -6,6 +6,7 @@ import {
   ImagesIcon,
   PauseIcon,
   PlayIcon,
+  PlusIcon,
   RefreshCwIcon,
   SparklesIcon,
   SplitSquareVerticalIcon,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 
 import {
+  assignSelectedInboxPhotoAssetsToInventoryItemAction,
   assignSelectedPhotoAssetsToStockItemAction,
   clearInboxStockItemsAction,
   clearInboxSuggestionsAction,
@@ -41,7 +43,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { InboxReviewCluster, InboxViewModel } from "@/lib/inbox/inbox-service";
-import { isQueuedStockItem } from "@/lib/intake/stock-item-inventory";
+import {
+  isInventoryStockItem,
+  isQueuedStockItem,
+} from "@/lib/intake/stock-item-inventory";
 import type { GroupingConfidence, PhotoAsset } from "@/types/intake";
 
 const inputClassName =
@@ -147,6 +152,9 @@ export function InboxPage({
   const stockItems = (watchedSession?.stockItems ?? []).filter((stockItem) =>
     isQueuedStockItem(stockItem)
   );
+  const inventoryStockItems = (watchedSession?.stockItems ?? []).filter(
+    (stockItem) => isInventoryStockItem(stockItem) && stockItem.draftId === null
+  );
   const clearableStockItems = stockItems.filter((stockItem) => stockItem.draftId === null);
   const photoAssetsById = new Map(
     (watchedSession?.photoAssets ?? []).map((photoAsset) => [photoAsset.id, photoAsset])
@@ -163,6 +171,9 @@ export function InboxPage({
     : null;
   const deleteInboxPhotoAssetsAction = watchedSession
     ? deleteSelectedInboxPhotoAssetsAction.bind(null, watchedSession.id)
+    : null;
+  const addToInventoryItemAction = watchedSession
+    ? assignSelectedInboxPhotoAssetsToInventoryItemAction.bind(null, watchedSession.id)
     : null;
 
   return (
@@ -395,6 +406,49 @@ export function InboxPage({
                         Delete selected
                       </PendingSubmitButton>
                     </div>
+                    <details className="rounded-lg border border-border bg-card/60">
+                      <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-foreground">
+                        Add to existing item
+                      </summary>
+                      <div className="grid gap-3 border-t border-border px-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                        <label className="grid gap-1 text-sm">
+                          <span className="font-medium text-foreground">
+                            Inventory item
+                          </span>
+                          <select
+                            name="targetStockItemId"
+                            className={inputClassName}
+                            disabled={inventoryStockItems.length === 0}
+                            defaultValue={inventoryStockItems[0]?.id ?? ""}
+                          >
+                            {inventoryStockItems.length === 0 ? (
+                              <option value="">No editable inventory items</option>
+                            ) : (
+                              inventoryStockItems.map((stockItem) => (
+                                <option key={stockItem.id} value={stockItem.id}>
+                                  {stockItem.name} ({stockItem.photoAssetIds.length} photo
+                                  {stockItem.photoAssetIds.length === 1 ? "" : "s"})
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </label>
+                        <PendingSubmitButton
+                          type="submit"
+                          formAction={addToInventoryItemAction ?? undefined}
+                          variant="outline"
+                          disabled={
+                            inbox.loosePhotoAssets.length === 0 ||
+                            inventoryStockItems.length === 0
+                          }
+                          pendingLabel="Adding photos"
+                          className="self-end"
+                        >
+                          <PlusIcon data-icon="inline-start" />
+                          Add to item
+                        </PendingSubmitButton>
+                      </div>
+                    </details>
                   </div>
 
                   {inbox.loosePhotoAssets.length === 0 ? (

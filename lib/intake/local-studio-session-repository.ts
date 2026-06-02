@@ -877,10 +877,18 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         );
       }
 
-      const nextSession = await movePhotoAssetsToStorageTargets(
+      let nextSession = await movePhotoAssetsToStorageTargets(
         mutatePhotoAssignments(session, input.stockItemId, input.photoAssetIds),
         input.photoAssetIds
       );
+
+      if (stockItem.inventoryStatus === "inventoried") {
+        nextSession = await moveWatchedSourceFilesToOrganizationTargets(
+          nextSession,
+          input.photoAssetIds
+        );
+      }
+
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
 

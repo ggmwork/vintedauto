@@ -281,6 +281,103 @@ describe("photo asset organization", () => {
     });
   });
 
+  it("moves watched source files when adding loose photos to an inventory item", async () => {
+    await withTempDatabase(async () => {
+      const watchedFolderPath = await mkdtemp(
+        path.join(os.tmpdir(), "vintedauto-watched-inventory-add-")
+      );
+      const sourcePath = path.join(watchedFolderPath, "front.jpg");
+      const addedSourcePath = path.join(watchedFolderPath, "detail.jpg");
+
+      await writeFile(sourcePath, new Uint8Array([20, 21, 22]));
+      await writeFile(addedSourcePath, new Uint8Array([23, 24, 25]));
+
+      const session = await studioSessionRepository.create({
+        name: "Watched inventory add",
+        intakeConfig: {
+          sourceType: "watched-folder",
+          startMode: "automatic",
+          folderLabel: "watched",
+          folderPath: watchedFolderPath,
+        },
+      });
+      const firstUpload = await photoAssetStorage.upload({
+        sessionId: session.id,
+        assetId: "inventory-photo",
+        fileName: "front.jpg",
+        contentType: "image/jpeg",
+        bytes: new Uint8Array([20, 21, 22]).buffer,
+      });
+      const addedUpload = await photoAssetStorage.upload({
+        sessionId: session.id,
+        assetId: "added-photo",
+        fileName: "detail.jpg",
+        contentType: "image/jpeg",
+        bytes: new Uint8Array([23, 24, 25]).buffer,
+      });
+
+      await studioSessionRepository.attachPhotoAssets({
+        sessionId: session.id,
+        photoAssets: [
+          createPhotoAsset({
+            sessionId: session.id,
+            id: "inventory-photo",
+            storagePath: firstUpload.storagePath,
+            originalFilename: "front.jpg",
+            sortOrder: 0,
+            sizeBytes: firstUpload.sizeBytes,
+          }),
+          createPhotoAsset({
+            sessionId: session.id,
+            id: "added-photo",
+            storagePath: addedUpload.storagePath,
+            originalFilename: "detail.jpg",
+            sortOrder: 1,
+            sizeBytes: addedUpload.sizeBytes,
+          }),
+        ],
+      });
+      const stockItem = await studioSessionRepository.createStockItem({
+        sessionId: session.id,
+        name: "Inventory item",
+        photoAssetIds: ["inventory-photo"],
+      });
+
+      await studioSessionRepository.moveStockItemsToInventory({
+        sessionId: session.id,
+      });
+      const savedSession = await studioSessionRepository.assignPhotoAssetsToStockItem({
+        sessionId: session.id,
+        stockItemId: stockItem.id,
+        photoAssetIds: ["added-photo"],
+      });
+      const addedPhoto = savedSession.photoAssets.find(
+        (photoAsset) => photoAsset.id === "added-photo"
+      );
+      const addedProcessedSourcePath = path.join(
+        `${watchedFolderPath}-processed`,
+        "stock-items",
+        stockItem.id,
+        "detail.jpg"
+      );
+
+      assert.equal(addedPhoto?.stockItemId, stockItem.id);
+      assert.equal(
+        addedPhoto?.storagePath,
+        `${session.id}/stock-items/${stockItem.id}/added-photo.jpg`
+      );
+      assert.equal(
+        addedPhoto?.sourceProcessedPath,
+        `stock-items/${stockItem.id}/detail.jpg`
+      );
+      await assert.rejects(() => readFile(addedSourcePath), /ENOENT/);
+      assert.deepEqual(
+        Array.from(await readFile(addedProcessedSourcePath)),
+        [23, 24, 25]
+      );
+    });
+  });
+
   it("deletes loose watched inbox photos into a deleted archive", async () => {
     await withTempDatabase(async () => {
       const watchedFolderPath = await mkdtemp(
