@@ -48,6 +48,11 @@ export interface RemoveStockItemInput {
   stockItemId: string;
 }
 
+export interface DeletePhotoAssetsInput {
+  sessionId: string;
+  photoAssetIds: string[];
+}
+
 export interface RenameStockItemInput {
   sessionId: string;
   stockItemId: string;
@@ -87,6 +92,7 @@ export interface StudioSessionRepository {
     input: AssignPhotoAssetsToStockItemInput
   ): Promise<StudioSessionDetail>;
   removeStockItem(input: RemoveStockItemInput): Promise<StudioSessionDetail>;
+  deletePhotoAssets(input: DeletePhotoAssetsInput): Promise<StudioSessionDetail>;
   renameStockItem(input: RenameStockItemInput): Promise<StudioSessionDetail>;
   releasePhotoAssetsFromStockItem(
     input: ReleasePhotoAssetsFromStockItemInput

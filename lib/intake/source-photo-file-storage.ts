@@ -12,6 +12,10 @@ function getProcessedRoot(folderPath: string) {
   return `${path.resolve(folderPath)}-processed`;
 }
 
+function getDeletedRoot(folderPath: string) {
+  return `${path.resolve(folderPath)}-deleted`;
+}
+
 function getSourceRelativePath(photoAsset: PhotoAsset) {
   const relativePath = photoAsset.relativePath?.trim();
 
@@ -107,6 +111,38 @@ async function moveSourceFile(input: {
   return targetRelativePath;
 }
 
+async function moveSourceFileToDeleted(input: {
+  watchedFolderPath: string;
+  processedRoot: string;
+  deletedRoot: string;
+  photoAsset: PhotoAsset;
+}) {
+  const currentRelativePath = input.photoAsset.sourceProcessedPath
+    ? toPosixPath(input.photoAsset.sourceProcessedPath)
+    : getSourceRelativePath(input.photoAsset);
+  const sourceRoot = input.photoAsset.sourceProcessedPath
+    ? input.processedRoot
+    : input.watchedFolderPath;
+  const sourcePath = resolveInside(sourceRoot, currentRelativePath);
+  let targetRelativePath = getSourceRelativePath(input.photoAsset);
+  let targetPath = resolveInside(input.deletedRoot, targetRelativePath);
+
+  if (!(await pathExists(sourcePath))) {
+    return;
+  }
+
+  if (await pathExists(targetPath)) {
+    targetRelativePath = createFallbackRelativePath(
+      targetRelativePath,
+      input.photoAsset.id
+    );
+    targetPath = resolveInside(input.deletedRoot, targetRelativePath);
+  }
+
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await rename(sourcePath, targetPath);
+}
+
 export async function moveWatchedSourceFilesToOrganizationTargets(
   session: StudioSessionDetail,
   photoAssetIds: string[]
@@ -157,4 +193,39 @@ export async function moveWatchedSourceFilesToOrganizationTargets(
         photoAssets,
       }
     : session;
+}
+
+export async function moveWatchedSourceFilesToDeletedArchive(
+  session: StudioSessionDetail,
+  photoAssetIds: string[]
+) {
+  if (
+    session.intakeConfig.sourceType !== "watched-folder" ||
+    !session.intakeConfig.folderPath
+  ) {
+    return;
+  }
+
+  const selectedIds = new Set(photoAssetIds);
+
+  if (selectedIds.size === 0) {
+    return;
+  }
+
+  const watchedFolderPath = path.resolve(session.intakeConfig.folderPath);
+  const processedRoot = getProcessedRoot(watchedFolderPath);
+  const deletedRoot = getDeletedRoot(watchedFolderPath);
+
+  await Promise.all(
+    session.photoAssets
+      .filter((photoAsset) => selectedIds.has(photoAsset.id))
+      .map((photoAsset) =>
+        moveSourceFileToDeleted({
+          watchedFolderPath,
+          processedRoot,
+          deletedRoot,
+          photoAsset,
+        })
+      )
+  );
 }

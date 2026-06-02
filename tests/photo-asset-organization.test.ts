@@ -280,4 +280,114 @@ describe("photo asset organization", () => {
       await assert.rejects(() => readFile(sourcePath), /ENOENT/);
     });
   });
+
+  it("deletes loose watched inbox photos into a deleted archive", async () => {
+    await withTempDatabase(async () => {
+      const watchedFolderPath = await mkdtemp(
+        path.join(os.tmpdir(), "vintedauto-watched-delete-")
+      );
+      const sourcePath = path.join(watchedFolderPath, "front.jpg");
+
+      await writeFile(sourcePath, new Uint8Array([10, 11, 12]));
+
+      const session = await studioSessionRepository.create({
+        name: "Watched delete",
+        intakeConfig: {
+          sourceType: "watched-folder",
+          startMode: "automatic",
+          folderLabel: "watched",
+          folderPath: watchedFolderPath,
+        },
+      });
+      const upload = await photoAssetStorage.upload({
+        sessionId: session.id,
+        assetId: "delete-photo",
+        fileName: "front.jpg",
+        contentType: "image/jpeg",
+        bytes: new Uint8Array([10, 11, 12]).buffer,
+      });
+
+      await studioSessionRepository.attachPhotoAssets({
+        sessionId: session.id,
+        photoAssets: [
+          createPhotoAsset({
+            sessionId: session.id,
+            id: "delete-photo",
+            storagePath: upload.storagePath,
+            originalFilename: "front.jpg",
+            sortOrder: 0,
+            sizeBytes: upload.sizeBytes,
+          }),
+        ],
+      });
+
+      const savedSession = await studioSessionRepository.deletePhotoAssets({
+        sessionId: session.id,
+        photoAssetIds: ["delete-photo"],
+      });
+      const deletedSourcePath = path.join(
+        `${watchedFolderPath}-deleted`,
+        "front.jpg"
+      );
+
+      assert.equal(savedSession.photoAssets.length, 0);
+      assert.equal(savedSession.unassignedPhotoCount, 0);
+      await assert.rejects(() => photoAssetStorage.read(upload.storagePath), /ENOENT/);
+      await assert.rejects(() => readFile(sourcePath), /ENOENT/);
+      assert.deepEqual(Array.from(await readFile(deletedSourcePath)), [10, 11, 12]);
+    });
+  });
+
+  it("does not delete grouped photos from the loose inbox action", async () => {
+    await withTempDatabase(async () => {
+      const session = await studioSessionRepository.create({
+        name: "Blocked delete",
+      });
+      const upload = await photoAssetStorage.upload({
+        sessionId: session.id,
+        assetId: "grouped-photo",
+        fileName: "front.jpg",
+        contentType: "image/jpeg",
+        bytes: new Uint8Array([13, 14, 15]).buffer,
+      });
+
+      await studioSessionRepository.attachPhotoAssets({
+        sessionId: session.id,
+        photoAssets: [
+          createPhotoAsset({
+            sessionId: session.id,
+            id: "grouped-photo",
+            storagePath: upload.storagePath,
+            originalFilename: "front.jpg",
+            sortOrder: 0,
+            sizeBytes: upload.sizeBytes,
+          }),
+        ],
+      });
+      await studioSessionRepository.createStockItem({
+        sessionId: session.id,
+        name: "Grouped item",
+        photoAssetIds: ["grouped-photo"],
+      });
+
+      await assert.rejects(
+        () =>
+          studioSessionRepository.deletePhotoAssets({
+            sessionId: session.id,
+            photoAssetIds: ["grouped-photo"],
+          }),
+        /Only loose inbox photos/
+      );
+      const savedSession = await studioSessionRepository.getById(session.id);
+      const photoAsset = savedSession?.photoAssets.find(
+        (entry) => entry.id === "grouped-photo"
+      );
+
+      assert.ok(photoAsset);
+      assert.deepEqual(
+        Array.from(await photoAssetStorage.read(photoAsset.storagePath)),
+        [13, 14, 15]
+      );
+    });
+  });
 });

@@ -24,5 +24,6 @@ export interface StoredPhotoAsset {
 export interface PhotoAssetStorage {
   upload(input: UploadPhotoAssetInput): Promise<StoredPhotoAsset>;
   move(input: MovePhotoAssetInput): Promise<StoredPhotoAsset>;
+  remove(storagePath: string): Promise<void>;
   read(storagePath: string): Promise<Uint8Array>;
 }

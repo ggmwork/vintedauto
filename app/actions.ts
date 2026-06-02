@@ -945,6 +945,44 @@ export async function suggestSelectedInboxGroupsAction(
   });
 }
 
+export async function deleteSelectedInboxPhotoAssetsAction(
+  sessionId: string,
+  formData: FormData
+) {
+  const photoAssetIds = parseStringArray(formData.getAll("photoAssetIds"));
+
+  if (photoAssetIds.length === 0) {
+    redirectToHome({
+      error: "Select at least one loose photo before deleting.",
+      focus: "inbox",
+    });
+  }
+
+  try {
+    await studioSessionRepository.deletePhotoAssets({
+      sessionId,
+      photoAssetIds,
+    });
+
+    redirectToHome({
+      flash: `Deleted ${photoAssetIds.length} photo${photoAssetIds.length === 1 ? "" : "s"} from Inbox.`,
+      focus: "inbox",
+    });
+  } catch (error) {
+    if (isNextRedirectError(error)) {
+      throw error;
+    }
+
+    redirectToHome({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to delete the selected photos.",
+      focus: "inbox",
+    });
+  }
+}
+
 export async function clearInboxSuggestionsAction(sessionId: string) {
   const session = await studioSessionRepository.getById(sessionId);
 

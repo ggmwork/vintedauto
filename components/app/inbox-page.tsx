@@ -18,6 +18,7 @@ import {
   clearInboxSuggestionsAction,
   commitCandidateClusterAction,
   createStockItemFromSelectionAction,
+  deleteSelectedInboxPhotoAssetsAction,
   dissolveCandidateClusterAction,
   moveInboxStockItemsToInventoryAction,
   removeStockItemAction,
@@ -31,6 +32,7 @@ import {
 import { CopyTextButton } from "@/components/app/copy-text-button";
 import { PendingSubmitButton } from "@/components/app/pending-submit-button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -158,6 +160,9 @@ export function InboxPage({
     : null;
   const suggestChosenInboxGroupsAction = watchedSession
     ? suggestSelectedInboxGroupsAction.bind(null, watchedSession.id)
+    : null;
+  const deleteInboxPhotoAssetsAction = watchedSession
+    ? deleteSelectedInboxPhotoAssetsAction.bind(null, watchedSession.id)
     : null;
 
   return (
@@ -346,15 +351,10 @@ export function InboxPage({
                         watchedSession.intakeConfig.folderPath ??
                         "No imported photos yet"}
                     </span>
-                    <button
-                      type="reset"
-                      className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
-                    >
-                      Clear
-                    </button>
                   </div>
 
-                  <div className="grid gap-4 rounded-lg border border-border/70 bg-background px-4 py-4">
+                  <div className="grid gap-3 rounded-lg border border-border/70 bg-background px-4 py-4">
+                    <p className="text-sm font-medium text-foreground">Actions</p>
                     <div className="flex flex-wrap gap-3">
                       <PendingSubmitButton
                         type="submit"
@@ -363,33 +363,38 @@ export function InboxPage({
                         <BoxIcon data-icon="inline-start" />
                         Create item
                       </PendingSubmitButton>
+                      <PendingSubmitButton
+                        type="submit"
+                        formAction={suggestChosenInboxGroupsAction ?? undefined}
+                        variant="outline"
+                        pendingLabel="Suggesting selection"
+                      >
+                        <SparklesIcon data-icon="inline-start" />
+                        Suggest selected
+                      </PendingSubmitButton>
+                      <PendingSubmitButton
+                        type="submit"
+                        formAction={suggestAllInboxGroupsAction ?? undefined}
+                        variant="outline"
+                        disabled={inbox.loosePhotoAssets.length < 2}
+                        pendingLabel="Suggesting groups"
+                      >
+                        <SparklesIcon data-icon="inline-start" />
+                        Suggest groups
+                      </PendingSubmitButton>
+                      <Button type="reset" variant="outline">
+                        Clear
+                      </Button>
+                      <PendingSubmitButton
+                        type="submit"
+                        formAction={deleteInboxPhotoAssetsAction ?? undefined}
+                        variant="destructive"
+                        pendingLabel="Deleting photos"
+                      >
+                        <Trash2Icon data-icon="inline-start" />
+                        Delete selected
+                      </PendingSubmitButton>
                     </div>
-                    <details className="rounded-lg border border-border bg-card/60">
-                      <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-foreground">
-                        AI suggestions
-                      </summary>
-                      <div className="flex flex-wrap gap-3 border-t border-border px-3 py-3">
-                        <PendingSubmitButton
-                          type="submit"
-                          formAction={suggestChosenInboxGroupsAction ?? undefined}
-                          variant="outline"
-                          pendingLabel="Suggesting selection"
-                        >
-                          <SparklesIcon data-icon="inline-start" />
-                          Suggest selected
-                        </PendingSubmitButton>
-                        <PendingSubmitButton
-                          type="submit"
-                          formAction={suggestAllInboxGroupsAction ?? undefined}
-                          variant="outline"
-                          disabled={inbox.loosePhotoAssets.length < 2}
-                          pendingLabel="Suggesting groups"
-                        >
-                          <SparklesIcon data-icon="inline-start" />
-                          Suggest groups
-                        </PendingSubmitButton>
-                      </div>
-                    </details>
                   </div>
 
                   {inbox.loosePhotoAssets.length === 0 ? (

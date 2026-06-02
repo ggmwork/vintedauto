@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { getDatabasePath } from "@/lib/data/database-root";
 import { mutateJsonFile, readJsonFile } from "@/lib/data/json-store";
 import { localPhotoAssetStorage } from "@/lib/intake/local-photo-asset-storage";
-import { moveWatchedSourceFilesToOrganizationTargets } from "@/lib/intake/source-photo-file-storage";
+import {
+  moveWatchedSourceFilesToDeletedArchive,
+  moveWatchedSourceFilesToOrganizationTargets,
+} from "@/lib/intake/source-photo-file-storage";
 import type {
   CandidateCluster,
   CandidateClusterStatus,
@@ -22,6 +25,7 @@ import type {
   AttachDraftToStockItemInput,
   CreateStockItemInput,
   CreateStudioSessionInput,
+  DeletePhotoAssetsInput,
   ReleasePhotoAssetsFromStockItemInput,
   RemoveStockItemInput,
   RenameStockItemInput,
@@ -937,6 +941,68 @@ class LocalStudioSessionRepository implements StudioSessionRepository {
         }),
         releasedPhotoAssetIds
       );
+      const sessions = currentStore.sessions.slice();
+      sessions[sessionIndex] = nextSession;
+
+      return { sessions };
+    });
+
+    const session = store.sessions.find((entry) => entry.id === input.sessionId);
+
+    if (!session) {
+      throw new Error(`Studio session not found after update: ${input.sessionId}`);
+    }
+
+    return session;
+  }
+
+  async deletePhotoAssets(input: DeletePhotoAssetsInput): Promise<StudioSessionDetail> {
+    const store = await mutateStudioSessionStore(async (currentStore) => {
+      const sessionIndex = findSessionIndex(currentStore, input.sessionId);
+
+      if (sessionIndex === -1) {
+        throw new Error(`Studio session not found: ${input.sessionId}`);
+      }
+
+      const session = currentStore.sessions[sessionIndex];
+      const selectedIds = new Set(uniqueStringIds(input.photoAssetIds));
+
+      if (selectedIds.size === 0) {
+        throw new Error("Select at least one photo before deleting.");
+      }
+
+      const selectedPhotoAssets = session.photoAssets.filter((photoAsset) =>
+        selectedIds.has(photoAsset.id)
+      );
+
+      if (selectedPhotoAssets.length === 0) {
+        throw new Error("Select at least one loose photo before deleting.");
+      }
+
+      const blockedPhotoAsset = selectedPhotoAssets.find(
+        (photoAsset) => photoAsset.stockItemId || photoAsset.candidateClusterId
+      );
+
+      if (blockedPhotoAsset) {
+        throw new Error("Only loose inbox photos can be deleted here.");
+      }
+
+      await moveWatchedSourceFilesToDeletedArchive(
+        session,
+        selectedPhotoAssets.map((photoAsset) => photoAsset.id)
+      );
+      await Promise.all(
+        selectedPhotoAssets.map((photoAsset) =>
+          localPhotoAssetStorage.remove(photoAsset.storagePath)
+        )
+      );
+
+      const nextSession = updateStudioSessionTimestamp({
+        ...session,
+        photoAssets: session.photoAssets.filter(
+          (photoAsset) => !selectedIds.has(photoAsset.id)
+        ),
+      });
       const sessions = currentStore.sessions.slice();
       sessions[sessionIndex] = nextSession;
 

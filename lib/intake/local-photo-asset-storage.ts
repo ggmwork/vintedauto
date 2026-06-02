@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { getDatabasePath } from "@/lib/data/database-root";
@@ -112,6 +112,23 @@ class LocalPhotoAssetStorage implements PhotoAssetStorage {
       height: null,
       sizeBytes: null,
     };
+  }
+
+  async remove(storagePath: string): Promise<void> {
+    try {
+      await unlink(resolveStoredPath(storagePath));
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "ENOENT"
+      ) {
+        return;
+      }
+
+      throw error;
+    }
   }
 
   async read(storagePath: string): Promise<Uint8Array> {
