@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import {
+  generateSelectedInventoryListingsAction,
   generateStockItemDraftAction,
   setDraftStatusFromInventoryAction,
 } from "@/app/actions";
@@ -27,6 +28,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  buildBulkListingTargetKey,
   inventoryFilterOptions,
   inventoryNextActionLabelMap,
   inventorySortOptions,
@@ -124,6 +126,23 @@ function getInventoryOpenHref(row: InventoryRow) {
 
 function getInventoryOpenLabel(row: InventoryRow) {
   return row.draftId ? "Open listing" : "Open item";
+}
+
+function isBulkListingEligible(row: InventoryRow) {
+  return (
+    row.sourceType === "stock-item" &&
+    row.nextAction === "generate-listing" &&
+    Boolean(row.sessionId) &&
+    Boolean(row.stockItemId) &&
+    row.photoCount > 0 &&
+    row.generationJob?.status !== "running"
+  );
+}
+
+function getBulkListingTargetKey(row: InventoryRow) {
+  return row.sessionId && row.stockItemId
+    ? buildBulkListingTargetKey(row.sessionId, row.stockItemId)
+    : "";
 }
 
 function InventoryStatusBadge({ status }: { status: InventoryStatus }) {
@@ -376,11 +395,48 @@ function InventoryEmptyState({
   );
 }
 
-function InventoryMobileCard({ row }: { row: InventoryRow }) {
+function InventoryBulkCheckbox({
+  row,
+  formId,
+  label,
+}: {
+  row: InventoryRow;
+  formId: string;
+  label: string;
+}) {
+  const eligible = isBulkListingEligible(row);
+
+  return (
+    <input
+      type="checkbox"
+      form={formId}
+      name="bulkListingTarget"
+      value={getBulkListingTargetKey(row)}
+      aria-label={label}
+      disabled={!eligible}
+      className="size-4 rounded border-border text-primary focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+    />
+  );
+}
+
+function InventoryMobileCard({
+  row,
+  bulkFormId,
+}: {
+  row: InventoryRow;
+  bulkFormId: string;
+}) {
   return (
     <Card>
       <CardContent className="space-y-4 pt-5">
         <div className="flex gap-4">
+          <div className="pt-1">
+            <InventoryBulkCheckbox
+              row={row}
+              formId={bulkFormId}
+              label={`Select ${row.title} for bulk listing generation`}
+            />
+          </div>
           <InventoryThumbnail row={row} />
           <div className="min-w-0 flex-1 space-y-2">
             <div className="space-y-1">
@@ -425,12 +481,19 @@ function InventoryMobileCard({ row }: { row: InventoryRow }) {
   );
 }
 
-function InventoryTable({ rows }: { rows: InventoryRow[] }) {
+function InventoryTable({
+  rows,
+  bulkFormId,
+}: {
+  rows: InventoryRow[];
+  bulkFormId: string;
+}) {
   return (
     <div className="hidden overflow-hidden rounded-xl border border-border bg-card lg:block">
       <table className="w-full text-left text-sm">
         <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
+            <th className="w-10 px-4 py-3 font-medium">Select</th>
             <th className="px-4 py-3 font-medium">Photo</th>
             <th className="px-4 py-3 font-medium">Item</th>
             <th className="px-4 py-3 font-medium">Status</th>
@@ -444,6 +507,13 @@ function InventoryTable({ rows }: { rows: InventoryRow[] }) {
         <tbody className="divide-y divide-border">
           {rows.map((row) => (
             <tr key={row.id} className="align-middle">
+              <td className="px-4 py-4">
+                <InventoryBulkCheckbox
+                  row={row}
+                  formId={bulkFormId}
+                  label={`Select ${row.title} for bulk listing generation`}
+                />
+              </td>
               <td className="px-4 py-4">
                 <InventoryThumbnail row={row} />
               </td>
@@ -512,6 +582,8 @@ export function InventoryPage({
     searchedRows.filter((row) => isInventoryRowVisible(row.status, filters.filter)),
     filters.sort
   );
+  const bulkFormId = "inventory-bulk-listing-form";
+  const bulkEligibleRows = visibleRows.filter(isBulkListingEligible);
   const counts = Object.fromEntries(
     inventoryFilterOptions.map((option) => [
       option.filter,
@@ -635,13 +707,34 @@ export function InventoryPage({
                 Showing {visibleRows.length} of {rows.length} item
                 {rows.length === 1 ? "" : "s"}.
               </p>
+              <form
+                id={bulkFormId}
+                action={generateSelectedInventoryListingsAction}
+                className="flex flex-wrap items-center gap-3"
+              >
+                <input type="hidden" name="filter" value={filters.filter} />
+                <input type="hidden" name="search" value={filters.searchTerm} />
+                <input type="hidden" name="sort" value={filters.sort} />
+                <PendingSubmitButton
+                  type="submit"
+                  disabled={bulkEligibleRows.length === 0}
+                  pendingLabel="Generating listings"
+                >
+                  <SparklesIcon data-icon="inline-start" />
+                  Generate selected listings
+                </PendingSubmitButton>
+              </form>
             </div>
 
-            <InventoryTable rows={visibleRows} />
+            <InventoryTable rows={visibleRows} bulkFormId={bulkFormId} />
 
             <div className="grid gap-4 lg:hidden">
               {visibleRows.map((row) => (
-                <InventoryMobileCard key={row.id} row={row} />
+                <InventoryMobileCard
+                  key={row.id}
+                  row={row}
+                  bulkFormId={bulkFormId}
+                />
               ))}
             </div>
           </section>

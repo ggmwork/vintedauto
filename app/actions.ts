@@ -28,6 +28,7 @@ import {
   dissolveCandidateCluster,
   runSessionAutoGrouping,
 } from "@/lib/grouping";
+import { getBulkListingTargets } from "@/lib/inventory/bulk-listing-targets";
 import { photoAssetStorage, studioSessionRepository } from "@/lib/intake";
 import {
   isInventoryStockItem,
@@ -39,6 +40,7 @@ import {
   createListingGenerationJob,
   failListingGenerationJob,
   findActiveListingGenerationJob,
+  listListingGenerationJobs,
 } from "@/lib/listing-generation-jobs";
 import { updateStoredAiSettings } from "@/lib/settings/ai-settings";
 import { draftImageStorage } from "@/lib/storage";
@@ -1609,6 +1611,89 @@ export async function generateAllReadyStockDraftsAction() {
 
   redirectToStock({
     flash: `Created ${createdDraftCount} draft${createdDraftCount === 1 ? "" : "s"} and generated ${generatedDraftCount} listing${generatedDraftCount === 1 ? "" : "s"}.${failureSuffix}`,
+  });
+}
+
+export async function generateSelectedInventoryListingsAction(formData: FormData) {
+  const selectedTargetKeys = Array.from(
+    new Set(parseStringArray(formData.getAll("bulkListingTarget")))
+  );
+  const redirectQuery = {
+    filter: parseStringOrNull(formData.get("filter")),
+    search: parseStringOrNull(formData.get("search")),
+    sort: parseStringOrNull(formData.get("sort")),
+  };
+
+  if (selectedTargetKeys.length === 0) {
+    redirectToInventory({
+      ...redirectQuery,
+      error: "Select at least one item before generating listings.",
+    });
+  }
+
+  const sessions = await studioSessionRepository.list();
+  const sessionDetails = (
+    await Promise.all(sessions.map((session) => studioSessionRepository.getById(session.id)))
+  ).filter((session): session is StudioSessionDetail => session !== null);
+  const generationJobs = await listListingGenerationJobs();
+  const targets = getBulkListingTargets({
+    sessions: sessionDetails,
+    generationJobs,
+    selectedTargetKeys,
+  });
+
+  if (targets.length === 0) {
+    redirectToInventory({
+      ...redirectQuery,
+      error: "No selected items are ready for listing generation.",
+    });
+  }
+
+  let createdDraftCount = 0;
+  let generatedDraftCount = 0;
+  const failedStockItems: string[] = [];
+
+  for (const target of targets) {
+    try {
+      const result = await generateStockItemDraft(
+        target.sessionId,
+        target.stockItemId
+      );
+
+      if (result.generated) {
+        createdDraftCount += 1;
+        generatedDraftCount += 1;
+      } else {
+        failedStockItems.push(target.stockItemName);
+      }
+    } catch {
+      failedStockItems.push(target.stockItemName);
+    }
+  }
+
+  if (generatedDraftCount === 0) {
+    redirectToInventory({
+      ...redirectQuery,
+      error:
+        failedStockItems.length > 0
+          ? `Listing generation failed for ${failedStockItems.join(", ")}.`
+          : "Listing generation failed.",
+    });
+  }
+
+  const skippedCount = selectedTargetKeys.length - targets.length;
+  const skippedSuffix =
+    skippedCount > 0
+      ? ` ${skippedCount} selected item${skippedCount === 1 ? "" : "s"} skipped because they were no longer ready.`
+      : "";
+  const failureSuffix =
+    failedStockItems.length > 0
+      ? ` ${failedStockItems.length} item${failedStockItems.length === 1 ? "" : "s"} failed: ${failedStockItems.join(", ")}.`
+      : "";
+
+  redirectToInventory({
+    ...redirectQuery,
+    flash: `Created ${createdDraftCount} draft${createdDraftCount === 1 ? "" : "s"} and generated ${generatedDraftCount} listing${generatedDraftCount === 1 ? "" : "s"}.${skippedSuffix}${failureSuffix}`,
   });
 }
 
