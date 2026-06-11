@@ -94,26 +94,35 @@ function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
-function getCodexNpmLauncherCandidates(env: Record<string, string | undefined>) {
+function getNpmRoots(env: Record<string, string | undefined>) {
   const pathEntries = unique(
     [env.PATH, env.Path]
       .filter((value): value is string => typeof value === "string")
       .flatMap((value) => value.split(path.delimiter))
   );
-  const npmRoots = unique([
+
+  return unique([
     env.APPDATA ? path.join(env.APPDATA, "npm") : "",
     env.USERPROFILE ? path.join(env.USERPROFILE, "AppData", "Roaming", "npm") : "",
     ...pathEntries,
   ]);
+}
 
-  return npmRoots.map((npmRoot) =>
+function getCodexNpmLauncherCandidates(env: Record<string, string | undefined>) {
+  return getNpmRoots(env).map((npmRoot) =>
+    path.join(npmRoot, "node_modules", "@openai", "codex", "bin", "codex.js")
+  );
+}
+
+function getClaudeNativeBinaryCandidates(env: Record<string, string | undefined>) {
+  return getNpmRoots(env).map((npmRoot) =>
     path.join(
       npmRoot,
       "node_modules",
-      "@openai",
-      "codex",
+      "@anthropic-ai",
+      "claude-code",
       "bin",
-      "codex.js"
+      "claude.exe"
     )
   );
 }
@@ -143,6 +152,21 @@ export function resolveLocalCliCommand(input: ResolveLocalCliCommandInput) {
       return {
         executable: input.nodePath ?? process.execPath,
         args: [npmCodexLauncher, ...input.args],
+      };
+    }
+  }
+
+  // The npm shims for Claude Code (claude.cmd/.ps1) are not spawnable with
+  // shell:false, so resolve the bundled native binary directly on Windows.
+  if (input.executable === "claude" && platform === "win32") {
+    for (const claudeBinary of getClaudeNativeBinaryCandidates(env)) {
+      if (!fileExists(claudeBinary)) {
+        continue;
+      }
+
+      return {
+        executable: claudeBinary,
+        args: input.args,
       };
     }
   }

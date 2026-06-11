@@ -14,6 +14,10 @@ import {
   selectRepresentativeImages,
 } from "@/lib/ai/listing-generation-shared";
 import { buildCodexListingArgs } from "@/lib/ai/local-cli-codex";
+import {
+  buildClaudeListingArgs,
+  extractClaudeResultText,
+} from "@/lib/ai/local-cli-claude";
 import type {
   ListingGenerationImage,
   ListingGenerationInput,
@@ -111,14 +115,33 @@ function buildLocalCliPrompt(input: ListingGenerationInput, totalImageCount: num
   ].join("\n\n");
 }
 
-function formatCodexFailure(result: Awaited<ReturnType<typeof runLocalCliCommand>>) {
+function buildClaudeCliPrompt(
+  input: ListingGenerationInput,
+  totalImageCount: number,
+  imageFilenames: string[]
+) {
+  return [
+    "You are generating a Vinted listing from product photos saved in the current directory.",
+    `Use the Read tool to view each image file before answering: ${imageFilenames.join(", ")}.`,
+    "After viewing the photos, return one JSON object only. No markdown, no commentary, no tool calls after the JSON.",
+    "The JSON must match this schema exactly:",
+    JSON.stringify(listingGenerationSchema, null, 2),
+    buildListingPrompt(input, totalImageCount),
+  ].join("\n\n");
+}
+
+function formatLocalCliFailure(
+  engineLabel: string,
+  runCommand: string,
+  result: Awaited<ReturnType<typeof runLocalCliCommand>>
+) {
   const details = [result.stderr, result.stdout]
     .map((value) => value.trim())
     .filter(Boolean)
     .join("\n")
     .slice(0, 2000);
 
-  return `Codex CLI could not run. Open a terminal, run codex, and check login or plan limits.${details ? ` Details: ${details}` : ""}`;
+  return `${engineLabel} could not run. Open a terminal, run ${runCommand}, and check login or plan limits.${details ? ` Details: ${details}` : ""}`;
 }
 
 class LocalCliListingGenerationService implements ListingGenerationService {
@@ -134,19 +157,23 @@ class LocalCliListingGenerationService implements ListingGenerationService {
     }
 
     const engine = getLocalCliEngine();
-
-    if (engine !== "codex") {
-      throw new Error(
-        "Claude local CLI engine is planned but not implemented. Use LOCAL_CLI_ENGINE=codex."
-      );
-    }
-
     const model =
       input.modelOverride ?? requireProviderModel("listing", "local-cli");
     const selectedImages = selectRepresentativeImages(
       input.images,
       getListingMaxImages()
     );
+
+    return engine === "claude"
+      ? this.generateWithClaude(input, model, selectedImages)
+      : this.generateWithCodex(input, model, selectedImages);
+  }
+
+  private async generateWithCodex(
+    input: ListingGenerationInput,
+    model: string,
+    selectedImages: ListingGenerationImage[]
+  ) {
     const runDir = await mkdtemp(path.join(os.tmpdir(), "vintedauto-local-cli-"));
 
     try {
@@ -180,7 +207,7 @@ class LocalCliListingGenerationService implements ListingGenerationService {
       });
 
       if (commandResult.exitCode !== 0) {
-        throw new Error(formatCodexFailure(commandResult));
+        throw new Error(formatLocalCliFailure("Codex CLI", "codex", commandResult));
       }
 
       const output = await readFile(resultPath, "utf8");
@@ -190,6 +217,57 @@ class LocalCliListingGenerationService implements ListingGenerationService {
         `codex:${model}`,
         resolveGeneratedAt(null),
         parseLocalCliJsonPayload(output),
+        input.metadata
+      );
+    } finally {
+      if (!getLocalCliKeepRuns()) {
+        await rm(runDir, {
+          recursive: true,
+          force: true,
+        });
+      }
+    }
+  }
+
+  private async generateWithClaude(
+    input: ListingGenerationInput,
+    model: string,
+    selectedImages: ListingGenerationImage[]
+  ) {
+    const runDir = await mkdtemp(path.join(os.tmpdir(), "vintedauto-local-cli-"));
+
+    try {
+      const imagePaths = await writeRunImages(runDir, selectedImages);
+      const imageFilenames = imagePaths.map((imagePath) => path.basename(imagePath));
+      const prompt = buildClaudeCliPrompt(
+        {
+          ...input,
+          images: selectedImages,
+        },
+        input.images.length,
+        imageFilenames
+      );
+
+      const commandResult = await runLocalCliCommand({
+        executable: "claude",
+        args: buildClaudeListingArgs({ runDir, model }),
+        cwd: runDir,
+        stdin: prompt,
+        timeoutMs: getProviderTimeoutMs("local-cli", "listing"),
+        outputLimitBytes: 256 * 1024,
+      });
+
+      if (commandResult.exitCode !== 0) {
+        throw new Error(
+          formatLocalCliFailure("Claude Code CLI", "claude", commandResult)
+        );
+      }
+
+      return buildCanonicalGenerationResult(
+        "local-cli",
+        `claude:${model}`,
+        resolveGeneratedAt(null),
+        parseLocalCliJsonPayload(extractClaudeResultText(commandResult.stdout)),
         input.metadata
       );
     } finally {

@@ -1140,7 +1140,8 @@ export function AiSettingsPage({
                     </Badge>
                   </div>
                   <CardDescription>
-                    Uses a local agent CLI login. Codex is supported first.
+                    Uses a local agent CLI login. Codex and Claude Code are
+                    supported.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1166,8 +1167,7 @@ export function AiSettingsPage({
                         {
                           value: "claude",
                           label: "Claude Code",
-                          description: "Planned after install and image-input verification.",
-                          disabled: true,
+                          description: "Reads photos via the signed-in Claude Code CLI.",
                         },
                       ]}
                     />

@@ -8,6 +8,10 @@ import {
   resolveLocalCliCommand,
 } from "@/lib/ai/local-cli-command-runner";
 import { buildCodexListingArgs } from "@/lib/ai/local-cli-codex";
+import {
+  buildClaudeListingArgs,
+  extractClaudeResultText,
+} from "@/lib/ai/local-cli-claude";
 import { parseLocalCliJsonPayload } from "@/lib/ai/local-cli-output";
 
 describe("local CLI provider", () => {
@@ -141,6 +145,88 @@ describe("local CLI provider", () => {
     });
 
     assert.equal(args.includes("--model"), false);
+  });
+
+  it("resolves the bundled Claude Code binary on Windows", () => {
+    const command = resolveLocalCliCommand({
+      executable: "claude",
+      args: ["--version"],
+      env: {
+        APPDATA: "C:\\Users\\Seller\\AppData\\Roaming",
+      },
+      fileExists: (filePath) =>
+        filePath ===
+        "C:\\Users\\Seller\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+      platform: "win32",
+    });
+
+    assert.deepEqual(command, {
+      executable:
+        "C:\\Users\\Seller\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+      args: ["--version"],
+    });
+  });
+
+  it("builds a locked down Claude print command", () => {
+    const args = buildClaudeListingArgs({
+      runDir: "C:\\tmp\\run",
+      model: "claude-sonnet-4-6",
+    });
+
+    assert.deepEqual(args, [
+      "--print",
+      "--output-format",
+      "json",
+      "--add-dir",
+      "C:\\tmp\\run",
+      "--permission-mode",
+      "default",
+      "--allowedTools",
+      "Read",
+      "--model",
+      "claude-sonnet-4-6",
+    ]);
+  });
+
+  it("omits Claude model flag when default model is requested", () => {
+    const args = buildClaudeListingArgs({
+      runDir: "C:\\tmp\\run",
+      model: "default",
+    });
+
+    assert.equal(args.includes("--model"), false);
+    assert.equal(args.at(-1), "Read");
+  });
+
+  it("extracts the Claude result envelope text", () => {
+    const text = extractClaudeResultText(
+      JSON.stringify({
+        type: "result",
+        is_error: false,
+        result: '{"title":"Coat"}',
+      })
+    );
+
+    assert.equal(text, '{"title":"Coat"}');
+    assert.deepEqual(parseLocalCliJsonPayload(text), { title: "Coat" });
+  });
+
+  it("throws when the Claude envelope reports an error", () => {
+    assert.throws(
+      () =>
+        extractClaudeResultText(
+          JSON.stringify({ is_error: true, result: "login required" })
+        ),
+      /login required/
+    );
+  });
+
+  it("falls back to raw text when Claude output is not an envelope", () => {
+    assert.equal(extractClaudeResultText('  {"title":"Bag"}  '), '{"title":"Bag"}');
+  });
+
+  it("rejects empty Claude output", () => {
+    assert.throws(() => extractClaudeResultText("   "), /no output/);
   });
 
   it("parses exact, fenced, and wrapped JSON output", () => {

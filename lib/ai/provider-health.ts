@@ -231,39 +231,37 @@ async function testLocalCliProvider() {
   }
 
   const engine = getLocalCliEngine();
-
-  if (engine !== "codex") {
-    throw new Error(
-      "Claude local CLI engine is planned but not implemented. Use LOCAL_CLI_ENGINE=codex."
-    );
-  }
+  const executable = engine === "claude" ? "claude" : "codex";
+  const engineLabel = engine === "claude" ? "Claude Code CLI" : "Codex CLI";
 
   const versionResult = await runLocalCliCommand({
-    executable: "codex",
+    executable,
     args: ["--version"],
     timeoutMs: 15_000,
   });
 
   if (versionResult.exitCode !== 0) {
     throw new Error(
-      `Codex CLI version check failed: ${versionResult.stderr || versionResult.stdout || "unknown error"}`
+      `${engineLabel} version check failed: ${versionResult.stderr || versionResult.stdout || "unknown error"}`
     );
   }
 
-  const helpResult = await runLocalCliCommand({
-    executable: "codex",
-    args: ["exec", "--help"],
-    timeoutMs: 15_000,
-  });
+  if (engine === "codex") {
+    const helpResult = await runLocalCliCommand({
+      executable: "codex",
+      args: ["exec", "--help"],
+      timeoutMs: 15_000,
+    });
 
-  if (helpResult.exitCode !== 0) {
-    throw new Error(
-      `Codex CLI exec check failed: ${helpResult.stderr || helpResult.stdout || "unknown error"}`
-    );
+    if (helpResult.exitCode !== 0) {
+      throw new Error(
+        `Codex CLI exec check failed: ${helpResult.stderr || helpResult.stdout || "unknown error"}`
+      );
+    }
   }
 
   const taskModels = getModelsUsingProvider("local-cli");
-  const version = versionResult.stdout.trim() || "codex";
+  const version = versionResult.stdout.trim() || executable;
 
   return createResult(
     "local-cli",
