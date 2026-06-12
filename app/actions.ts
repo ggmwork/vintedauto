@@ -155,6 +155,10 @@ function parseAiRouterMode(value: FormDataEntryValue | null): AiRouterMode | nul
   return value === "manual" || value === "fallback" ? value : null;
 }
 
+function parseLocalCliEngine(value: FormDataEntryValue | null): "codex" | "claude" {
+  return value === "claude" ? "claude" : "codex";
+}
+
 function parseAiTaskRoute(value: FormDataEntryValue | null) {
   const text = parseStringOrNull(value);
 
@@ -2236,11 +2240,19 @@ export async function saveAiSettingsAction(formData: FormData) {
     const groupingModel = useAdvancedRouting
       ? parseStringOrNull(formData.get("advancedGroupingModel"))
       : groupingRoute?.model ?? parseStringOrNull(formData.get("groupingModel"));
-    // Local CLI engine and model are chosen via the listing route
-    // (local-cli|<engine>|<model>); picking one also enables the provider.
+    // Local CLI engine and model come from the listing route in normal mode
+    // (local-cli|<engine>|<model>), or from the typed model + engine selector
+    // in advanced mode. Either path enables the provider.
     const cliRoute =
       !useAdvancedRouting && listingRoute?.provider === "local-cli"
         ? listingRoute
+        : null;
+    const advancedCli =
+      useAdvancedRouting && listingProvider === "local-cli"
+        ? {
+            engine: parseLocalCliEngine(formData.get("advancedLocalCliEngine")),
+            model: parseStringOrNull(formData.get("advancedListingModel")),
+          }
         : null;
 
     return {
@@ -2254,9 +2266,14 @@ export async function saveAiSettingsAction(formData: FormData) {
       ollamaBaseUrl: parseStringOrNull(formData.get("ollamaBaseUrl")),
       openAiBaseUrl: parseStringOrNull(formData.get("openAiBaseUrl")),
       anthropicBaseUrl: parseStringOrNull(formData.get("anthropicBaseUrl")),
-      localCliEnabled: formData.get("localCliEnabled") === "on" || Boolean(cliRoute),
-      localCliEngine: cliRoute?.engine ?? current.localCliEngine,
-      localCliModel: cliRoute?.model ?? current.localCliModel,
+      localCliEnabled:
+        formData.get("localCliEnabled") === "on" ||
+        Boolean(cliRoute) ||
+        Boolean(advancedCli),
+      localCliEngine:
+        cliRoute?.engine ?? advancedCli?.engine ?? current.localCliEngine,
+      localCliModel:
+        cliRoute?.model ?? advancedCli?.model ?? current.localCliModel,
       ollamaTimeoutMs: parseOptionalInteger(formData.get("ollamaTimeoutMs")),
       openAiTimeoutMs: parseOptionalInteger(formData.get("openAiTimeoutMs")),
       anthropicTimeoutMs: parseOptionalInteger(formData.get("anthropicTimeoutMs")),

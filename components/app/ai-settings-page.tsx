@@ -957,7 +957,7 @@ export function AiSettingsPage({
                       {
                         value: "local-cli",
                         label: "Local CLI",
-                        description: "Codex CLI listing generation.",
+                        description: "Codex or Claude Code listing generation.",
                       },
                     ]}
                   />
@@ -967,9 +967,35 @@ export function AiSettingsPage({
                       type="text"
                       name="advancedListingModel"
                       defaultValue={settings.tasks.listing.model ?? ""}
-                      placeholder="qwen3-vl:8b, default, gpt-5.3-codex..."
+                      placeholder="qwen3-vl:8b, default, gpt-5.5-codex, opus..."
                       className={inputClassName}
                     />
+                  </label>
+                  <label className="grid gap-2">
+                    <span className="font-medium text-foreground">
+                      Local CLI engine
+                    </span>
+                    <ChoiceGroup
+                      name="advancedLocalCliEngine"
+                      value={settings.providers.localCli.engine}
+                      dense
+                      options={[
+                        {
+                          value: "codex",
+                          label: "Codex CLI",
+                          description: "Any model your Codex login accepts.",
+                        },
+                        {
+                          value: "claude",
+                          label: "Claude Code",
+                          description: "Any Claude model alias or id.",
+                        },
+                      ]}
+                    />
+                    <span className="text-xs leading-5 text-muted-foreground">
+                      Used only when the listing provider above is Local CLI. The
+                      typed model is passed straight to that CLI&apos;s --model flag.
+                    </span>
                   </label>
                 </div>
 
