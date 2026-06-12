@@ -151,10 +151,6 @@ function parseAiProvider(value: FormDataEntryValue | null): AiProvider | null {
     : null;
 }
 
-function parseLocalCliEngine(value: FormDataEntryValue | null) {
-  return value === "claude" ? "claude" : "codex";
-}
-
 function parseAiRouterMode(value: FormDataEntryValue | null): AiRouterMode | null {
   return value === "manual" || value === "fallback" ? value : null;
 }
@@ -173,13 +169,26 @@ function parseAiTaskRoute(value: FormDataEntryValue | null) {
   }
 
   const provider = parseAiProvider(text.slice(0, separatorIndex));
-  const model = text.slice(separatorIndex + 1).trim();
+  let rest = text.slice(separatorIndex + 1);
+  let engine: "codex" | "claude" | null = null;
+
+  // Local CLI routes encode the engine: local-cli|<engine>|<model>.
+  if (provider === "local-cli") {
+    const engineSeparatorIndex = rest.indexOf("|");
+
+    if (engineSeparatorIndex > 0) {
+      engine = rest.slice(0, engineSeparatorIndex) === "claude" ? "claude" : "codex";
+      rest = rest.slice(engineSeparatorIndex + 1);
+    }
+  }
+
+  const model = rest.trim();
 
   if (!provider || !model) {
     return null;
   }
 
-  return { provider, model };
+  return { provider, engine, model };
 }
 
 function parseConfidence(value: FormDataEntryValue | null): PriceConfidence {
@@ -2227,6 +2236,12 @@ export async function saveAiSettingsAction(formData: FormData) {
     const groupingModel = useAdvancedRouting
       ? parseStringOrNull(formData.get("advancedGroupingModel"))
       : groupingRoute?.model ?? parseStringOrNull(formData.get("groupingModel"));
+    // Local CLI engine and model are chosen via the listing route
+    // (local-cli|<engine>|<model>); picking one also enables the provider.
+    const cliRoute =
+      !useAdvancedRouting && listingRoute?.provider === "local-cli"
+        ? listingRoute
+        : null;
 
     return {
       ...current,
@@ -2239,11 +2254,9 @@ export async function saveAiSettingsAction(formData: FormData) {
       ollamaBaseUrl: parseStringOrNull(formData.get("ollamaBaseUrl")),
       openAiBaseUrl: parseStringOrNull(formData.get("openAiBaseUrl")),
       anthropicBaseUrl: parseStringOrNull(formData.get("anthropicBaseUrl")),
-      localCliEnabled: formData.get("localCliEnabled") === "on",
-      localCliEngine: parseLocalCliEngine(formData.get("localCliEngine")),
-      localCliModel:
-        parseStringOrNull(formData.get("localCliModelCustom")) ??
-        parseStringOrNull(formData.get("localCliModel")),
+      localCliEnabled: formData.get("localCliEnabled") === "on" || Boolean(cliRoute),
+      localCliEngine: cliRoute?.engine ?? current.localCliEngine,
+      localCliModel: cliRoute?.model ?? current.localCliModel,
       ollamaTimeoutMs: parseOptionalInteger(formData.get("ollamaTimeoutMs")),
       openAiTimeoutMs: parseOptionalInteger(formData.get("openAiTimeoutMs")),
       anthropicTimeoutMs: parseOptionalInteger(formData.get("anthropicTimeoutMs")),

@@ -383,7 +383,7 @@ function detectedModels(tool: LocalModelDiscoveryTool) {
 }
 
 function routeOption(
-  provider: Extract<AiProvider, "ollama" | "local-cli">,
+  provider: Extract<AiProvider, "ollama">,
   providerLabel: string,
   model: DiscoveredLocalModel
 ): ChoiceOption {
@@ -396,53 +396,29 @@ function routeOption(
   };
 }
 
-type LocalCliModelOption = {
-  id: string;
-  label: string;
-  description: string;
-};
-
-function buildLocalCliModelOptions(
-  models: LocalModelDiscoveryCache
-): LocalCliModelOption[] {
-  const engines: Array<{ key: "codex" | "claude"; label: string }> = [
-    { key: "claude", label: "Claude Code" },
-    { key: "codex", label: "Codex CLI" },
-  ];
-  const options: LocalCliModelOption[] = [
-    {
-      id: "default",
-      label: "Engine default (signed-in model)",
-      description: "Let the selected CLI choose its default model.",
-    },
-  ];
-  const seen = new Set<string>(["default"]);
-
-  for (const engine of engines) {
-    for (const model of models.tools[engine.key].models) {
-      if (model.id === "default" || seen.has(`${engine.key}:${model.id}`)) {
-        continue;
-      }
-
-      seen.add(`${engine.key}:${model.id}`);
-      options.push({
-        id: model.id,
-        label: `${engine.label}: ${model.label}`,
-        description: model.note ?? `${engine.label} model.`,
-      });
-    }
-  }
-
-  return options;
+// Local CLI routes carry the engine because Codex and Claude Code do not
+// expose a model list (unlike Ollama), so the engine + alias are the route.
+function buildCliRouteValue(engine: "codex" | "claude", modelId: string) {
+  return `local-cli|${engine}|${modelId}`;
 }
 
-function selectedRouteValue(
-  provider: AiProvider,
-  model: string | null,
-  options: ChoiceOption[]
-) {
-  const currentValue = model ? buildRouteValue(provider, model) : null;
+function availableCliModels(tool: LocalModelDiscoveryTool) {
+  return tool.available ? tool.models : [];
+}
 
+function cliRouteOption(
+  engine: "codex" | "claude",
+  engineLabel: string,
+  model: DiscoveredLocalModel
+): ChoiceOption {
+  return {
+    value: buildCliRouteValue(engine, model.id),
+    label: `${engineLabel}: ${model.label}`,
+    description: model.note ?? `${engineLabel} model.`,
+  };
+}
+
+function selectedRouteValue(currentValue: string | null, options: ChoiceOption[]) {
   if (currentValue && options.some((option) => option.value === currentValue)) {
     return currentValue;
   }
@@ -450,14 +426,9 @@ function selectedRouteValue(
   return options[0]?.value ?? "";
 }
 
-function hasCurrentRoute(
-  provider: AiProvider,
-  model: string | null,
-  options: ChoiceOption[]
-) {
+function hasCurrentRoute(currentValue: string | null, options: ChoiceOption[]) {
   return Boolean(
-    model &&
-      options.some((option) => option.value === buildRouteValue(provider, model))
+    currentValue && options.some((option) => option.value === currentValue)
   );
 }
 
@@ -530,8 +501,9 @@ function LocalModelDiscoveryCard({
           <ToolStatusCard tool={localModels.tools.claude} />
         </div>
         <p className="text-xs leading-5 text-muted-foreground">
-          Task routing uses only detected model IDs from this scan. Use Advanced
-          manual routing only when a CLI or API model cannot be detected.
+          Task routing uses detected Ollama models plus the known Codex and
+          Claude Code aliases from this scan. Use Advanced manual routing only
+          when a CLI or API model cannot be detected.
         </p>
       </CardContent>
     </Card>
@@ -612,46 +584,52 @@ export function AiSettingsPage({
   const listingProfile = getRecommendedOllamaModelProfile(settings.tasks.listing.model);
   const groupingProfile = getRecommendedOllamaModelProfile(settings.tasks.grouping.model);
   const detectedOllamaModels = detectedModels(settings.localModels.tools.ollama);
-  const detectedCodexModels = detectedModels(settings.localModels.tools.codex);
-  const localCliModelOptions = buildLocalCliModelOptions(settings.localModels);
-  const localCliModelKnown = localCliModelOptions.some(
-    (option) => option.id === settings.providers.localCli.model
-  );
-  const localCliModelValue = localCliModelKnown
-    ? settings.providers.localCli.model
-    : "default";
-  const localCliModelCustomValue = localCliModelKnown
-    ? ""
-    : settings.providers.localCli.model;
   const listingRouteOptions: ChoiceOption[] = [
     ...detectedOllamaModels.map((model) =>
       routeOption("ollama", "Ollama", model)
     ),
-    ...detectedCodexModels.map((model) =>
-      routeOption("local-cli", "Codex CLI", model)
+    ...availableCliModels(settings.localModels.tools.claude).map((model) =>
+      cliRouteOption("claude", "Claude Code", model)
+    ),
+    ...availableCliModels(settings.localModels.tools.codex).map((model) =>
+      cliRouteOption("codex", "Codex CLI", model)
     ),
   ];
   const groupingRouteOptions: ChoiceOption[] = detectedOllamaModels.map((model) =>
     routeOption("ollama", "Ollama", model)
   );
+  const currentListingRoute =
+    settings.tasks.listing.provider === "local-cli"
+      ? buildCliRouteValue(
+          settings.providers.localCli.engine,
+          settings.providers.localCli.model
+        )
+      : settings.tasks.listing.model
+        ? buildRouteValue(
+            settings.tasks.listing.provider,
+            settings.tasks.listing.model
+          )
+        : null;
+  const currentGroupingRoute = settings.tasks.grouping.model
+    ? buildRouteValue(
+        settings.tasks.grouping.provider,
+        settings.tasks.grouping.model
+      )
+    : null;
   const selectedListingRoute = selectedRouteValue(
-    settings.tasks.listing.provider,
-    settings.tasks.listing.model,
+    currentListingRoute,
     listingRouteOptions
   );
   const selectedGroupingRoute = selectedRouteValue(
-    settings.tasks.grouping.provider,
-    settings.tasks.grouping.model,
+    currentGroupingRoute,
     groupingRouteOptions
   );
   const listingRouteAvailable = hasCurrentRoute(
-    settings.tasks.listing.provider,
-    settings.tasks.listing.model,
+    currentListingRoute,
     listingRouteOptions
   );
   const groupingRouteAvailable = hasCurrentRoute(
-    settings.tasks.grouping.provider,
-    settings.tasks.grouping.model,
+    currentGroupingRoute,
     groupingRouteOptions
   );
 
@@ -1204,59 +1182,18 @@ export function AiSettingsPage({
                     />
                     Enable local CLI provider
                   </label>
-                  <div className="grid gap-2 text-sm">
-                    <span className="font-medium text-foreground">Engine</span>
-                    <ChoiceGroup
-                      name="localCliEngine"
-                      value={settings.providers.localCli.engine}
-                      options={[
-                        {
-                          value: "codex",
-                          label: "Codex CLI",
-                          description: "Supported now.",
-                        },
-                        {
-                          value: "claude",
-                          label: "Claude Code",
-                          description: "Reads photos via the signed-in Claude Code CLI.",
-                        },
-                      ]}
-                    />
+                  <div className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                    <p className="text-muted-foreground">Active engine and model</p>
+                    <p className="font-medium text-foreground">
+                      {settings.providers.localCli.engine === "claude"
+                        ? "Claude Code"
+                        : "Codex CLI"}
+                      {" · "}
+                      {settings.providers.localCli.model === "default"
+                        ? "engine default"
+                        : settings.providers.localCli.model}
+                    </p>
                   </div>
-                  <label className="grid gap-2 text-sm">
-                    <span className="font-medium text-foreground">Model</span>
-                    <select
-                      name="localCliModel"
-                      defaultValue={localCliModelValue}
-                      className={inputClassName}
-                    >
-                      {localCliModelOptions.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="text-xs leading-5 text-muted-foreground">
-                      Pick a model alias for the selected engine, or leave the
-                      engine default. Aliases must match the chosen CLI.
-                    </span>
-                  </label>
-                  <label className="grid gap-2 text-sm">
-                    <span className="font-medium text-foreground">
-                      Custom model (optional)
-                    </span>
-                    <input
-                      type="text"
-                      name="localCliModelCustom"
-                      defaultValue={localCliModelCustomValue}
-                      placeholder="e.g. claude-opus-4-8, gpt-5.4-codex"
-                      className={inputClassName}
-                    />
-                    <span className="text-xs leading-5 text-muted-foreground">
-                      Overrides the dropdown when set. Passed straight to the CLI
-                      --model flag.
-                    </span>
-                  </label>
                   <label className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Timeout (ms)</span>
                     <input
@@ -1269,8 +1206,9 @@ export function AiSettingsPage({
                     />
                   </label>
                   <p className="text-xs leading-5 text-muted-foreground">
-                    Normal routing shows the Codex Default option after scan. Use
-                    Advanced manual routing only for custom model aliases.
+                    Pick the engine and model in Task routing above (for example
+                    &quot;Claude Code: Sonnet&quot;). Run Refresh models first so the
+                    CLI options appear.
                   </p>
                 </CardContent>
               </Card>
