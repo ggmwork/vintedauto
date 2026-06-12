@@ -433,7 +433,7 @@ function hasCurrentRoute(currentValue: string | null, options: ChoiceOption[]) {
 }
 
 function ToolStatusCard({ tool }: { tool: LocalModelDiscoveryTool }) {
-  const visibleModels = detectedModels(tool);
+  const visibleModels = tool.available ? tool.models : [];
 
   return (
     <div className="rounded-lg border border-border bg-background px-4 py-4 text-sm">
@@ -454,9 +454,9 @@ function ToolStatusCard({ tool }: { tool: LocalModelDiscoveryTool }) {
           {visibleModels.map((model) => (
             <Badge
               key={`${tool.id}-${model.id}`}
-              variant="default"
+              variant={model.source === "known" ? "secondary" : "default"}
             >
-              {model.id}
+              {model.label}
             </Badge>
           ))}
         </div>
