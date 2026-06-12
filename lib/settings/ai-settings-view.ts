@@ -8,6 +8,7 @@ import {
   getListingProviderConfig,
   getLocalCliEnabled,
   getLocalCliEngine,
+  getLocalCliModel,
   getOllamaBaseUrl,
   getOpenAiBaseUrl,
   getProviderTimeoutMs,
@@ -48,6 +49,7 @@ export function getAiSettingsViewModel() {
       localCli: {
         enabled: getLocalCliEnabled(),
         engine: getLocalCliEngine(),
+        model: getLocalCliModel(),
         timeoutMs: getProviderTimeoutMs("local-cli", "listing"),
       },
     },

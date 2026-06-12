@@ -2241,6 +2241,9 @@ export async function saveAiSettingsAction(formData: FormData) {
       anthropicBaseUrl: parseStringOrNull(formData.get("anthropicBaseUrl")),
       localCliEnabled: formData.get("localCliEnabled") === "on",
       localCliEngine: parseLocalCliEngine(formData.get("localCliEngine")),
+      localCliModel:
+        parseStringOrNull(formData.get("localCliModelCustom")) ??
+        parseStringOrNull(formData.get("localCliModel")),
       ollamaTimeoutMs: parseOptionalInteger(formData.get("ollamaTimeoutMs")),
       openAiTimeoutMs: parseOptionalInteger(formData.get("openAiTimeoutMs")),
       anthropicTimeoutMs: parseOptionalInteger(formData.get("anthropicTimeoutMs")),

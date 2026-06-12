@@ -114,8 +114,14 @@ function getProviderSpecificModel(task: AiTask, provider: AiProvider) {
             process.env.ANTHROPIC_MODEL?.trim() ||
             null;
     case "local-cli":
-      return process.env.LOCAL_CLI_MODEL?.trim() || "default";
+      return getLocalCliModel();
   }
+}
+
+export function getLocalCliModel() {
+  const stored = readStoredAiSettingsSync();
+
+  return stored.localCliModel ?? process.env.LOCAL_CLI_MODEL?.trim() ?? "default";
 }
 
 function getGenericTaskModel(task: AiTask) {
@@ -143,7 +149,12 @@ export function getAiRouterMode(): AiRouterMode {
 
 export function getTaskProviderConfig(task: AiTask) {
   const provider = getConfiguredTaskProvider(task);
-  const model = getGenericTaskModel(task) || getProviderSpecificModel(task, provider);
+  // local-cli keeps its own model (localCliModel); the generic listing/grouping
+  // model is meant for API/Ollama providers and must not leak across.
+  const model =
+    provider === "local-cli"
+      ? getProviderSpecificModel(task, provider)
+      : getGenericTaskModel(task) || getProviderSpecificModel(task, provider);
 
   return {
     provider,
@@ -260,7 +271,10 @@ export function getStoredAiSettingsSnapshot() {
 }
 
 export function requireProviderModel(task: AiTask, provider: AiProvider) {
-  const model = getGenericTaskModel(task) || getProviderSpecificModel(task, provider);
+  const model =
+    provider === "local-cli"
+      ? getProviderSpecificModel(task, provider)
+      : getGenericTaskModel(task) || getProviderSpecificModel(task, provider);
 
   if (!model) {
     throw new Error(

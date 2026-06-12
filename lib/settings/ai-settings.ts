@@ -29,6 +29,7 @@ export interface StoredAiSettings {
   anthropicApiKey: string | null;
   localCliEnabled: boolean | null;
   localCliEngine: LocalCliEngine | null;
+  localCliModel: string | null;
   openAiTimeoutMs: number | null;
   anthropicTimeoutMs: number | null;
   ollamaTimeoutMs: number | null;
@@ -169,6 +170,7 @@ function createDefaultStoredAiSettings(): StoredAiSettings {
     anthropicApiKey: null,
     localCliEnabled: null,
     localCliEngine: null,
+    localCliModel: null,
     openAiTimeoutMs: null,
     anthropicTimeoutMs: null,
     ollamaTimeoutMs: null,
@@ -200,6 +202,7 @@ function normalizeStoredAiSettings(value: unknown): StoredAiSettings {
     anthropicApiKey: normalizeString(candidate.anthropicApiKey),
     localCliEnabled: normalizeBoolean(candidate.localCliEnabled),
     localCliEngine: normalizeLocalCliEngine(candidate.localCliEngine),
+    localCliModel: normalizeString(candidate.localCliModel),
     openAiTimeoutMs: normalizeNumber(candidate.openAiTimeoutMs),
     anthropicTimeoutMs: normalizeNumber(candidate.anthropicTimeoutMs),
     ollamaTimeoutMs: normalizeNumber(candidate.ollamaTimeoutMs),

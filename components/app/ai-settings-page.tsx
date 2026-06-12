@@ -396,6 +396,46 @@ function routeOption(
   };
 }
 
+type LocalCliModelOption = {
+  id: string;
+  label: string;
+  description: string;
+};
+
+function buildLocalCliModelOptions(
+  models: LocalModelDiscoveryCache
+): LocalCliModelOption[] {
+  const engines: Array<{ key: "codex" | "claude"; label: string }> = [
+    { key: "claude", label: "Claude Code" },
+    { key: "codex", label: "Codex CLI" },
+  ];
+  const options: LocalCliModelOption[] = [
+    {
+      id: "default",
+      label: "Engine default (signed-in model)",
+      description: "Let the selected CLI choose its default model.",
+    },
+  ];
+  const seen = new Set<string>(["default"]);
+
+  for (const engine of engines) {
+    for (const model of models.tools[engine.key].models) {
+      if (model.id === "default" || seen.has(`${engine.key}:${model.id}`)) {
+        continue;
+      }
+
+      seen.add(`${engine.key}:${model.id}`);
+      options.push({
+        id: model.id,
+        label: `${engine.label}: ${model.label}`,
+        description: model.note ?? `${engine.label} model.`,
+      });
+    }
+  }
+
+  return options;
+}
+
 function selectedRouteValue(
   provider: AiProvider,
   model: string | null,
@@ -534,6 +574,7 @@ export function AiSettingsPage({
       localCli: {
         enabled: boolean;
         engine: "codex" | "claude";
+        model: string;
         timeoutMs: number;
       };
     };
@@ -572,6 +613,16 @@ export function AiSettingsPage({
   const groupingProfile = getRecommendedOllamaModelProfile(settings.tasks.grouping.model);
   const detectedOllamaModels = detectedModels(settings.localModels.tools.ollama);
   const detectedCodexModels = detectedModels(settings.localModels.tools.codex);
+  const localCliModelOptions = buildLocalCliModelOptions(settings.localModels);
+  const localCliModelKnown = localCliModelOptions.some(
+    (option) => option.id === settings.providers.localCli.model
+  );
+  const localCliModelValue = localCliModelKnown
+    ? settings.providers.localCli.model
+    : "default";
+  const localCliModelCustomValue = localCliModelKnown
+    ? ""
+    : settings.providers.localCli.model;
   const listingRouteOptions: ChoiceOption[] = [
     ...detectedOllamaModels.map((model) =>
       routeOption("ollama", "Ollama", model)
@@ -1172,6 +1223,40 @@ export function AiSettingsPage({
                       ]}
                     />
                   </div>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">Model</span>
+                    <select
+                      name="localCliModel"
+                      defaultValue={localCliModelValue}
+                      className={inputClassName}
+                    >
+                      {localCliModelOptions.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-xs leading-5 text-muted-foreground">
+                      Pick a model alias for the selected engine, or leave the
+                      engine default. Aliases must match the chosen CLI.
+                    </span>
+                  </label>
+                  <label className="grid gap-2 text-sm">
+                    <span className="font-medium text-foreground">
+                      Custom model (optional)
+                    </span>
+                    <input
+                      type="text"
+                      name="localCliModelCustom"
+                      defaultValue={localCliModelCustomValue}
+                      placeholder="e.g. claude-opus-4-8, gpt-5.4-codex"
+                      className={inputClassName}
+                    />
+                    <span className="text-xs leading-5 text-muted-foreground">
+                      Overrides the dropdown when set. Passed straight to the CLI
+                      --model flag.
+                    </span>
+                  </label>
                   <label className="grid gap-2 text-sm">
                     <span className="font-medium text-foreground">Timeout (ms)</span>
                     <input

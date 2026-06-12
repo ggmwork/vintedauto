@@ -40,6 +40,35 @@ const TOOL_LABELS: Record<LocalModelToolId, string> = {
 
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 
+// Claude Code does not list models, but the CLI accepts these aliases via
+// --model. "default" omits the flag and uses the signed-in default.
+const CLAUDE_KNOWN_MODELS: DiscoveredLocalModel[] = [
+  {
+    id: "default",
+    label: "Default",
+    source: "known",
+    note: "Uses the signed-in Claude Code default model.",
+  },
+  {
+    id: "sonnet",
+    label: "Sonnet",
+    source: "known",
+    note: "Latest Claude Sonnet (balanced).",
+  },
+  {
+    id: "opus",
+    label: "Opus",
+    source: "known",
+    note: "Latest Claude Opus (most capable).",
+  },
+  {
+    id: "haiku",
+    label: "Haiku",
+    source: "known",
+    note: "Latest Claude Haiku (fastest).",
+  },
+];
+
 function getCacheFilePath() {
   return getDatabasePath("local-ai-model-cache.json");
 }
@@ -362,9 +391,9 @@ async function discoverClaudeTool(): Promise<LocalModelDiscoveryTool> {
   return createTool("claude", {
     available: true,
     version,
-    models: [],
+    models: CLAUDE_KNOWN_MODELS,
     message:
-      "Claude Code CLI detected. It does not expose a model list, so normal routing needs manual override.",
+      "Claude Code CLI detected. Pick a model alias below or use the signed-in default.",
   });
 }
 
