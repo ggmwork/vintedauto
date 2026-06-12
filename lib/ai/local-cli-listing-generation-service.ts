@@ -146,7 +146,7 @@ function formatLocalCliFailure(
 
 class LocalCliListingGenerationService implements ListingGenerationService {
   async generate(input: ListingGenerationInput) {
-    if (!getLocalCliEnabled()) {
+    if (!getLocalCliEnabled() && !input.allowDisabledLocalCli) {
       throw new Error(
         "Local CLI provider is disabled. Enable LOCAL_CLI_ENABLED before using local agent CLI generation."
       );
@@ -156,7 +156,7 @@ class LocalCliListingGenerationService implements ListingGenerationService {
       throw new Error("At least one image is required for generation.");
     }
 
-    const engine = getLocalCliEngine();
+    const engine = input.localCliEngineOverride ?? getLocalCliEngine();
     const model =
       input.modelOverride ?? requireProviderModel("listing", "local-cli");
     const selectedImages = selectRepresentativeImages(

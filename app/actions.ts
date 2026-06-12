@@ -2433,6 +2433,8 @@ export async function testAiVisionListingAction(formData: FormData) {
       currency: "EUR",
       marketplace: "vinted",
       modelOverride: testRoute?.model ?? null,
+      localCliEngineOverride: testRoute?.engine ?? null,
+      allowDisabledLocalCli: true,
     });
     const result: AiVisionTestResult = {
       status: "success",
