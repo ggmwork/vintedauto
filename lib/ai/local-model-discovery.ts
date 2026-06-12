@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 import { getDatabasePath } from "@/lib/data/database-root";
 import { writeJsonFile } from "@/lib/data/json-store";
@@ -344,6 +346,71 @@ async function discoverOllamaTool(): Promise<LocalModelDiscoveryTool> {
   });
 }
 
+// Codex has no "list models" command, but its config.toml declares the
+// configured model(s) (top-level + per-profile), which is the local source
+// of truth the CLI itself uses.
+export function parseCodexConfigModels(tomlText: string): DiscoveredLocalModel[] {
+  const models: DiscoveredLocalModel[] = [];
+  let currentProfile: string | null = null;
+
+  for (const rawLine of tomlText.split(/\r?\n/)) {
+    const line = rawLine.replace(/#.*$/, "").trim();
+
+    if (!line) {
+      continue;
+    }
+
+    const sectionMatch = line.match(/^\[([^\]]+)\]$/);
+
+    if (sectionMatch) {
+      const profileMatch = sectionMatch[1].match(/^profiles\.(.+)$/);
+      currentProfile = profileMatch ? profileMatch[1].replace(/^"|"$/g, "") : null;
+      continue;
+    }
+
+    const modelMatch = line.match(/^model\s*=\s*["']([^"']+)["']/);
+
+    if (!modelMatch) {
+      continue;
+    }
+
+    const id = modelMatch[1].trim();
+
+    if (!id) {
+      continue;
+    }
+
+    models.push({
+      id,
+      label: currentProfile ? `${id} (${currentProfile})` : id,
+      source: "detected",
+      note: currentProfile
+        ? `Detected from codex config.toml profile "${currentProfile}".`
+        : "Detected from codex config.toml.",
+    });
+  }
+
+  return uniqModels(models);
+}
+
+function getCodexConfigPath() {
+  const codexHome = process.env.CODEX_HOME?.trim();
+
+  if (codexHome) {
+    return path.join(codexHome, "config.toml");
+  }
+
+  return path.join(os.homedir(), ".codex", "config.toml");
+}
+
+function readCodexConfigModels(): DiscoveredLocalModel[] {
+  try {
+    return parseCodexConfigModels(readFileSync(getCodexConfigPath(), "utf8"));
+  } catch {
+    return [];
+  }
+}
+
 async function discoverCodexTool(): Promise<LocalModelDiscoveryTool> {
   const versionResult = await runOptionalCommand("codex", ["--version"]);
 
@@ -358,22 +425,34 @@ async function discoverCodexTool(): Promise<LocalModelDiscoveryTool> {
   const supportsModelFlag = helpText.includes("--model");
   const version = cleanVersion(commandText(versionResult));
 
+  if (!supportsModelFlag) {
+    return createTool("codex", {
+      available: true,
+      version,
+      models: [],
+      message: "Codex CLI detected, but model flag was not found in help output.",
+    });
+  }
+
+  const configModels = readCodexConfigModels();
+  const models: DiscoveredLocalModel[] = [
+    {
+      id: "default",
+      label: "Default",
+      source: "known",
+      note: "Uses the signed-in Codex CLI default model.",
+    },
+    ...configModels,
+  ];
+
   return createTool("codex", {
     available: true,
     version,
-    models: supportsModelFlag
-      ? [
-          {
-            id: "default",
-            label: "Default",
-            source: "known" as const,
-            note: "Uses the signed-in Codex CLI default model.",
-          },
-        ]
-      : [],
-    message: supportsModelFlag
-      ? "Codex CLI detected. It does not expose a model list, so default routing is available."
-      : "Codex CLI detected, but model flag was not found in help output.",
+    models: uniqModels(models),
+    message:
+      configModels.length > 0
+        ? `Codex CLI detected. ${configModels.length} model${configModels.length === 1 ? "" : "s"} from config.toml plus the signed-in default.`
+        : "Codex CLI detected. It does not expose a model list, so default routing is available.",
   });
 }
 
