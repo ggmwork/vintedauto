@@ -5,6 +5,7 @@ import {
   createEmptyLocalModelDiscoveryCache,
   normalizeLocalModelDiscoveryCache,
   parseCodexConfigModels,
+  parseCodexDebugModels,
   parseOllamaListOutput,
 } from "@/lib/ai/local-model-discovery";
 import { assertAllowedLocalCliExecutable } from "@/lib/ai/local-cli-command-runner";
@@ -40,6 +41,33 @@ qwen3-vl:8b       abc123   6.1 GB    2 days ago
     assert.equal(cache.tools.codex.available, true);
     assert.equal(cache.tools.codex.models[0].label, "default");
     assert.equal(cache.tools.ollama.message, "Not scanned yet.");
+  });
+
+  it("parses codex debug models and drops hidden ones", () => {
+    const models = parseCodexDebugModels(
+      JSON.stringify({
+        models: [
+          { slug: "gpt-5.5", display_name: "GPT-5.5", visibility: "list" },
+          { slug: "gpt-5.4", display_name: "GPT-5.4", visibility: "list" },
+          { slug: "codex-auto-review", display_name: "Auto Review", visibility: "hide" },
+          { id: "o3", visibility: "list" },
+          { slug: "gpt-5.5", display_name: "Dupe", visibility: "list" },
+        ],
+      })
+    );
+
+    assert.deepEqual(
+      models.map((model) => model.id),
+      ["gpt-5.5", "gpt-5.4", "o3"]
+    );
+    assert.equal(models[0].label, "GPT-5.5");
+    assert.equal(models[2].label, "o3");
+    assert.equal(models[0].source, "detected");
+  });
+
+  it("returns no codex debug models for malformed JSON", () => {
+    assert.deepEqual(parseCodexDebugModels("not json"), []);
+    assert.deepEqual(parseCodexDebugModels('{"models":"nope"}'), []);
   });
 
   it("parses codex config models from top level and profiles", () => {

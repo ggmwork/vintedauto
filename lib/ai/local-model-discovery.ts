@@ -235,13 +235,15 @@ export function parseOllamaListOutput(output: string): DiscoveredLocalModel[] {
 async function runOptionalCommand(
   executable: LocalModelToolId,
   args: string[],
-  timeoutMs = 8_000
+  timeoutMs = 8_000,
+  outputLimitBytes?: number
 ): Promise<LocalCliCommandResult | null> {
   try {
     return await runLocalCliCommand({
       executable,
       args,
       timeoutMs,
+      outputLimitBytes,
     });
   } catch {
     return null;
@@ -346,9 +348,96 @@ async function discoverOllamaTool(): Promise<LocalModelDiscoveryTool> {
   });
 }
 
-// Codex has no "list models" command, but its config.toml declares the
-// configured model(s) (top-level + per-profile), which is the local source
-// of truth the CLI itself uses.
+// `codex debug models` renders the raw model catalog as JSON. This is the
+// primary, complete source (matches how open-design enumerates Codex models).
+export function parseCodexDebugModels(jsonText: string): DiscoveredLocalModel[] {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(jsonText);
+  } catch {
+    return [];
+  }
+
+  const models =
+    parsed && typeof parsed === "object"
+      ? (parsed as { models?: unknown }).models
+      : null;
+
+  if (!Array.isArray(models)) {
+    return [];
+  }
+
+  const result: DiscoveredLocalModel[] = [];
+
+  for (const entry of models) {
+    if (!entry || typeof entry !== "object") {
+      continue;
+    }
+
+    const candidate = entry as {
+      slug?: unknown;
+      id?: unknown;
+      display_name?: unknown;
+      visibility?: unknown;
+    };
+    const slug =
+      typeof candidate.slug === "string" && candidate.slug.trim()
+        ? candidate.slug.trim()
+        : typeof candidate.id === "string"
+          ? candidate.id.trim()
+          : "";
+
+    if (!slug) {
+      continue;
+    }
+
+    const visibility =
+      typeof candidate.visibility === "string"
+        ? candidate.visibility.trim().toLowerCase()
+        : "";
+
+    if (visibility === "hide" || visibility === "hidden") {
+      continue;
+    }
+
+    result.push({
+      id: slug,
+      label:
+        typeof candidate.display_name === "string" && candidate.display_name.trim()
+          ? candidate.display_name.trim()
+          : slug,
+      source: "detected",
+      note: "Detected from codex debug models.",
+    });
+  }
+
+  return uniqModels(result);
+}
+
+// Static hints used only when `codex debug models` is unavailable and the
+// config has no model (older CLIs). Mirrors open-design's fallback list.
+const CODEX_FALLBACK_MODELS: DiscoveredLocalModel[] = [
+  "gpt-5.5",
+  "gpt-5.4",
+  "gpt-5.4-mini",
+  "gpt-5.3-codex",
+  "gpt-5.1",
+  "gpt-5.1-codex-mini",
+  "gpt-5-codex",
+  "gpt-5",
+  "o3",
+  "o4-mini",
+].map((id) => ({
+  id,
+  label: id,
+  source: "known" as const,
+  note: "Built-in Codex model hint.",
+}));
+
+// Codex has no "list models" command on older builds, but its config.toml
+// declares the configured model(s) (top-level + per-profile), which is the
+// local source of truth the CLI itself uses.
 export function parseCodexConfigModels(tomlText: string): DiscoveredLocalModel[] {
   const models: DiscoveredLocalModel[] = [];
   let currentProfile: string | null = null;
@@ -434,25 +523,52 @@ async function discoverCodexTool(): Promise<LocalModelDiscoveryTool> {
     });
   }
 
+  const defaultModel: DiscoveredLocalModel = {
+    id: "default",
+    label: "Default",
+    source: "known",
+    note: "Uses the signed-in Codex CLI default model.",
+  };
+
+  // Primary: full catalog from `codex debug models`. The catalog embeds long
+  // per-model instructions, so allow a generous output limit (~2 MB) to avoid
+  // truncating the JSON.
+  const debugResult = await runOptionalCommand(
+    "codex",
+    ["debug", "models"],
+    10_000,
+    2 * 1024 * 1024
+  );
+  const catalog =
+    debugResult?.exitCode === 0 ? parseCodexDebugModels(debugResult.stdout) : [];
+
+  if (catalog.length > 0) {
+    return createTool("codex", {
+      available: true,
+      version,
+      models: uniqModels([defaultModel, ...catalog]),
+      message: `Codex CLI detected. ${catalog.length} model${catalog.length === 1 ? "" : "s"} from codex debug models.`,
+    });
+  }
+
+  // Fallback for older CLIs: config.toml models, then static hints.
   const configModels = readCodexConfigModels();
-  const models: DiscoveredLocalModel[] = [
-    {
-      id: "default",
-      label: "Default",
-      source: "known",
-      note: "Uses the signed-in Codex CLI default model.",
-    },
-    ...configModels,
-  ];
+
+  if (configModels.length > 0) {
+    return createTool("codex", {
+      available: true,
+      version,
+      models: uniqModels([defaultModel, ...configModels]),
+      message: `Codex CLI detected. ${configModels.length} model${configModels.length === 1 ? "" : "s"} from config.toml plus the signed-in default.`,
+    });
+  }
 
   return createTool("codex", {
     available: true,
     version,
-    models: uniqModels(models),
+    models: uniqModels([defaultModel, ...CODEX_FALLBACK_MODELS]),
     message:
-      configModels.length > 0
-        ? `Codex CLI detected. ${configModels.length} model${configModels.length === 1 ? "" : "s"} from config.toml plus the signed-in default.`
-        : "Codex CLI detected. It does not expose a model list, so default routing is available.",
+      "Codex CLI detected. Model catalog unavailable, so built-in model hints are shown.",
   });
 }
 
