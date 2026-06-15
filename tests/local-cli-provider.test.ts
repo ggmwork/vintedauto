@@ -4,6 +4,8 @@ import { describe, it } from "node:test";
 import {
   assertAllowedLocalCliExecutable,
   createLocalCliEnvironment,
+  getLocalCliFailureDetails,
+  isTransientCodexCliFailure,
   LocalCliCommandError,
   resolveLocalCliCommand,
 } from "@/lib/ai/local-cli-command-runner";
@@ -286,6 +288,49 @@ describe("local CLI provider", () => {
     assert.throws(
       () => parseLocalCliJsonPayload("no structured payload"),
       /no JSON object/
+    );
+  });
+
+  it("detects transient Codex model-refresh failures", () => {
+    assert.equal(
+      isTransientCodexCliFailure({
+        exitCode: 1,
+        signal: null,
+        stdout: "",
+        stderr:
+          "Reading prompt from stdin...\n2026-06-15T21:03:21Z ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit",
+        stdoutTruncated: false,
+        stderrTruncated: false,
+      }),
+      true
+    );
+  });
+
+  it("summarizes local CLI failure details without echoing the full prompt", () => {
+    const details = getLocalCliFailureDetails({
+      exitCode: 1,
+      signal: null,
+      stdout: "",
+      stderr: [
+        "Reading prompt from stdin...",
+        "OpenAI Codex v0.129.0-alpha.15 (research preview)",
+        "user",
+        "You are generating a Vinted listing from attached product photos.",
+        "Return one JSON object only.",
+        "2026-06-15T21:03:21Z ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit",
+      ].join("\n"),
+      stdoutTruncated: false,
+      stderrTruncated: false,
+    });
+
+    assert.equal(details.includes("Reading prompt from stdin..."), true);
+    assert.equal(
+      details.includes("failed to refresh available models: timeout waiting for child process to exit"),
+      true
+    );
+    assert.equal(
+      details.includes("You are generating a Vinted listing from attached product photos."),
+      false
     );
   });
 });

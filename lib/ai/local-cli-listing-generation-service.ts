@@ -31,7 +31,11 @@ import {
   getProviderTimeoutMs,
   requireProviderModel,
 } from "@/lib/ai/provider-config";
-import { runLocalCliCommand } from "@/lib/ai/local-cli-command-runner";
+import {
+  getLocalCliFailureDetails,
+  isTransientCodexCliFailure,
+  runLocalCliCommand,
+} from "@/lib/ai/local-cli-command-runner";
 import { parseLocalCliJsonPayload } from "@/lib/ai/local-cli-output";
 
 function guessImageExtension(image: ListingGenerationImage) {
@@ -135,11 +139,7 @@ function formatLocalCliFailure(
   runCommand: string,
   result: Awaited<ReturnType<typeof runLocalCliCommand>>
 ) {
-  const details = [result.stderr, result.stdout]
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .join("\n")
-    .slice(0, 2000);
+  const details = getLocalCliFailureDetails(result);
 
   return `${engineLabel} could not run. Open a terminal, run ${runCommand}, and check login or plan limits.${details ? ` Details: ${details}` : ""}`;
 }
@@ -192,22 +192,34 @@ class LocalCliListingGenerationService implements ListingGenerationService {
       await writeFile(schemaPath, JSON.stringify(listingGenerationSchema, null, 2));
       await writeFile(promptPath, prompt);
 
-      const commandResult = await runLocalCliCommand({
-        executable: "codex",
-        args: buildCodexListingArgs({
-          runDir,
-          schemaPath,
-          resultPath,
-          imagePaths,
-          model,
-        }),
-        cwd: runDir,
-        stdin: prompt,
-        timeoutMs: getProviderTimeoutMs("local-cli", "listing"),
-      });
+      let commandResult: Awaited<ReturnType<typeof runLocalCliCommand>> | null = null;
 
-      if (commandResult.exitCode !== 0) {
-        throw new Error(formatLocalCliFailure("Codex CLI", "codex", commandResult));
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        commandResult = await runLocalCliCommand({
+          executable: "codex",
+          args: buildCodexListingArgs({
+            runDir,
+            schemaPath,
+            resultPath,
+            imagePaths,
+            model,
+          }),
+          cwd: runDir,
+          stdin: prompt,
+          timeoutMs: getProviderTimeoutMs("local-cli", "listing"),
+        });
+
+        if (commandResult.exitCode === 0) {
+          break;
+        }
+
+        if (!isTransientCodexCliFailure(commandResult) || attempt === 2) {
+          throw new Error(formatLocalCliFailure("Codex CLI", "codex", commandResult));
+        }
+      }
+
+      if (!commandResult || commandResult.exitCode !== 0) {
+        throw new Error("Codex CLI did not produce a usable result.");
       }
 
       const output = await readFile(resultPath, "utf8");

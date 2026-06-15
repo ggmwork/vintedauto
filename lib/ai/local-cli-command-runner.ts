@@ -4,6 +4,8 @@ import path from "node:path";
 
 const ALLOWED_LOCAL_CLI_EXECUTABLES = new Set(["codex", "claude", "ollama"]);
 const DEFAULT_OUTPUT_LIMIT_BYTES = 64 * 1024;
+const IMPORTANT_LOCAL_CLI_DETAIL_PATTERN =
+  /reading prompt from stdin|error|warn|failed|timeout|timed out|denied|not found|quota|limit|login|required|invalid/i;
 
 const SAFE_ENV_KEYS = [
   "APPDATA",
@@ -46,6 +48,35 @@ export class LocalCliCommandError extends Error {
     super(message);
     this.name = "LocalCliCommandError";
   }
+}
+
+function getNonEmptyLines(value: string) {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+export function getLocalCliFailureDetails(
+  result: LocalCliCommandResult,
+  maxLength = 1_200
+) {
+  const lines = [...getNonEmptyLines(result.stderr), ...getNonEmptyLines(result.stdout)];
+  const relevantLines = lines.filter((line) =>
+    IMPORTANT_LOCAL_CLI_DETAIL_PATTERN.test(line)
+  );
+  const details = (relevantLines.length > 0 ? relevantLines : lines).join("\n");
+
+  return details.slice(0, maxLength);
+}
+
+export function isTransientCodexCliFailure(result: LocalCliCommandResult) {
+  const text = `${result.stderr}\n${result.stdout}`.toLowerCase();
+
+  return (
+    text.includes("failed to refresh available models") ||
+    text.includes("timeout waiting for child process to exit")
+  );
 }
 
 export function createLocalCliEnvironment(
