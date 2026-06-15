@@ -114,6 +114,15 @@ function getCodexNpmLauncherCandidates(env: Record<string, string | undefined>) 
   );
 }
 
+function getCodexNativeBinaryCandidates(env: Record<string, string | undefined>) {
+  return unique([
+    env.LOCALAPPDATA ? path.join(env.LOCALAPPDATA, "OpenAI", "Codex", "bin", "codex.exe") : "",
+    env.USERPROFILE
+      ? path.join(env.USERPROFILE, "AppData", "Local", "OpenAI", "Codex", "bin", "codex.exe")
+      : "",
+  ]);
+}
+
 function getClaudeNativeBinaryCandidates(env: Record<string, string | undefined>) {
   return getNpmRoots(env).map((npmRoot) =>
     path.join(
@@ -144,6 +153,17 @@ export function resolveLocalCliCommand(input: ResolveLocalCliCommandInput) {
   const fileExists = input.fileExists ?? existsSync;
 
   if (input.executable === "codex" && platform === "win32") {
+    for (const codexBinary of getCodexNativeBinaryCandidates(env)) {
+      if (!fileExists(codexBinary)) {
+        continue;
+      }
+
+      return {
+        executable: codexBinary,
+        args: input.args,
+      };
+    }
+
     for (const npmCodexLauncher of getCodexNpmLauncherCandidates(env)) {
       if (!fileExists(npmCodexLauncher)) {
         continue;

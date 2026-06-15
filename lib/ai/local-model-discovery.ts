@@ -503,9 +503,15 @@ function readCodexConfigModels(): DiscoveredLocalModel[] {
 async function discoverCodexTool(): Promise<LocalModelDiscoveryTool> {
   const versionResult = await runOptionalCommand("codex", ["--version"]);
 
-  if (versionResult?.exitCode !== 0) {
+  if (!versionResult) {
     return createTool("codex", {
       message: "Codex CLI not found.",
+    });
+  }
+
+  if (versionResult.exitCode !== 0) {
+    return createTool("codex", {
+      message: "Codex CLI was found, but `codex --version` failed.",
     });
   }
 

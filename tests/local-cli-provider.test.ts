@@ -36,6 +36,46 @@ describe("local CLI provider", () => {
     );
   });
 
+  it("uses the bundled Codex binary on Windows", () => {
+    const command = resolveLocalCliCommand({
+      executable: "codex",
+      args: ["--version"],
+      env: {
+        LOCALAPPDATA: "C:\\Users\\Seller\\AppData\\Local",
+      },
+      fileExists: (filePath) =>
+        filePath === "C:\\Users\\Seller\\AppData\\Local\\OpenAI\\Codex\\bin\\codex.exe",
+      platform: "win32",
+    });
+
+    assert.deepEqual(command, {
+      executable: "C:\\Users\\Seller\\AppData\\Local\\OpenAI\\Codex\\bin\\codex.exe",
+      args: ["--version"],
+    });
+  });
+
+  it("prefers the bundled Codex binary over the npm launcher on Windows", () => {
+    const command = resolveLocalCliCommand({
+      executable: "codex",
+      args: ["debug", "models"],
+      env: {
+        LOCALAPPDATA: "C:\\Users\\Seller\\AppData\\Local",
+        APPDATA: "C:\\Users\\Seller\\AppData\\Roaming",
+      },
+      fileExists: (filePath) =>
+        filePath === "C:\\Users\\Seller\\AppData\\Local\\OpenAI\\Codex\\bin\\codex.exe" ||
+        filePath ===
+          "C:\\Users\\Seller\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\bin\\codex.js",
+      nodePath: "C:\\Program Files\\nodejs\\node.exe",
+      platform: "win32",
+    });
+
+    assert.deepEqual(command, {
+      executable: "C:\\Users\\Seller\\AppData\\Local\\OpenAI\\Codex\\bin\\codex.exe",
+      args: ["debug", "models"],
+    });
+  });
+
   it("uses the npm Codex launcher on Windows", () => {
     const command = resolveLocalCliCommand({
       executable: "codex",
