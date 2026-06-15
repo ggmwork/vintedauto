@@ -11,6 +11,7 @@ export function buildCodexListingArgs(input: CodexListingArgsInput) {
     "exec",
     "--cd",
     input.runDir,
+    "--skip-git-repo-check",
     "--sandbox",
     "read-only",
     "--ephemeral",

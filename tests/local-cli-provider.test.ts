@@ -156,10 +156,11 @@ describe("local CLI provider", () => {
       model: "gpt-5.4",
     });
 
-    assert.deepEqual(args.slice(0, 10), [
+    assert.deepEqual(args.slice(0, 11), [
       "exec",
       "--cd",
       "C:\\tmp\\run",
+      "--skip-git-repo-check",
       "--sandbox",
       "read-only",
       "--ephemeral",
