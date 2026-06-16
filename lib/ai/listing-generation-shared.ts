@@ -28,6 +28,7 @@ export const listingGenerationSchema = {
         material: { type: ["string", "null"] },
         notes: { type: ["string", "null"] },
       },
+      required: ["brand", "category", "size", "condition", "color", "material", "notes"],
       additionalProperties: false,
     },
     priceSuggestion: {
