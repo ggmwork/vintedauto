@@ -74,7 +74,7 @@ export function sanitizeKeywords(value: unknown) {
   return value
     .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
     .filter(Boolean)
-    .slice(0, 12);
+    .slice(0, 8);
 }
 
 export function sanitizeStringOrNull(value: unknown) {
@@ -316,7 +316,7 @@ export function buildFallbackKeywords(title: string, metadata: DraftMetadata) {
     .map((value) => value.trim().toLowerCase())
     .filter((value) => value.length >= 2);
 
-  return Array.from(new Set(candidateValues)).slice(0, 12);
+  return Array.from(new Set(candidateValues)).slice(0, 8);
 }
 
 export function buildListingPrompt(
@@ -346,9 +346,9 @@ export function buildListingPrompt(
     "Do not return top-level brand, category, size, condition, color, material, notes, or price fields. Put metadata under suggestedMetadata and pricing under priceSuggestion.",
     "If uncertain, leave metadata fields null and explain uncertainty in conditionNotes or rationale.",
     "Title: one line, optimized for buyer search, format like \"Brand - item type color/style/material\"; omit brand if uncertain.",
-    "Description: Vinted-ready copy, 2 short paragraphs maximum. Cover item identity, visible style/colors/materials, practical features, use case, and honest visible condition. Mention defects instead of hiding them.",
-    "End the description with 7-12 relevant hashtags on one line. Use brand, category, style, decade, color, and second-hand search terms when visible or safe.",
-    "Keywords: return the same search concepts as plain terms without #, 7-12 items.",
+    "Description: 3-5 sentences maximum, no paragraph breaks. Cover item identity, visible condition, and one or two key features. Mention any visible defects honestly. Do not pad.",
+    "End the description with 5-7 relevant hashtags on one line. Use brand, category, style, color, and second-hand search terms when visible or safe.",
+    "Keywords: return the same search concepts as plain terms without #, 5-8 items.",
     `Pricing must be a realistic ${input.currency} suggestion or range for a second-hand ${input.marketplace} listing.`,
     "Price rationale: brief estimate from visible condition, brand confidence, category, and likely resale speed. Do not cite fake sources.",
     "Suggested Vinted category should go under suggestedMetadata.category when confident; use a simple path if useful.",
