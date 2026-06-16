@@ -1224,15 +1224,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           state: await getPopupState(),
         };
       case MESSAGE_TYPES.saveConfig: {
-        const config = await saveConfig(message.config);
+        await saveConfig(message.config);
         const state = await getPopupState();
 
         return {
           ok: true,
-          config,
+          config: state.config,
           lastContext: state.lastContext,
           lastFillResult: state.lastFillResult,
           pageState: state.pageState,
+          appStockItems: state.appStockItems,
+          appStockError: state.appStockError,
+          appStockWarning: state.appStockWarning,
         };
       }
       case MESSAGE_TYPES.fillCurrentPage:

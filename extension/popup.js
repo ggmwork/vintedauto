@@ -500,6 +500,9 @@ async function handleSaveConfig(event) {
     lastContext: response.lastContext,
     lastFillResult: response.lastFillResult,
     pageState: response.pageState,
+    appStockItems: response.appStockItems,
+    appStockError: response.appStockError,
+    appStockWarning: response.appStockWarning,
   });
   setActionStatus("Settings saved.");
 }
